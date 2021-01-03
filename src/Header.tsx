@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import { MdAddBox, MdSearch } from "react-icons/md";
+import { MdAdd, MdSearch } from "react-icons/md";
 import logo from "./logo.svg";
 
 const HeaderElement = styled.header`
@@ -12,6 +12,7 @@ const HeaderElement = styled.header`
 const Logo = styled.img`
   width: 0.75em;
   height: 0.75em;
+  image-rendering: crisp-edges;
 `;
 
 const Title = styled.h1`
@@ -25,6 +26,7 @@ const NewPlakkert = styled.button`
   display: flex;
   align-items: center;
   background: #999;
+  box-shadow: #777 2px 2px 0;
   color: #111;
   border: none;
   font-family: inherit;
@@ -33,9 +35,17 @@ const NewPlakkert = styled.button`
   padding: 4px 16px;
   margin-left: 2em;
   cursor: pointer;
+  border-radius: 2px;
 
   &:hover {
     background: #eee;
+    box-shadow: #ccc 2px 2px 0;
+  }
+
+  &:active {
+    background: #ddd;
+    box-shadow: #bbb 1px 1px 0;
+    transform: translate(1px, 1px);
   }
 
   svg {
@@ -73,19 +83,24 @@ const SearchInput = styled.input`
 
 const Header: React.FC<{
   createNote: () => void;
-}> = ({ createNote }) => {
+  isAuthenticated: boolean;
+}> = ({ createNote, isAuthenticated }) => {
   return (
     <HeaderElement>
       <Title>
         <Logo src={logo} alt="logo" /> Plakkert
       </Title>
-      <NewPlakkert onClick={createNote}>
-        <MdAddBox /> New plakkert
-      </NewPlakkert>
-      <SearchBar>
-        <MdSearch color="#999" />
-        <SearchInput type="text" placeholder="Search" />
-      </SearchBar>
+      {isAuthenticated && (
+        <>
+          <NewPlakkert onClick={createNote}>
+            <MdAdd /> New plakkert
+          </NewPlakkert>
+          <SearchBar>
+            <MdSearch color="#999" />
+            <SearchInput type="text" placeholder="Search" />
+          </SearchBar>
+        </>
+      )}
     </HeaderElement>
   );
 };

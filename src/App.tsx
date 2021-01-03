@@ -6,6 +6,7 @@ import {
 } from "react-grid-layout";
 import { v4 as uuid } from "uuid";
 import Header from "./Header";
+import AuthWindow from "./AuthWindow";
 import Note from "./note/Note";
 import { NoteData } from "./noteTypes";
 
@@ -24,6 +25,12 @@ const NotesContainer = WidthProvider(
   `
 );
 
+const AuthContainer = styled.div`
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
 const initialNotes: NoteData[] = [
   {
     key: uuid(),
@@ -71,6 +78,7 @@ let currentNotesLayout: ReactGridLayout.Layout[] | undefined;
 
 const App = () => {
   const [notes, setNotes] = React.useState(initialNotes);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
 
   const createNote = (): void => {
     const updatedNotes = _updateNotesLayout(notes);
@@ -120,21 +128,26 @@ const App = () => {
 
   return (
     <Root>
-      <Header createNote={createNote} />
-      {/* <h1>Create a note!</h1> */}
-      <NotesContainer
-        layouts={layouts}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 10, md: 8, sm: 4, xs: 2, xxs: 2 }}
-        margin={[20, 20]}
-        compactType="horizontal"
-        draggableCancel=".not-draggable"
-        onLayoutChange={layoutChange}
-      >
-        {notes.map((note) => (
-          <Note key={note.key} contents={note.contents} />
-        ))}
-      </NotesContainer>
+      <Header createNote={createNote} isAuthenticated={isAuthenticated} />
+      {isAuthenticated ? (
+        <NotesContainer
+          layouts={layouts}
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+          cols={{ lg: 10, md: 8, sm: 4, xs: 2, xxs: 2 }}
+          margin={[20, 20]}
+          compactType="horizontal"
+          draggableCancel=".not-draggable"
+          onLayoutChange={layoutChange}
+        >
+          {notes.map((note) => (
+            <Note key={note.key} contents={note.contents} />
+          ))}
+        </NotesContainer>
+      ) : (
+        <AuthContainer>
+          <AuthWindow setIsAuthenticated={setIsAuthenticated} />
+        </AuthContainer>
+      )}
     </Root>
   );
 };

@@ -3,6 +3,7 @@ import styled, { StyledComponent } from "styled-components";
 import TextareaAutosize from "react-textarea-autosize";
 import { NoteContentData } from "../noteTypes";
 
+const textShadow = "text-shadow: #111 1px 1px 3px;";
 const editableTextAreas: {
   [key: string]: StyledComponent<any, any, {}, never>;
 } = {
@@ -10,8 +11,11 @@ const editableTextAreas: {
     font-size: 2em;
     font-weight: bold;
     margin-bottom: 0.5em;
+    ${textShadow}
   `,
-  text: styled(TextareaAutosize)``,
+  text: styled(TextareaAutosize)`
+    ${textShadow}
+  `,
 };
 
 const Container = styled.div.attrs({

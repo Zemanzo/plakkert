@@ -16,9 +16,7 @@
     "web-vitals": "^0.2.4"
   },
   "scripts": {
-    "start": "yarn start:client",
-    "start:client": "react-scripts start",
-    "start:server": "node src/server/index.js",
+    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
