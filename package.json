@@ -49,6 +49,8 @@
 		"vitest-browser-svelte": "^2.1.0"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.8.0"
+		"better-sqlite3": "^12.8.0",
+		"dexie": "^4.4.2",
+		"libsodium-wrappers": "^0.8.4"
 	}
 }

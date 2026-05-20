@@ -15,11 +15,6 @@
 		Password
 		<input type="password" name="password" />
 	</label>
-	<label>
-		Name (for registration)
-		<input name="name" />
-	</label>
 	<button>Login</button>
-	<button formaction="?/signUpEmail">Register</button>
 </form>
 <p style="color: red">{form?.message ?? ''}</p>
