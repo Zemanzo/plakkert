@@ -1,5 +1,9 @@
 {
   "workbench.colorCustomizations": {
-    "editorRuler.foreground": "#11111166"
+    "editorRuler.foreground": "#11111166",
+    "titleBar.activeBackground": "#B4F278",
+    "titleBar.activeForeground": "#000000",
+    "statusBar.background": "#B4F278",
+    "statusBar.foreground": "#000000"
   }
 }
