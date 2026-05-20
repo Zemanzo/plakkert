@@ -1,6 +1,0 @@
-{
-  "cloud": {
-    "enabled": true,
-    "address": "localhost:3007"
-  }
-}
