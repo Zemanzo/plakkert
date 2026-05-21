@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Note from '$lib/client/Note.svelte';
 	import type { PageServerData } from './$types';
 
 	let { data }: { data: PageServerData } = $props();
@@ -10,3 +11,5 @@
 <form method="post" action="?/signOut" use:enhance>
 	<button>Sign out</button>
 </form>
+
+<Note />
