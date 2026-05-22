@@ -61,6 +61,7 @@
 		element.addEventListener(
 			'transitionend',
 			() => {
+				if (isFocused) return; // If the note was re-focused before the transition ended, keep it floating
 				isFloating = false;
 			},
 			{ once: true }
@@ -156,6 +157,7 @@
 		cursor: pointer;
 
 		width: 100%;
+		max-width: 100%;
 		height: 100%;
 		background: var(--color-yellow);
 		border-radius: var(--radius-sm);
@@ -165,6 +167,7 @@
 
 		transition:
 			width 0.2s ease,
+			max-width 0.2s ease,
 			height 0.2s ease;
 
 		&:focus {
@@ -174,6 +177,7 @@
 		&.isFocused {
 			cursor: default;
 			width: 70%;
+			max-width: 80ch;
 			height: 80%;
 		}
 
