@@ -37,13 +37,21 @@
 		onclick={() => (focusedNoteId = null)}
 	></div>
 {/if}
-<div class="notes-container" class:hasFocusedNote>
-	{#each $notes as note (note.id)}
-		<Note id={note.id} bind:focusedNoteId />
-	{/each}
+<div class="scroll-container">
+	<div class="notes-container" class:hasFocusedNote>
+		{#each $notes as note (note.id)}
+			<Note id={note.id} bind:focusedNoteId />
+		{/each}
+	</div>
 </div>
 
 <style>
+	.scroll-container {
+		overflow: auto;
+		height: 100%;
+		flex: 1;
+	}
+
 	.notes-container {
 		flex: 1;
 
@@ -53,10 +61,8 @@
 		align-items: start;
 
 		gap: 8px;
-		overflow: auto;
 		align-content: start;
 		justify-content: center;
-		height: 100%;
 		max-width: 100%;
 
 		padding: var(--spacing-lg);

@@ -6,27 +6,77 @@
 	let { id, focusedNoteId = $bindable() }: { id: string; focusedNoteId: string | null } = $props();
 	let isFocused = $derived(focusedNoteId === id);
 	let isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
-	let translateX = $state(0);
-	let translateY = $state(0);
-	let element: HTMLDivElement | null;
+
+	let element = $state<HTMLDivElement | null>(null);
+	let placeholder = $state<HTMLDivElement | null>(null);
+
+	// FLIP animation state
+	let isFloating = $state(false);
+	let floatLeft = $state(0);
+	let floatTop = $state(0);
+	let floatWidth = $state(0);
+	let floatHeight = $state(0);
+	let placeholderHeight = $state(0);
 
 	$effect(() => {
 		if (isFocused && composer) {
 			composer.getEditor().setEditable(true);
-			centerOnScreen();
+			focus();
 		} else if (composer) {
 			composer.getEditor().setEditable(false);
+			unfocus();
 		}
 	});
 
-	const centerOnScreen = () => {
-		if (!element) {
-			return;
-		}
+	const focusedWidth = () => Math.min(window.innerWidth * 0.9, 70 * 16);
+	const focusedHeight = 400;
+
+	const focus = () => {
+		if (!element) return;
+
 		const rect = element.getBoundingClientRect();
-		translateX = window.innerWidth * 0.5 - (rect.left + rect.width * 0.5);
-		translateY = window.innerHeight * 0.5 - (rect.top + rect.height * 0.5);
-		console.log(`Translating note ${id} by (${translateX}, ${translateY})`);
+		placeholderHeight = rect.height;
+
+		// Phase 1: pin element at its current viewport position (no visual jump)
+		floatLeft = rect.left;
+		floatTop = rect.top;
+		floatWidth = rect.width;
+		floatHeight = rect.height;
+		isFloating = true;
+		focusedNoteId = id;
+
+		// Phase 2: after two frames (ensures phase 1 is painted), animate to center
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				const w = focusedWidth();
+				floatLeft = (window.innerWidth - w) / 2;
+				floatTop = (window.innerHeight - focusedHeight) / 2;
+				floatWidth = w;
+				floatHeight = focusedHeight;
+			});
+		});
+	};
+
+	const unfocus = () => {
+		if (!element || !placeholder) return;
+
+		const rect = placeholder.getBoundingClientRect();
+
+		// Animate back to where the placeholder currently sits in the viewport
+		floatLeft = rect.left;
+		floatTop = rect.top;
+		floatWidth = rect.width;
+		floatHeight = placeholderHeight;
+		focusedNoteId = null;
+
+		// Restore normal flow once the transition finishes
+		element.addEventListener(
+			'transitionend',
+			() => {
+				isFloating = false;
+			},
+			{ once: true }
+		);
 	};
 
 	const onClick = () => {
@@ -44,14 +94,11 @@
 			focusedNoteId = null;
 		}
 	};
-
-	/**
-	 * TODO:
-	 * - Only allow one note to be editable at a time
-	 * - Make note grow to the middle of the screen in a modal-like fashion when clicked
-	 */
 </script>
 
+{#if isFloating}
+	<div bind:this={placeholder} class="placeholder" style="height: {placeholderHeight}px"></div>
+{/if}
 <div
 	bind:this={element}
 	role="button"
@@ -59,14 +106,22 @@
 	onclick={onClick}
 	onkeydown={onKeyDown}
 	data-note-id={id}
+	class:isFloating
 	class:isFocused
 	class:isInBackground
-	style="--translate-x:{translateX}px; --translate-y:{translateY}px;"
+	style="--float-left:{floatLeft}px; --float-top:{floatTop}px; --float-width:{floatWidth}px; --float-height:{floatHeight}px;"
 >
-	<RichTextComposer bind:composer />
+	<RichTextComposer bind:composer isToolbarVisible={isFocused} />
 </div>
 
 <style>
+	.placeholder {
+		min-width: 350px;
+		max-width: 500px;
+		background: #0003;
+		border-radius: var(--radius-sm);
+	}
+
 	div[role='button'] {
 		appearance: none;
 		border: none;
@@ -75,21 +130,33 @@
 
 		min-width: 350px;
 		max-width: 500px;
+		height: 250px;
 		background: var(--color-yellow);
 		border-radius: var(--radius-sm);
 
-		transition: all 0.2s ease;
+		outline: 2px solid transparent;
+		outline-offset: 2px;
 
 		&:focus {
-			outline: 2px solid var(--color-blue-light);
-			outline-offset: 2px;
+			outline-color: var(--color-blue-light);
+		}
+
+		&.isFloating {
+			position: fixed;
+			left: var(--float-left);
+			top: var(--float-top);
+			width: var(--float-width);
+			height: var(--float-height);
+			z-index: 1000;
+			transition:
+				left 0.2s ease,
+				top 0.2s ease,
+				width 0.2s ease,
+				height 0.2s ease;
 		}
 
 		&.isFocused {
-			transform: translate(var(--translate-x), var(--translate-y));
-			z-index: 1000;
-			max-width: 70ch;
-			width: 90vw;
+			cursor: default;
 		}
 
 		&.isInBackground {
