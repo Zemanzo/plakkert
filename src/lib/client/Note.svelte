@@ -12,10 +12,10 @@
 
 	// FLIP animation state
 	let isFloating = $state(false);
-	let floatLeft = $state(0);
-	let floatTop = $state(0);
-	let floatWidth = $state(0);
-	let floatHeight = $state(0);
+	let floatLeft = $state('0');
+	let floatTop = $state('0');
+	let floatWidth = $state('0');
+	let floatHeight = $state('0');
 	let placeholderHeight = $state(0);
 
 	$effect(() => {
@@ -28,9 +28,6 @@
 		}
 	});
 
-	const focusedWidth = () => Math.min(window.innerWidth * 0.9, 70 * 16);
-	const focusedHeight = 400;
-
 	const focus = () => {
 		if (!element) return;
 
@@ -38,21 +35,19 @@
 		placeholderHeight = rect.height;
 
 		// Phase 1: pin element at its current viewport position (no visual jump)
-		floatLeft = rect.left;
-		floatTop = rect.top;
-		floatWidth = rect.width;
-		floatHeight = rect.height;
+		floatLeft = rect.left + 'px';
+		floatTop = rect.top + 'px';
+		floatWidth = rect.width + 'px';
+		floatHeight = rect.height + 'px';
 		isFloating = true;
-		focusedNoteId = id;
 
 		// Phase 2: after two frames (ensures phase 1 is painted), animate to center
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
-				const w = focusedWidth();
-				floatLeft = (window.innerWidth - w) / 2;
-				floatTop = (window.innerHeight - focusedHeight) / 2;
-				floatWidth = w;
-				floatHeight = focusedHeight;
+				floatLeft = '0';
+				floatTop = '0';
+				floatWidth = '100vw';
+				floatHeight = '100vh';
 			});
 		});
 	};
@@ -62,13 +57,6 @@
 
 		const rect = placeholder.getBoundingClientRect();
 
-		// Animate back to where the placeholder currently sits in the viewport
-		floatLeft = rect.left;
-		floatTop = rect.top;
-		floatWidth = rect.width;
-		floatHeight = placeholderHeight;
-		focusedNoteId = null;
-
 		// Restore normal flow once the transition finishes
 		element.addEventListener(
 			'transitionend',
@@ -77,6 +65,12 @@
 			},
 			{ once: true }
 		);
+
+		// Animate back to where the placeholder currently sits in the viewport
+		floatLeft = rect.left + 'px';
+		floatTop = rect.top + 'px';
+		floatWidth = rect.width + 'px';
+		floatHeight = rect.height + 'px';
 	};
 
 	const onClick = () => {
@@ -90,7 +84,10 @@
 			e.preventDefault();
 			onClick();
 		}
-		if (isFocused && e.key === 'Escape') {
+	};
+
+	const onContainerClick = (e: MouseEvent) => {
+		if (e.target === element) {
 			focusedNoteId = null;
 		}
 	};
@@ -99,19 +96,26 @@
 {#if isFloating}
 	<div bind:this={placeholder} class="placeholder" style="height: {placeholderHeight}px"></div>
 {/if}
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={element}
-	role="button"
-	tabindex="0"
-	onclick={onClick}
-	onkeydown={onKeyDown}
-	data-note-id={id}
+	class="container"
 	class:isFloating
-	class:isFocused
-	class:isInBackground
-	style="--float-left:{floatLeft}px; --float-top:{floatTop}px; --float-width:{floatWidth}px; --float-height:{floatHeight}px;"
+	style="--float-left:{floatLeft}; --float-top:{floatTop}; --float-width:{floatWidth}; --float-height:{floatHeight};"
+	onclick={onContainerClick}
 >
-	<RichTextComposer bind:composer isToolbarVisible={isFocused} />
+	<div
+		role="button"
+		tabindex="0"
+		onclick={onClick}
+		onkeydown={onKeyDown}
+		data-note-id={id}
+		class:isFocused
+		class:isInBackground
+	>
+		<RichTextComposer bind:composer isToolbarVisible={isFocused} />
+	</div>
 </div>
 
 <style>
@@ -122,45 +126,63 @@
 		border-radius: var(--radius-sm);
 	}
 
+	.container {
+		min-width: 350px;
+		max-width: 500px;
+		height: 250px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition:
+			left 0.2s ease,
+			top 0.2s ease,
+			min-width 0.2s ease,
+			height 0.2s ease;
+
+		&.isFloating {
+			position: absolute;
+			left: var(--float-left);
+			top: var(--float-top);
+			min-width: var(--float-width, 100vw);
+			height: var(--float-height, 100vh);
+			z-index: 1000;
+		}
+	}
+
 	div[role='button'] {
 		appearance: none;
 		border: none;
 		text-align: left;
 		cursor: pointer;
 
-		min-width: 350px;
-		max-width: 500px;
-		height: 250px;
+		width: 100%;
+		height: 100%;
 		background: var(--color-yellow);
 		border-radius: var(--radius-sm);
 
 		outline: 2px solid transparent;
 		outline-offset: 2px;
 
+		transition:
+			width 0.2s ease,
+			height 0.2s ease;
+
 		&:focus {
 			outline-color: var(--color-blue-light);
 		}
 
-		&.isFloating {
-			position: fixed;
-			left: var(--float-left);
-			top: var(--float-top);
-			width: var(--float-width);
-			height: var(--float-height);
-			z-index: 1000;
-			transition:
-				left 0.2s ease,
-				top 0.2s ease,
-				width 0.2s ease,
-				height 0.2s ease;
-		}
-
 		&.isFocused {
 			cursor: default;
+			width: 70%;
+			height: 80%;
 		}
 
 		&.isInBackground {
 			pointer-events: none;
 		}
+	}
+
+	.container.isFloating div[role='button'] {
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 	}
 </style>

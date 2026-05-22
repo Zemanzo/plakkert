@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import Note from './Note.svelte';
 	import { liveQuery } from 'dexie';
 	import { db, type Note as NoteType } from './Database';
@@ -23,6 +23,18 @@
 			updatedAt: new Date()
 		} satisfies NoteType);
 	};
+
+	function unfocus() {
+		focusedNoteId = null;
+	}
+
+	onMount(() => {
+		window.addEventListener('keydown', unfocus);
+
+		return () => {
+			window.removeEventListener('keydown', unfocus);
+		};
+	});
 </script>
 
 <div>
