@@ -1,15 +1,47 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Note from '$lib/client/Note.svelte';
+	import { setContext } from 'svelte';
+	import NotesContainer from '$lib/client/NotesContainer.svelte';
 	import type { PageServerData } from './$types';
 
 	let { data }: { data: PageServerData } = $props();
+
+	setContext('user', data.user);
 </script>
 
-<h1>Hi, {data.user.name}!</h1>
-<p>Your user ID is {data.user.id}.</p>
-<form method="post" action="?/signOut" use:enhance>
-	<button>Sign out</button>
-</form>
+<header>
+	<h1>Plakkert</h1>
+	<p>Your user ID is {data.user.id}.</p>
+	<form method="post" action="?/signOut" use:enhance>
+		<button>Sign out</button>
+	</form>
+</header>
 
-<Note />
+<main>
+	<NotesContainer />
+</main>
+
+<style>
+	header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		background: var(--color-background-header);
+
+		h1 {
+			margin: 0 0 0 var(--spacing-lg);
+			margin-block: 0;
+		}
+
+		p {
+			margin: 0;
+			margin-block: 0;
+		}
+	}
+
+	main {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+	}
+</style>

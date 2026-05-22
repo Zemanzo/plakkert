@@ -41,8 +41,11 @@
 	} from 'svelte-lexical';
 	import PlakkertTheme from './themes/PlakkertTheme';
 
+	let { composer = $bindable(), isToolbarVisible = false } = $props();
+
 	const initialConfig = {
 		theme: PlakkertTheme,
+		editable: false,
 		nodes: [HeadingNode, ListNode, ListItemNode, QuoteNode, HorizontalRuleNode, CodeNode],
 		onError: (error: Error) => {
 			throw error;
@@ -62,32 +65,34 @@
 	};
 </script>
 
-<Composer {initialConfig}>
+<Composer {initialConfig} bind:this={composer}>
 	<div class="editor-shell svelte-lexical">
-		<Toolbar>
-			{#snippet children({ editor, activeEditor, blockType })}
-				<BoldButton />
-				<ItalicButton />
-				<UnderlineButton />
-				<StrikethroughButton />
-				<FormatCodeButton />
-				<Divider />
-				{#if activeEditor === editor}
-					<BlockFormatDropDown>
-						<ParagraphDropDownItem />
-						<HeadingDropDownItem headingSize="h1" />
-						<HeadingDropDownItem headingSize="h2" />
-						<HeadingDropDownItem headingSize="h3" />
-						<NumberDropDrownItem />
-						<BulletDropDrownItem />
-						<CheckDropDrownItem />
-						<QuoteDropDrownItem />
-						<CodeDropDrownItem />
-					</BlockFormatDropDown>
+		{#if isToolbarVisible}
+			<Toolbar>
+				{#snippet children({ editor, activeEditor, blockType })}
+					<BoldButton />
+					<ItalicButton />
+					<UnderlineButton />
+					<StrikethroughButton />
+					<FormatCodeButton />
 					<Divider />
-				{/if}
-			{/snippet}
-		</Toolbar>
+					{#if activeEditor === editor}
+						<BlockFormatDropDown>
+							<ParagraphDropDownItem />
+							<HeadingDropDownItem headingSize="h1" />
+							<HeadingDropDownItem headingSize="h2" />
+							<HeadingDropDownItem headingSize="h3" />
+							<NumberDropDrownItem />
+							<BulletDropDrownItem />
+							<CheckDropDrownItem />
+							<QuoteDropDrownItem />
+							<CodeDropDrownItem />
+						</BlockFormatDropDown>
+						<Divider />
+					{/if}
+				{/snippet}
+			</Toolbar>
+		{/if}
 		<div class="editor-container">
 			<div class="editor-scroller">
 				<div class="editor">
@@ -106,6 +111,7 @@
 <style>
 	.editor-shell {
 		margin: 0;
+		border: none;
 	}
 
 	:global(.svelte-lexical) {
