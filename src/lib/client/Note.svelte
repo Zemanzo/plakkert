@@ -2,7 +2,6 @@
 	import RichTextComposer from './editor/RichTextComposer.svelte';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let composer = $state<any>();
 	let { id, focusedNoteId = $bindable() }: { id: string; focusedNoteId: string | null } = $props();
 	let isFocused = $derived(focusedNoteId === id);
 	let isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
@@ -19,11 +18,9 @@
 	let placeholderHeight = $state(0);
 
 	$effect(() => {
-		if (isFocused && composer) {
-			composer.getEditor().setEditable(true);
+		if (isFocused) {
 			focus();
-		} else if (composer) {
-			composer.getEditor().setEditable(false);
+		} else {
 			unfocus();
 		}
 	});
@@ -115,7 +112,7 @@
 		class:isFocused
 		class:isInBackground
 	>
-		<RichTextComposer bind:composer isToolbarVisible={isFocused} />
+		<RichTextComposer />
 	</div>
 </div>
 

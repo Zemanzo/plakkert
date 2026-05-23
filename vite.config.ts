@@ -31,8 +31,5 @@ export default defineConfig({
 				}
 			}
 		]
-	},
-	ssr: {
-		noExternal: [/^(lexical|@lexical\/.*)$/]
 	}
 });

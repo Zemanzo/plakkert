@@ -51,7 +51,6 @@
 	"dependencies": {
 		"better-sqlite3": "^12.8.0",
 		"dexie": "^4.4.2",
-		"svelte-lexical": "0.6.4",
 		"libsodium-wrappers": "^0.8.4"
 	}
 }
