@@ -1,10 +1,15 @@
 <script lang="ts">
+	import { db, type Note } from './Database';
 	import RichTextComposer from './editor/RichTextComposer.svelte';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let { id, focusedNoteId = $bindable() }: { id: string; focusedNoteId: string | null } = $props();
-	let isFocused = $derived(focusedNoteId === id);
-	let isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
+	let {
+		id,
+		content,
+		focusedNoteId = $bindable()
+	}: Note & { focusedNoteId: string | null } = $props();
+	const isFocused = $derived(focusedNoteId === id);
+	const isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
 
 	let containerElement = $state<HTMLDivElement | null>(null);
 	let placeholder = $state<HTMLDivElement | null>(null);
@@ -89,6 +94,10 @@
 			focusedNoteId = null;
 		}
 	};
+
+	const onUpdateData = (htmlContent: string) => {
+		db.notes.update(id, { content: htmlContent });
+	};
 </script>
 
 {#if isFloating}
@@ -112,7 +121,12 @@
 		class:isFocused
 		class:isInBackground
 	>
-		<RichTextComposer />
+		<RichTextComposer
+			disabled={!isFocused}
+			focused={isFocused}
+			initialContent={content}
+			{onUpdateData}
+		/>
 	</div>
 </div>
 
@@ -157,7 +171,7 @@
 		max-width: 100%;
 		height: 100%;
 		background: var(--color-yellow);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 
 		outline: 2px solid transparent;
 		outline-offset: 2px;

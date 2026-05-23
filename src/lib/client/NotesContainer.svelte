@@ -54,7 +54,7 @@
 <div class="scroll-container">
 	<div class="notes-container" class:hasFocusedNote>
 		{#each $notes as note (note.id)}
-			<Note id={note.id} bind:focusedNoteId />
+			<Note {...note} bind:focusedNoteId />
 		{/each}
 	</div>
 </div>
