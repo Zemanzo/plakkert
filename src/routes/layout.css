@@ -9,3 +9,8 @@
 .tipex-editor-section .ProseMirror h1 {
 	margin-block: 0;
 }
+
+.tipex-editor-section .ProseMirror .is-empty::before {
+	color: #0009;
+	font-style: italic;
+}

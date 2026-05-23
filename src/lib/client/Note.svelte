@@ -6,7 +6,7 @@
 	let isFocused = $derived(focusedNoteId === id);
 	let isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
 
-	let element = $state<HTMLDivElement | null>(null);
+	let containerElement = $state<HTMLDivElement | null>(null);
 	let placeholder = $state<HTMLDivElement | null>(null);
 
 	// FLIP animation state
@@ -26,9 +26,9 @@
 	});
 
 	const focus = () => {
-		if (!element) return;
+		if (!containerElement) return;
 
-		const rect = element.getBoundingClientRect();
+		const rect = containerElement.getBoundingClientRect();
 		placeholderHeight = rect.height;
 
 		// Phase 1: pin element at its current viewport position (no visual jump)
@@ -50,19 +50,19 @@
 	};
 
 	const unfocus = () => {
-		if (!element || !placeholder) return;
+		if (!containerElement || !placeholder) return;
 
 		const rect = placeholder.getBoundingClientRect();
 
+		function onTransitionEnd(event: TransitionEvent) {
+			if (isFocused || event.target !== containerElement) return; // If the note was re-focused before the transition ended, keep it floating
+			isFloating = false;
+
+			containerElement!.removeEventListener('transitionend', onTransitionEnd);
+		}
+
 		// Restore normal flow once the transition finishes
-		element.addEventListener(
-			'transitionend',
-			() => {
-				if (isFocused) return; // If the note was re-focused before the transition ended, keep it floating
-				isFloating = false;
-			},
-			{ once: true }
-		);
+		containerElement.addEventListener('transitionend', onTransitionEnd);
 
 		// Animate back to where the placeholder currently sits in the viewport
 		floatLeft = rect.left + 'px';
@@ -85,7 +85,7 @@
 	};
 
 	const onContainerClick = (e: MouseEvent) => {
-		if (e.target === element) {
+		if (e.target === containerElement) {
 			focusedNoteId = null;
 		}
 	};
@@ -97,7 +97,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	bind:this={element}
+	bind:this={containerElement}
 	class="container"
 	class:isFloating
 	style="--float-left:{floatLeft}; --float-top:{floatTop}; --float-width:{floatWidth}; --float-height:{floatHeight};"
@@ -132,10 +132,10 @@
 		align-items: center;
 		justify-content: center;
 		transition:
-			left 0.2s ease,
-			top 0.2s ease,
-			min-width 0.2s ease,
-			height 0.2s ease;
+			left var(--transition-duration) ease,
+			top var(--transition-duration) ease,
+			min-width var(--transition-duration) ease,
+			height var(--transition-duration) ease;
 
 		&.isFloating {
 			position: absolute;
@@ -163,9 +163,9 @@
 		outline-offset: 2px;
 
 		transition:
-			width 0.2s ease,
-			max-width 0.2s ease,
-			height 0.2s ease;
+			width var(--transition-duration) linear,
+			max-width var(--transition-duration) linear,
+			height var(--transition-duration) linear;
 
 		&:focus {
 			outline-color: var(--color-blue-light);
