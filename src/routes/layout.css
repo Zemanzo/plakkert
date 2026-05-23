@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+@import '@friendofsvelte/tipex/styles/index.css';
+
+.tipex-editor {
+	@apply bg-transparent;
+	border: none;
+}
+
+.tipex-editor-section .ProseMirror h1 {
+	margin-block: 0;
+}

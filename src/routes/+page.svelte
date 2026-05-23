@@ -30,7 +30,6 @@
 
 		h1 {
 			margin: 0 0 0 var(--spacing-lg);
-			margin-block: 0;
 		}
 
 		p {

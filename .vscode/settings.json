@@ -5,5 +5,8 @@
     "titleBar.activeForeground": "#000000",
     "statusBar.background": "#BA0069",
     "statusBar.foreground": "#000000"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
   }
 }

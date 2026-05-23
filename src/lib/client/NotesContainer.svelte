@@ -24,8 +24,10 @@
 		} satisfies NoteType);
 	};
 
-	function unfocus() {
-		focusedNoteId = null;
+	function unfocus(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			focusedNoteId = null;
+		}
 	}
 
 	onMount(() => {

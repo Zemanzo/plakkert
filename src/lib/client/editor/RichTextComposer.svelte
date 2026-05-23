@@ -1,5 +1,8 @@
 <script lang="ts">
-	// Imports go here...
+	import { Tipex } from '@friendofsvelte/tipex';
+
+	let body = `<h1>Title...</h1>
+	<p>Serialize your thoughts...</p>`;
 </script>
 
-<div>Editor goes here...</div>
+<Tipex {body} class="h-full w-full" controlComponent={null} />
