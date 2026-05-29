@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { applyAction, enhance } from '$app/forms';
 	import { onMount, setContext } from 'svelte';
 	import NotesContainer from '$lib/client/NotesContainer.svelte';
 	import type { PageServerData } from './$types';
@@ -8,6 +8,7 @@
 		decodeKey,
 		decryptPrivateKey,
 		sessionGetPrivateKey,
+		sessionRemovePrivateKey,
 		sessionStorePrivateKey
 	} from '$lib/client/cryptography/PrivateKey';
 	import type { RuntimeUser } from '$lib/types';
@@ -39,7 +40,18 @@
 <header>
 	<h1>Plakkert</h1>
 	<p>Your user ID is {data.user.id}.</p>
-	<form method="post" action="?/signOut" use:enhance>
+	<form
+		method="post"
+		action="?/signOut"
+		use:enhance={() => {
+			return async ({ result }) => {
+				if (result.type === 'redirect') {
+					sessionRemovePrivateKey();
+				}
+				await applyAction(result);
+			};
+		}}
+	>
 		<button>Sign out</button>
 	</form>
 </header>
