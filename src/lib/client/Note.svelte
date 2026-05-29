@@ -1,15 +1,21 @@
 <script lang="ts">
+	import { getContext, onMount } from 'svelte';
 	import { db, type Note } from './Database';
 	import RichTextComposer from './editor/RichTextComposer.svelte';
+	import { decryptNoteKey, encryptNote } from './serialization/Serialize';
+	import { type RuntimeUser } from '$lib/types';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let {
 		id,
 		content,
 		focusedNoteId = $bindable()
-	}: Note & { focusedNoteId: string | null } = $props();
+	}: { id: Note['id']; focusedNoteId: string | null; content: string } = $props();
 	const isFocused = $derived(focusedNoteId === id);
 	const isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
+	const user = getContext<() => RuntimeUser>('user')();
+
+	let decryptedNoteKey = $state<Uint8Array | null>(null);
 
 	let containerElement = $state<HTMLDivElement | null>(null);
 	let placeholder = $state<HTMLDivElement | null>(null);
@@ -27,6 +33,19 @@
 			focus();
 		} else {
 			unfocus();
+		}
+	});
+
+	onMount(async () => {
+		const noteKeyEntry = await db.noteKeys.where({ noteId: id, userId: user.id }).first();
+		if (noteKeyEntry) {
+			decryptedNoteKey = await decryptNoteKey(
+				noteKeyEntry.encryptedKey,
+				user.publicKeyUint8,
+				user.decodedPrivateKey!
+			);
+		} else {
+			console.warn(`No note key found for note ${id} and user ${user.id}`);
 		}
 	});
 
@@ -95,40 +114,48 @@
 		}
 	};
 
-	const onUpdateData = (htmlContent: string) => {
-		db.notes.update(id, { content: htmlContent });
+	const onUpdateData = async (id: string, htmlContent: string) => {
+		performance.mark('start');
+		const { encryptedData: encryptedNote } = await encryptNote(htmlContent, decryptedNoteKey!);
+		db.notes.update(id, { content: encryptedNote });
+		performance.mark('end');
+		console.log(htmlContent.length, performance.measure('updateNote', 'start', 'end').duration);
 	};
 </script>
 
-{#if isFloating}
-	<div bind:this={placeholder} class="placeholder" style="height: {placeholderHeight}px"></div>
-{/if}
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
-	bind:this={containerElement}
-	class="container"
-	class:isFloating
-	style="--float-left:{floatLeft}; --float-top:{floatTop}; --float-width:{floatWidth}; --float-height:{floatHeight};"
-	onclick={onContainerClick}
->
+{#if decryptedNoteKey === null}
+	<div class="container">Loading...</div>
+{:else}
+	{#if isFloating}
+		<div bind:this={placeholder} class="placeholder" style="height: {placeholderHeight}px"></div>
+	{/if}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		role="button"
-		tabindex="0"
-		onclick={onClick}
-		onkeydown={onKeyDown}
-		data-note-id={id}
-		class:isFocused
-		class:isInBackground
+		bind:this={containerElement}
+		class="container"
+		class:isFloating
+		style="--float-left:{floatLeft}; --float-top:{floatTop}; --float-width:{floatWidth}; --float-height:{floatHeight};"
+		onclick={onContainerClick}
 	>
-		<RichTextComposer
-			disabled={!isFocused}
-			focused={isFocused}
-			initialContent={content}
-			{onUpdateData}
-		/>
+		<div
+			role="button"
+			tabindex="0"
+			onclick={onClick}
+			onkeydown={onKeyDown}
+			data-note-id={id}
+			class:isFocused
+			class:isInBackground
+		>
+			<RichTextComposer
+				disabled={!isFocused}
+				focused={isFocused}
+				initialContent={content}
+				onUpdateData={(...args) => onUpdateData(id, ...args)}
+			/>
+		</div>
 	</div>
-</div>
+{/if}
 
 <style>
 	.placeholder {

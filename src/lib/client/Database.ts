@@ -4,8 +4,9 @@ import { Dexie, type EntityTable } from 'dexie';
 export interface User {
 	id: string;
 	email: string;
-	privateKey: ArrayBuffer;
-	passwordHash: ArrayBuffer;
+	publicKey: string;
+	privateKey: Uint8Array;
+	passwordHash: Uint8Array;
 	salt: Uint8Array;
 	nonce: Uint8Array;
 }
@@ -13,12 +14,19 @@ export interface User {
 export interface Note {
 	id: string;
 	ownerId: string;
-	content: string;
+	content: Uint8Array;
 	meta: {
 		color: string;
 	};
 	createdAt: Date;
 	updatedAt: Date;
+}
+
+export interface NoteKey {
+	id: string;
+	noteId: string;
+	userId: string;
+	encryptedKey: Uint8Array;
 }
 
 const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
@@ -30,12 +38,17 @@ const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 		Note,
 		'id' // primary key "id" (for the typings only)
 	>;
+	noteKeys: EntityTable<
+		NoteKey,
+		'id' // not the primary key but it doesnt support composite keys in typings, so we use "id" as a placeholder
+	>;
 };
 
-// Schema declaration:
+// Indexed columns
 db.version(1).stores({
-	users: '++id, email, privateKey, passwordHash, salt, nonce',
-	notes: '++id, ownerId, content, createdAt, updatedAt'
+	users: 'id, email',
+	notes: 'id, ownerId, createdAt, updatedAt',
+	noteKeys: '[noteId+userId], [userId+noteId]'
 });
 
 export { db };

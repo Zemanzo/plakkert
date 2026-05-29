@@ -2,26 +2,59 @@
 	import { fade } from 'svelte/transition';
 	import { getContext, onMount } from 'svelte';
 	import Note from './Note.svelte';
-	import { liveQuery } from 'dexie';
-	import { db, type Note as NoteType } from './Database';
+	import { db, type NoteKey, type Note as NoteType } from './Database';
+	import { decryptNote, encryptNote, getNoteKey } from './serialization/Serialize';
+	import type { RuntimeUser } from '$lib/types';
 
-	const user = getContext<{ id: string }>('user');
+	const user = getContext<() => RuntimeUser>('user')();
 	let focusedNoteId = $state<string | null>(null);
 	let hasFocusedNote = $derived(focusedNoteId !== null);
 
-	let notes = liveQuery(() => db.notes.toArray());
+	const getNoteContent = async (noteKey: NoteKey) => {
+		const encryptedNote = await db.notes.get(noteKey.noteId);
+		if (!encryptedNote) {
+			console.warn(`Note with ID ${noteKey.noteId} not found for user ${user.id}`);
+			return null;
+		}
+		const decryptedContent = await decryptNote(
+			encryptedNote.content,
+			noteKey.encryptedKey,
+			user.decodedPrivateKey!,
+			user.publicKey
+		);
+
+		return { ...encryptedNote, content: decryptedContent };
+	};
+
+	const initialNotes = (async () => {
+		const noteKeys = await db.noteKeys.where({ userId: user.id }).toArray();
+		return noteKeys.map((noteKey) => [noteKey.noteId, getNoteContent(noteKey)] as const);
+	})();
 
 	const addNote = async () => {
-		await db.notes.add({
-			id: crypto.randomUUID(),
-			ownerId: user.id,
-			content: '',
-			meta: {
-				color: 'yellow'
-			},
-			createdAt: new Date(),
-			updatedAt: new Date()
-		} satisfies NoteType);
+		const { noteKey, encryptedKey } = await getNoteKey(user.publicKeyUint8);
+		const { encryptedData } = await encryptNote('', noteKey);
+		const noteId = crypto.randomUUID();
+
+		await db.transaction('rw', [db.notes, db.noteKeys], async () => {
+			await db.notes.add({
+				id: noteId,
+				ownerId: user.id,
+				content: encryptedData,
+				meta: {
+					color: 'yellow'
+				},
+				createdAt: new Date(),
+				updatedAt: new Date()
+			} satisfies NoteType);
+
+			await db.noteKeys.add({
+				id: crypto.randomUUID(),
+				noteId,
+				userId: user.id,
+				encryptedKey
+			} satisfies NoteKey);
+		});
 	};
 
 	function unfocus(event: KeyboardEvent) {
@@ -53,9 +86,23 @@
 {/if}
 <div class="scroll-container">
 	<div class="notes-container" class:hasFocusedNote>
-		{#each $notes as note (note.id)}
-			<Note {...note} bind:focusedNoteId />
-		{/each}
+		{#await initialNotes}
+			<div>Loading...</div>
+		{:then encryptedNotes}
+			{#if encryptedNotes.length === 0}
+				<p>No notes yet. Click "Add note" to create your first note!</p>
+			{/if}
+			{#each encryptedNotes as [noteId, decryptedNotePromise] (noteId)}
+				{#await decryptedNotePromise}
+					<div>Loading note...</div>
+				{:then note}
+					<Note id={noteId} content={note?.content ?? ''} bind:focusedNoteId />
+				{/await}
+			{/each}
+		{:catch error}
+			{console.error(error)}
+			<div>Error loading notes: {error.message}</div>
+		{/await}
 	</div>
 </div>
 

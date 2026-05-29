@@ -4,6 +4,7 @@
 	import type { ActionData } from './$types';
 	import _sodium from 'libsodium-wrappers';
 	import { db } from '$lib/client/Database';
+	import { encryptPrivateKey } from '$lib/client/cryptography/PrivateKey';
 
 	async function initCrypto() {
 		// Always wait for the WASM binary to load completely
@@ -12,7 +13,7 @@
 	}
 
 	let publicKeyStr = $state<string | undefined>(),
-		privateKeyStr = $state<string | undefined>();
+		privateKeyBuffer = $state<Uint8Array | undefined>();
 
 	async function generateUserKeys() {
 		const sodium = await initCrypto();
@@ -20,14 +21,14 @@
 		const { publicKey, privateKey } = sodium.crypto_box_keypair();
 
 		return {
-			publicKeyStr: sodium.to_base64(publicKey),
-			privateKeyStr: sodium.to_base64(privateKey)
+			publicKey,
+			privateKey
 		};
 	}
 	onMount(async () => {
 		const keys = await generateUserKeys();
-		publicKeyStr = keys.publicKeyStr;
-		privateKeyStr = keys.privateKeyStr;
+		publicKeyStr = btoa(String.fromCharCode(...keys.publicKey));
+		privateKeyBuffer = keys.privateKey;
 	});
 
 	let { form }: { form: ActionData } = $props();
@@ -47,63 +48,34 @@
 				try {
 					const id = result.data?.id as string;
 					const password = formData.get('password') as string;
+					const publicKey = formData.get('publicKey') as string;
 					const email = formData.get('email') as string;
 
-					if (!id || !password || !email) {
+					if (!id || !password || !publicKey || !email) {
 						console.error('Missing required form data');
 						isCreating = false;
 						return;
 					}
 
-					// 1. Generate a random salt
-					const salt = crypto.getRandomValues(new Uint8Array(16));
+					const { encryptedKey, salt, nonce, passwordHash } = await encryptPrivateKey(
+						privateKeyBuffer!,
+						password
+					);
 
-					// 2. Derive a 32-byte key from the password using PBKDF2
-					const passwordBuffer = new TextEncoder().encode(password);
-					const baseKey = await crypto.subtle.importKey('raw', passwordBuffer, 'PBKDF2', false, [
-						'deriveKey',
-						'deriveBits'
-					]);
-					const passwordHash = await crypto.subtle.deriveBits(
+					await db.users.add(
 						{
-							name: 'PBKDF2',
+							id,
+							email,
+							privateKey: new Uint8Array(encryptedKey),
+							publicKey: publicKeyStr!,
+							passwordHash: new Uint8Array(passwordHash),
 							salt,
-							iterations: 100_000,
-							hash: 'SHA-256'
+							nonce
 						},
-						baseKey,
-						256
-					);
-					const derivedKey = await crypto.subtle.deriveKey(
-						{
-							name: 'PBKDF2',
-							salt,
-							iterations: 100_000,
-							hash: 'SHA-256'
-						},
-						baseKey,
-						{ name: 'AES-GCM', length: 256 },
-						true,
-						['encrypt']
+						id
 					);
 
-					// 3. Encrypt the private key
-					const nonce = crypto.getRandomValues(new Uint8Array(12));
-					const privateKeyBuffer = new TextEncoder().encode(privateKeyStr!);
-					const encryptedKey = await crypto.subtle.encrypt(
-						{ name: 'AES-GCM', iv: nonce },
-						derivedKey,
-						privateKeyBuffer
-					);
-					await db.users.add({
-						id,
-						email,
-						privateKey: encryptedKey,
-						passwordHash: passwordHash,
-						salt,
-						nonce
-					});
-
+					sessionStorage.setItem('privateKey', btoa(String.fromCharCode(...privateKeyBuffer!)));
 					// Redirect to login page or home page after successful registration
 					window.location.href = '/';
 				} catch (error) {
