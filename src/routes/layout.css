@@ -4,6 +4,23 @@
 .tipex-editor {
 	@apply bg-transparent;
 	border: none;
+
+	--size-tipex-3: 1.25rem;
+
+	ul[data-type='taskList'] {
+		background: transparent;
+		border: none;
+
+		li {
+			display: flex;
+			align-items: flex-end;
+			gap: 0.5em;
+		}
+
+		p {
+			margin: 0;
+		}
+	}
 }
 
 .tipex-editor-section .ProseMirror h1 {
