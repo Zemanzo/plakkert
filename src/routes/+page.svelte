@@ -37,6 +37,9 @@
 	setContext('user', () => user);
 </script>
 
+<svelte:head>
+	<title>Plakkert</title>
+</svelte:head>
 <header>
 	<h1>Plakkert</h1>
 	<p>Your user ID is {data.user.id}.</p>
