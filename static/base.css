@@ -1,4 +1,5 @@
 :root {
+  --color-text-primary: #000;
   --color-background-body: #d8d8d8;
   --color-background-header: #fff;
   --color-blue-light: #30aab3;
@@ -16,9 +17,17 @@
   --transition-duration: 200ms;
   --media-query-max-width-mobile: 600px;
   --media-query-max-width-tablet: 1024px;
+
+  @media (prefers-color-scheme: dark) {
+    --color-text-primary: #fff;
+    --color-background-body: #111;
+    --color-background-header: #222;
+    --color-background-primary: #222;
+  }
 }
 
 body {
+  color: var(--color-text-primary);
   background-color: var(--color-background-body);
   margin: 0;
   padding: 0;
