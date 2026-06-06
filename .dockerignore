@@ -1,0 +1,15 @@
+node_modules
+.svelte-kit
+.vscode
+.git
+.gitignore
+npm-debug.log*
+pnpm-debug.log*
+Dockerfile
+.dockerignore
+.env
+.env.*
+coverage
+*.db
+*.sqlite
+deploy
