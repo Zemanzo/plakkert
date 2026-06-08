@@ -5,6 +5,7 @@
 	import { db, type NoteKey, type Note as NoteType } from './Database';
 	import { decryptNote, encryptNote, getNoteKey } from './serialization/Serialize';
 	import type { RuntimeUser } from '$lib/types';
+	import Button from './components/Button.svelte';
 
 	const user = getContext<() => RuntimeUser>('user')();
 	let focusedNoteId = $state<string | null>(null);
@@ -72,8 +73,8 @@
 	});
 </script>
 
-<div>
-	<button onclick={addNote}> Add note </button>
+<div class="controls">
+	<Button onclick={addNote}>+ New note</Button>
 </div>
 {#if hasFocusedNote}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -107,6 +108,13 @@
 </div>
 
 <style>
+	.controls {
+		display: flex;
+		padding: var(--spacing-lg);
+		gap: var(--spacing-md);
+		justify-content: center;
+	}
+
 	.scroll-container {
 		overflow: auto;
 		height: 100%;

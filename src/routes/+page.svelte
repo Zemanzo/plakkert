@@ -1,25 +1,25 @@
 <script lang="ts">
-	import { applyAction, enhance } from '$app/forms';
 	import { onMount, setContext } from 'svelte';
 	import NotesContainer from '$lib/client/NotesContainer.svelte';
-	import type { PageServerData } from './$types';
 	import { db } from '$lib/client/Database';
 	import {
 		decodeKey,
 		decryptPrivateKey,
 		sessionGetPrivateKey,
-		sessionRemovePrivateKey,
 		sessionStorePrivateKey
 	} from '$lib/client/cryptography/PrivateKey';
 	import type { RuntimeUser } from '$lib/types';
 
-	let { data }: { data: PageServerData } = $props();
+	let { data } = $props();
 
 	let user = $state<RuntimeUser | undefined>();
 	let showPasswordPrompt = $state(false);
 	let passwordForm = $state<HTMLFormElement | null>(null);
 
 	onMount(async () => {
+		if (!data.user.id) {
+			throw new Error('User ID is missing from page data');
+		}
 		const dbUser = await db.users.get(data.user.id);
 		const decodedPrivateKey = sessionGetPrivateKey();
 		if (dbUser) {
@@ -31,33 +31,14 @@
 			if (!decodedPrivateKey) {
 				showPasswordPrompt = true;
 			}
+		} else {
+			// TODO: Retrieve data from server and store in IndexedDB.
+			throw new Error('User not found in database');
 		}
 	});
 
 	setContext('user', () => user);
 </script>
-
-<svelte:head>
-	<title>Plakkert</title>
-</svelte:head>
-<header>
-	<h1>Plakkert</h1>
-	<p>Your user ID is {data.user.id}.</p>
-	<form
-		method="post"
-		action="?/signOut"
-		use:enhance={() => {
-			return async ({ result }) => {
-				if (result.type === 'redirect') {
-					sessionRemovePrivateKey();
-				}
-				await applyAction(result);
-			};
-		}}
-	>
-		<button>Sign out</button>
-	</form>
-</header>
 
 <main>
 	{#if showPasswordPrompt}
@@ -94,22 +75,6 @@
 </main>
 
 <style>
-	header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		background: var(--color-background-header);
-
-		h1 {
-			margin: 0 0 0 var(--spacing-lg);
-		}
-
-		p {
-			margin: 0;
-			margin-block: 0;
-		}
-	}
-
 	main {
 		display: flex;
 		flex-direction: column;
