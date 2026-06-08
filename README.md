@@ -1,5 +1,7 @@
 # Plakkert
 
+![Plakkert logo](static/icon.svg)
+
 A true end-to-end encrypted notes web app, built for offline-first.
 
 ## Current features
