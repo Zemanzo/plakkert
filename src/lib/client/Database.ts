@@ -1,5 +1,6 @@
 import { PUBLIC_APP_NAME } from '$env/static/public';
 import { Dexie, type EntityTable } from 'dexie';
+import type { Preferences } from './settings/Preferences';
 
 export interface User {
 	id: string;
@@ -9,6 +10,7 @@ export interface User {
 	passwordHash: Uint8Array;
 	salt: Uint8Array;
 	nonce: Uint8Array;
+	preferences: Preferences;
 }
 
 export interface Note {

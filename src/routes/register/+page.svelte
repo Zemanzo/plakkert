@@ -5,6 +5,7 @@
 	import _sodium from 'libsodium-wrappers';
 	import { db } from '$lib/client/Database';
 	import { encryptPrivateKey } from '$lib/client/cryptography/PrivateKey';
+	import { defaultPreferences } from '$lib/client/settings/Preferences';
 
 	async function initCrypto() {
 		// Always wait for the WASM binary to load completely
@@ -70,7 +71,8 @@
 							publicKey: publicKeyStr!,
 							passwordHash: new Uint8Array(passwordHash),
 							salt,
-							nonce
+							nonce,
+							preferences: defaultPreferences
 						},
 						id
 					);

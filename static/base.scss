@@ -9,13 +9,10 @@
   --color-text-primary: light-dark(#000, #fff);
   --color-background-body: light-dark(#d8d8d8, #111);
   --color-background-header: light-dark(#fff, #222);
-  --color-blue-light: #30aab3;
-  --color-yellow-light: rgb(from var(--color-yellow) calc(r + 20) calc(g + 20) calc(b + 20) );
+  --color-blue: #30aab3;
+  --color-green: #4d967b;
   --color-yellow: #ffca30;
-  --color-yellow-dark: rgb(from var(--color-yellow) calc(r - 50) calc(g - 50) calc(b - 50) );
   --color-red: #fa3757;
-  --color-red-dark: #e02045;
-  --color-green-dark: #4d967b;
   --color-background-primary: light-dark(#fcfcf4, #222);
   --color-input-background: light-dark(#f6f6f6, #363636);
   --spacing-xs: 2px;
@@ -36,19 +33,6 @@
   font-family: var(--font-family-default);
 }
 
-:root.neon {
-  --color-text-primary: #fff;
-  --color-background-body: #ff00ea;
-  --color-background-header: #00ffc8;
-  --color-blue-light: #30aab3;
-  --color-yellow: #ffca30;
-  --color-red: #fa3757;
-  --color-red-dark: #e02045;
-  --color-green-dark: #4d967b;
-  --color-background-primary: #222;
-  --color-input-background: #363636;
-}
-
 body {
   color: var(--color-text-primary);
   background-color: var(--color-background-body);
@@ -63,6 +47,12 @@ body {
   }
 }
 
+h2 {
+  font-family: var(--font-family-display);
+  font-size: 1.35rem;
+}
+
+// Inputs
 input {
   background: var(--color-input-background);
   color: var(--color-text-primary);
@@ -77,7 +67,16 @@ input {
   }
 }
 
-h2 {
-  font-family: var(--font-family-display);
-  font-size: 1.35rem;
+select {
+  background: var(--color-input-background);
+  color: var(--color-text-primary);
+  border: none;
+  font-family: var(--font-family-default);
+  font-size: 1rem;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+
+  &:disabled {
+    color: rgba(from var(--color-text-primary) r g b / 0.5);
+  }
 }
