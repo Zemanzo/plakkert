@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { applyAction, enhance } from '$app/forms';
 	import { sessionRemovePrivateKey } from '$lib/client/cryptography/PrivateKey';
+	import Button from './components/Button.svelte';
 
 	let { user }: { user?: { id: string } } = $props();
 </script>
@@ -27,7 +28,7 @@
 				};
 			}}
 		>
-			<button>Sign out</button>
+			<Button class="sm" --bg="var(--color-red)" type="submit">Sign out</Button>
 		</form>
 	{/if}
 </header>

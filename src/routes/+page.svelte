@@ -61,11 +61,8 @@
 				showPasswordPrompt = false;
 			}}
 		>
-			<input
-				type="password"
-				name="password"
-				placeholder="Enter your password to decrypt your notes"
-			/>
+			<label for="password">Enter your password to decrypt your notes</label>
+			<input type="password" name="password" placeholder="" />
 		</form>
 	{:else if !user}
 		<p>Loading user data...</p>
@@ -80,5 +77,18 @@
 		flex-direction: column;
 		flex: 1;
 		overflow: hidden;
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+
+		label {
+			font-family: var(--font-family-display);
+			font-size: 1.3rem;
+		}
 	}
 </style>

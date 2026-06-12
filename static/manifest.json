@@ -4,8 +4,8 @@
   "description": "End to end encrypted note taking app",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#21068b",
-  "theme_color": "#ff3e00",
+  "background_color": "#111",
+  "theme_color": "#ffca30",
   "icons": [
     {
       "src": "/icon-192x.png",

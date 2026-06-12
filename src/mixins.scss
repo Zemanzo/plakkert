@@ -1,0 +1,7 @@
+@mixin light($property, $variable) {
+  #{$property}: rgb(from var(#{$variable}) calc(r + 20) calc(g + 20) calc(b + 20));
+}
+
+@mixin dark($property, $variable) {
+  #{$property}: rgb(from var(#{$variable}) calc(r - 50) calc(g - 50) calc(b - 50));
+}

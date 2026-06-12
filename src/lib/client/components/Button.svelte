@@ -10,32 +10,50 @@
 	{/if}
 </button>
 
-<style>
-	button {
-		--btn-hover-filter: brightness(0.94);
+<style lang="scss">
+	@import '../../../mixins.scss';
 
-		position: relative;
+	button {
+		--background-color: var(--bg, var(--color-yellow));
+		--color: var(--text, var(--color-black));
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		gap: 0.5rem;
-		min-height: 2.5rem;
-		padding: 0 0.4rem;
+		padding: var(--spacing-md) var(--spacing-lg);
 		font-family: var(--font-family-display);
 		font-size: 1.3rem;
 		line-height: 1;
-		color: var(--color-black);
-		background: var(--color-yellow);
+		color: var(--color);
+		background-color: var(--background-color);
 		border-radius: 0.6rem;
+		border-bottom: 2px solid;
+		@include dark(border-bottom-color, --background-color);
 		cursor: pointer;
 		user-select: none;
 		text-decoration: none;
 		white-space: nowrap;
 		vertical-align: middle;
-		transition:
-			filter 120ms ease,
-			transform 120ms ease,
-			box-shadow 120ms ease,
-			opacity 120ms ease;
+
+		&.sm {
+			padding: var(--spacing-sm);
+			font-size: 1rem;
+		}
+
+		&:hover {
+			@include light(background, --background-color);
+		}
+
+		&:active {
+			@include dark(background, --background-color);
+			border-bottom: 0;
+			border-top: 2px solid transparent;
+			transform: translateY(2px);
+		}
+
+		&:disabled {
+			filter: grayscale(100%) brightness(80%);
+			cursor: not-allowed;
+		}
 	}
 </style>
