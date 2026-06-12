@@ -23,6 +23,8 @@
   --spacing-md: 8px;
   --spacing-lg: 12px;
   --spacing-xl: 20px;
+  --spacing-xxl: 32px;
+  --spacing-3xl: 48px;
   --radius-lg: 8px;
   --radius-sm: 4px;
   --transition-duration: 200ms;
@@ -73,4 +75,9 @@ input {
   &:disabled {
     color: rgba(from var(--color-text-primary) r g b / 0.5);
   }
+}
+
+h2 {
+  font-family: var(--font-family-display);
+  font-size: 1.35rem;
 }

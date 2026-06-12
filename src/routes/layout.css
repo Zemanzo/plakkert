@@ -15,6 +15,10 @@
 			display: flex;
 			align-items: flex-end;
 			gap: 0.5em;
+
+			label {
+				align-self: flex-start;
+			}
 		}
 
 		p {
@@ -30,4 +34,18 @@
 .tipex-editor-section .ProseMirror .is-empty::before {
 	color: #0009;
 	font-style: italic;
+}
+
+.tipex-editor-section .ProseMirror pre {
+	background-color: var(--color-background-primary);
+
+	&.is-empty::before {
+		color: #fff9;
+	}
+
+	code {
+		padding-inline: 0;
+		background-color: transparent;
+		color: var(--color-text-primary);
+	}
 }
