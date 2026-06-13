@@ -8,7 +8,9 @@ class LocalUser {
 	#isLoading = $state(true);
 
 	constructor() {
-		const user = liveQuery(() => db.users.get(page.data.user.id as string));
+		const user = liveQuery(() =>
+			page.data?.user?.id ? db.users.get(page.data.user.id) : undefined
+		);
 
 		user.subscribe((value) => {
 			this.#isLoading = false;
