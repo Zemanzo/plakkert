@@ -4,11 +4,49 @@
 	import type { ActionData } from './$types';
 	import { db } from '$lib/client/Database';
 	import { decryptPrivateKey } from '$lib/client/cryptography/PrivateKey';
+	import { defaultPreferences } from '$lib/client/settings/Preferences';
 	import Button from '$lib/client/components/Button.svelte';
 
 	let { form }: { form: ActionData } = $props();
 	let loading = $state(false);
 	let success = $state(false);
+
+	/**
+	 * Retrieves user data from the server and adds it to the local IndexedDB if
+	 * the user does not already exist.
+	 */
+	async function addExistingUserToDatabase(userId: string, email: string) {
+		try {
+			const response = await fetch('/api/user');
+			if (!response.ok) {
+				throw new Error('Failed to fetch user data');
+			}
+
+			const userData = await response.json();
+
+			// Check if user already exists locally
+			const existingUser = await db.users.where('email').equals(email).first();
+			if (existingUser) {
+				return;
+			}
+
+			// Store user with placeholder values for encrypted fields
+			// These will be derived from the password when needed
+			await db.users.add({
+				id: userId,
+				email: userData.email,
+				publicKey: userData.publicKey,
+				privateKey: new Uint8Array(),
+				passwordHash: new Uint8Array(),
+				salt: new Uint8Array(),
+				nonce: new Uint8Array(),
+				preferences: defaultPreferences
+			});
+		} catch (error) {
+			console.error('Error adding user to database:', error);
+			throw error;
+		}
+	}
 </script>
 
 <form
@@ -34,6 +72,18 @@
 						'privateKey',
 						btoa(String.fromCharCode(...new Uint8Array(decryptedKeyBuffer)))
 					);
+				} else {
+					// Add existing user to database if not found - retrieve user data from server
+					try {
+						const response = await fetch('/api/user');
+						if (response.ok) {
+							const userData = await response.json();
+							await addExistingUserToDatabase(userData.id, email);
+						}
+					} catch (error) {
+						console.error('Failed to add user to database:', error);
+						throw new Error('Failed to add user to database', { cause: error });
+					}
 				}
 				await invalidateAll();
 				// eslint-disable-next-line svelte/no-navigation-without-resolve

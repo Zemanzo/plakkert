@@ -11,13 +11,29 @@ export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: 'sqlite' }),
 	emailAndPassword: { enabled: true },
 	user: {
-			additionalFields: {
-					publicKey: {
-							type: 'string',
-							required: true,
-							input: true // allows it to be passed during sign-up
-					}
+		additionalFields: {
+			publicKey: {
+				type: 'string',
+				required: true,
+				input: true
+			},
+			privateKey: {
+				// encrypted
+				type: 'string',
+				required: true,
+				input: true
+			},
+			salt: {
+				type: 'string',
+				required: true,
+				input: true
+			},
+			nonce: {
+				type: 'string',
+				required: true,
+				input: true
 			}
+		}
 	},
 	plugins: [
 		sveltekitCookies(getRequestEvent) // make sure this is the last plugin in the array

@@ -88,7 +88,7 @@
 <div class="scroll-container">
 	<div class="notes-container" class:hasFocusedNote>
 		{#await initialNotes}
-			<div>Loading...</div>
+			<p>Loading...</p>
 		{:then encryptedNotes}
 			{#if encryptedNotes.length === 0}
 				<p>No notes yet. Click "Add note" to create your first note!</p>
@@ -135,6 +135,13 @@
 		max-width: 100%;
 
 		padding: var(--spacing-lg);
+
+		p {
+			font-family: var(--font-family-display);
+			font-size: 1.3rem;
+			text-align: center;
+			grid-column: 1 / -1;
+		}
 	}
 
 	.modal-background {

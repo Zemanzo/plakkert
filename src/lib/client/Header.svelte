@@ -16,11 +16,11 @@
 		<img src="/icon.svg" alt="Logo" width="24" height="24" />
 		<h1>Plakkert</h1>
 	</div>
-	<nav>
-		<a href={resolve('/')} aria-current={page.url.pathname === '/'}>Notes</a>
-		<a href={resolve('/settings')} aria-current={page.url.pathname === '/settings'}>Settings</a>
-	</nav>
 	{#if user}
+		<nav>
+			<a href={resolve('/')} aria-current={page.url.pathname === '/'}>Notes</a>
+			<a href={resolve('/settings')} aria-current={page.url.pathname === '/settings'}>Settings</a>
+		</nav>
 		<!-- <p>Your user ID is {user.id}.</p> -->
 		<form
 			method="post"

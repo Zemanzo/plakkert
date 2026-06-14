@@ -50,22 +50,27 @@
 				const formData = new FormData(passwordForm!);
 				const password = formData.get('password') as string;
 
-				const decryptedKeyBuffer = await decryptPrivateKey(
-					user!.privateKey,
-					password,
-					user!.salt,
-					user!.nonce
-				);
-				sessionStorePrivateKey(new Uint8Array(decryptedKeyBuffer));
-				user = { ...user!, decodedPrivateKey: new Uint8Array(decryptedKeyBuffer) };
-				showPasswordPrompt = false;
+				try {
+					const decryptedKeyBuffer = await decryptPrivateKey(
+						user!.privateKey,
+						password,
+						user!.salt,
+						user!.nonce
+					);
+					sessionStorePrivateKey(new Uint8Array(decryptedKeyBuffer));
+					user = { ...user!, decodedPrivateKey: new Uint8Array(decryptedKeyBuffer) };
+					showPasswordPrompt = false;
+				} catch (error) {
+					console.error('Failed to decrypt private key:', error);
+					alert('Failed to decrypt your private key. Please check your password and try again.');
+				}
 			}}
 		>
 			<label for="password">Enter your password to decrypt your notes</label>
 			<input type="password" name="password" placeholder="" />
 		</form>
 	{:else if !user}
-		<p>Loading user data...</p>
+		<p class="loadingIndicator">Loading user data...</p>
 	{:else}
 		<NotesContainer />
 	{/if}
@@ -77,6 +82,24 @@
 		flex-direction: column;
 		flex: 1;
 		overflow: hidden;
+
+		.loadingIndicator {
+			opacity: 0;
+			animation-name: fade-in;
+			animation-duration: 0.2s;
+			animation-delay: 0.18s;
+			animation-timing-function: ease;
+			animation-fill-mode: forwards;
+		}
+	}
+
+	@keyframes fade-in {
+		0% {
+			opacity: 0;
+		}
+		100% {
+			opacity: 1;
+		}
 	}
 
 	form {
