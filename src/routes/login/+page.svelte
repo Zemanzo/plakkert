@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance, applyAction } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
+	import EyeIcon from '@iconify-svelte/charm/eye';
+	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
 	import type { ActionData } from './$types';
 	import { db } from '$lib/client/Database';
 	import { decryptPrivateKey } from '$lib/client/cryptography/PrivateKey';
@@ -10,6 +12,7 @@
 	let { form }: { form: ActionData } = $props();
 	let loading = $state(false);
 	let success = $state(false);
+	let showPassword = $state(false);
 
 	/**
 	 * Retrieves user data from the server and adds it to the local IndexedDB if
@@ -98,14 +101,29 @@
 >
 	<label for="username"> Username </label>
 	<input id="username" name="username" autocomplete="username" disabled={loading} required />
+	<div></div>
 	<label for="password"> Password </label>
 	<input
 		id="password"
-		type="password"
+		type={showPassword ? 'text' : 'password'}
 		name="password"
 		autocomplete="current-password"
 		disabled={loading}
 	/>
+	<button
+		type="button"
+		class="password-toggle"
+		onclick={(e) => {
+			e.preventDefault();
+			showPassword = !showPassword;
+		}}
+	>
+		{#if showPassword}
+			<EyeIcon width="32px" />
+		{:else if !showPassword}
+			<EyeSlashIcon width="32px" />
+		{/if}
+	</button>
 	<Button type="submit" disabled={loading} class="submitButton">Login</Button>
 </form>
 {#if !loading && !success && form?.message}
@@ -116,7 +134,7 @@
 	form {
 		margin: 2em auto;
 		display: grid;
-		grid-template-columns: min-content 1fr;
+		grid-template-columns: min-content 1fr min-content;
 		grid-auto-rows: min-content;
 
 		gap: 0.5em;
@@ -142,5 +160,16 @@
 		font-size: 1.3rem;
 		color: var(--color-red);
 		text-align: center;
+	}
+
+	.password-toggle {
+		width: 32px;
+		height: 32px;
+		color: var(--text-color-primary);
+		cursor: pointer;
+	}
+
+	input[type='password'] ~ .password-toggle {
+		opacity: 0.5;
 	}
 </style>

@@ -54,6 +54,7 @@
 	},
 	"dependencies": {
 		"@friendofsvelte/tipex": "^0.1.1",
+		"@iconify-svelte/charm": "^1.0.2",
 		"better-sqlite3": "^12.8.0",
 		"dexie": "^4.4.2",
 		"libsodium-wrappers": "^0.8.4"
