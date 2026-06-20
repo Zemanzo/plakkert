@@ -36,6 +36,12 @@
 	}
 }
 
+.isFocused .tipex-editor-section .ProseMirror {
+	p.is-empty {
+		visibility: visible;
+	}
+}
+
 .tipex-editor-section .ProseMirror {
 	h1 {
 		margin-block: 0;
@@ -45,6 +51,9 @@
 	.is-empty::before {
 		color: #0009;
 		font-style: italic;
+	}
+	p.is-empty {
+		visibility: hidden;
 	}
 
 	pre {
