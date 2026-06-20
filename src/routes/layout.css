@@ -16,7 +16,7 @@
 			gap: 0.5em;
 
 			&[data-checked='true'] > div {
-				color: var(--color-text-primary);
+				color: inherit;
 				opacity: 0.6;
 			}
 
