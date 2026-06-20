@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth/minimal';
+import { username } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
@@ -36,6 +37,7 @@ export const auth = betterAuth({
 		}
 	},
 	plugins: [
+		username(),
 		sveltekitCookies(getRequestEvent) // make sure this is the last plugin in the array
 	]
 });

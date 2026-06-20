@@ -15,7 +15,7 @@
 	 * Retrieves user data from the server and adds it to the local IndexedDB if
 	 * the user does not already exist.
 	 */
-	async function addExistingUserToDatabase(userId: string, email: string) {
+	async function addExistingUserToDatabase(userId: string, username: string) {
 		try {
 			const response = await fetch('/api/user');
 			if (!response.ok) {
@@ -25,7 +25,7 @@
 			const userData = await response.json();
 
 			// Check if user already exists locally
-			const existingUser = await db.users.where('email').equals(email).first();
+			const existingUser = await db.users.where('username').equals(username).first();
 			if (existingUser) {
 				return;
 			}
@@ -34,6 +34,7 @@
 			// These will be derived from the password when needed
 			await db.users.add({
 				id: userId,
+				username: userData.username,
 				email: userData.email,
 				publicKey: userData.publicKey,
 				privateKey: new Uint8Array(),
@@ -51,16 +52,16 @@
 
 <form
 	method="post"
-	action="?/signInEmail"
+	action="?/signInUsername"
 	use:enhance={() => {
 		loading = true;
 		return async ({ result, formData }) => {
 			loading = false;
 			if (result.type === 'redirect') {
 				success = true;
-				const email = formData.get('email') as string;
+				const username = formData.get('username') as string;
 				const password = formData.get('password') as string;
-				const user = await db.users.where('email').equals(email).first();
+				const user = await db.users.where('username').equals(username).first();
 				if (user) {
 					const decryptedKeyBuffer = await decryptPrivateKey(
 						user.privateKey,
@@ -78,7 +79,7 @@
 						const response = await fetch('/api/user');
 						if (response.ok) {
 							const userData = await response.json();
-							await addExistingUserToDatabase(userData.id, email);
+							await addExistingUserToDatabase(userData.id, username);
 						}
 					} catch (error) {
 						console.error('Failed to add user to database:', error);
@@ -95,8 +96,8 @@
 		};
 	}}
 >
-	<label for="email"> Email </label>
-	<input id="email" type="email" name="email" autocomplete="username" disabled={loading} />
+	<label for="username"> Username </label>
+	<input id="username" name="username" autocomplete="username" disabled={loading} required />
 	<label for="password"> Password </label>
 	<input
 		id="password"

@@ -62,8 +62,9 @@
 					const id = result.data?.id as string;
 					const publicKey = formData.get('publicKey') as string;
 					const email = formData.get('email') as string;
+					const username = formData.get('username') as string;
 
-					if (!id || !password || !publicKey || !email) {
+					if (!id || !password || !publicKey || !email || !username) {
 						console.error('Missing required form data');
 						isCreating = false;
 						return;
@@ -72,6 +73,7 @@
 					await db.users.add(
 						{
 							id,
+							username,
 							email,
 							privateKey: new Uint8Array(encryptedKey),
 							publicKey: publicKeyStr!,
@@ -99,8 +101,15 @@
 		};
 	}}
 >
-	<label for="email"> Email </label>
-	<input id="email" type="email" name="email" autocomplete={null} disabled={isCreating} />
+	<label for="username"> Username </label>
+	<input
+		id="username"
+		type="text"
+		name="username"
+		autocomplete={null}
+		disabled={isCreating}
+		required
+	/>
 	<label for="password"> Password </label>
 	<input
 		id="password"
@@ -108,10 +117,10 @@
 		name="password"
 		autocomplete="new-password"
 		disabled={isCreating}
+		required
 	/>
-	<label for="name"> Name </label>
-	<input id="name" type="name" name="name" disabled={isCreating} />
 	<input type="hidden" name="publicKey" required value={publicKeyStr} />
+	<input type="hidden" name="email" required value={`${crypto.randomUUID()}@example.com`} />
 	<Button type="submit" disabled={isCreating} class="submitButton">Register</Button>
 </form>
 {#if !isCreating && !success && form?.message}

@@ -8,6 +8,13 @@
       "when": 1779313874122,
       "tag": "0000_lucky_trauma",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1781966504343,
+      "tag": "0001_pale_ozymandias",
+      "breakpoints": true
     }
   ]
 }

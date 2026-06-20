@@ -8,6 +8,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 	return json({
 		id: locals.user.id,
+		username: locals.user.username,
 		email: locals.user.email,
 		publicKey: locals.user.publicKey
 	});

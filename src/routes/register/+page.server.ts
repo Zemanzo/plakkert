@@ -7,6 +7,7 @@ export const actions: Actions = {
 	signUpEmail: async (event) => {
 		const formData = await event.request.formData();
 		const email = formData.get('email')?.toString() ?? '';
+		const username = formData.get('username')?.toString() ?? '';
 		const password = formData.get('password')?.toString() ?? '';
 		const publicKey = formData.get('publicKey')?.toString() ?? '';
 		const privateKey = formData.get('privateKey')?.toString() ?? '';
@@ -18,6 +19,7 @@ export const actions: Actions = {
 			const response = await auth.api.signUpEmail({
 				body: {
 					email,
+					username,
 					password,
 					name,
 					publicKey,

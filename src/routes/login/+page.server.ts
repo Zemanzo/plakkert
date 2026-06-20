@@ -12,15 +12,15 @@ export const load: PageServerLoad = (event) => {
 };
 
 export const actions: Actions = {
-	signInEmail: async (event) => {
+	signInUsername: async (event) => {
 		const formData = await event.request.formData();
-		const email = formData.get('email')?.toString() ?? '';
+		const username = formData.get('username')?.toString() ?? '';
 		const password = formData.get('password')?.toString() ?? '';
 
 		try {
-			await auth.api.signInEmail({
+			await auth.api.signInUsername({
 				body: {
-					email,
+					username,
 					password,
 					callbackURL: '/auth/verification-success'
 				}
@@ -29,6 +29,7 @@ export const actions: Actions = {
 			if (error instanceof APIError) {
 				return fail(400, { message: error.message || 'Signin failed' });
 			}
+			console.log(error);
 			return fail(500, { message: 'Unexpected error' });
 		}
 

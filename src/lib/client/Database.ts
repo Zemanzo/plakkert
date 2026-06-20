@@ -4,6 +4,7 @@ import type { Preferences } from './settings/Preferences';
 
 export interface User {
 	id: string;
+	username: string;
 	email: string;
 	publicKey: string;
 	privateKey: Uint8Array;
@@ -48,7 +49,7 @@ const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 
 // Indexed columns
 db.version(1).stores({
-	users: 'id, email',
+	users: 'id, username',
 	notes: 'id, ownerId, createdAt, updatedAt',
 	noteKeys: '[noteId+userId], [userId+noteId]'
 });
