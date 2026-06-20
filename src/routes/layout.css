@@ -4,8 +4,7 @@
 .tipex-editor {
 	@apply bg-transparent;
 	border: none;
-
-	--size-tipex-3: 1.25rem;
+	/* font-family: serif; */
 
 	ul[data-type='taskList'] {
 		background: transparent;
@@ -16,8 +15,14 @@
 			align-items: flex-end;
 			gap: 0.5em;
 
+			&[data-checked='true'] > div {
+				color: var(--color-text-primary);
+				opacity: 0.6;
+			}
+
 			label {
 				align-self: flex-start;
+				margin-top: 0.15em;
 			}
 		}
 
@@ -27,25 +32,28 @@
 	}
 }
 
-.tipex-editor-section .ProseMirror h1 {
-	margin-block: 0;
-}
-
-.tipex-editor-section .ProseMirror .is-empty::before {
-	color: #0009;
-	font-style: italic;
-}
-
-.tipex-editor-section .ProseMirror pre {
-	background-color: var(--color-background-primary);
-
-	&.is-empty::before {
-		color: #fff9;
+.tipex-editor-section .ProseMirror {
+	h1 {
+		margin-block: 0;
+		font-weight: 400;
 	}
 
-	code {
-		padding-inline: 0;
-		background-color: transparent;
-		color: var(--color-text-primary);
+	.is-empty::before {
+		color: #0009;
+		font-style: italic;
+	}
+
+	pre {
+		background-color: var(--color-background-primary);
+
+		&.is-empty::before {
+			color: #fff9;
+		}
+
+		code {
+			padding-inline: 0;
+			background-color: transparent;
+			color: var(--color-text-primary);
+		}
 	}
 }

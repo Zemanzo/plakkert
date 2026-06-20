@@ -7,6 +7,7 @@
   color-scheme: light dark;
 
   --color-text-primary: light-dark(#000, #fff);
+  --color-text-secondary: light-dark(#161616, #d6d6d6);
   --color-background-body: light-dark(#d8d8d8, #111);
   --color-background-header: light-dark(#fff, #222);
   --color-blue: #30aab3;
@@ -63,6 +64,40 @@ input {
 
   &:disabled {
     color: rgba(from var(--color-text-primary) r g b / 0.5);
+  }
+
+  &[type='checkbox'] {
+    position: relative;
+    appearance: none;
+    background: transparent;
+    border: 2px solid #0009;
+    cursor: pointer;
+    opacity: 0.8;
+
+    &:hover {
+      opacity: 1;
+      border-color: #000d;
+    }
+
+    &:checked {
+      background: #0009;
+      border: 2px solid transparent;
+      opacity: 0.8;
+
+      &:hover {
+        background: #000d;
+      }
+
+      &::before {
+        position: absolute;
+        top: -4px;
+        left: 2px;
+        content: '✔';
+        color: #fff;
+        display: block;
+        text-align: center;
+      }
+    }
   }
 }
 
