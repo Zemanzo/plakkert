@@ -5,7 +5,7 @@
 	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
 	import type { ActionData } from './$types';
 	import { db } from '$lib/client/Database';
-	import { decryptPrivateKey } from '$lib/client/cryptography/PrivateKey';
+	import { decryptPrivateKey, hashPassword } from '$lib/client/cryptography/PrivateKey';
 	import { defaultPreferences } from '$lib/client/settings/Preferences';
 	import Button from '$lib/client/components/Button.svelte';
 
@@ -18,7 +18,7 @@
 	 * Retrieves user data from the server and adds it to the local IndexedDB if
 	 * the user does not already exist.
 	 */
-	async function addExistingUserToDatabase(userId: string, username: string) {
+	async function addCurrentUserToDatabase(password: string) {
 		try {
 			const response = await fetch('/api/user');
 			if (!response.ok) {
@@ -27,25 +27,24 @@
 
 			const userData = await response.json();
 
-			// Check if user already exists locally
-			const existingUser = await db.users.where('username').equals(username).first();
-			if (existingUser) {
-				return;
-			}
+			console.log('userData', userData);
 
-			// Store user with placeholder values for encrypted fields
-			// These will be derived from the password when needed
-			await db.users.add({
-				id: userId,
+			const passwordHash = await hashPassword(password, Uint8Array.fromBase64(userData.salt));
+
+			const currentUser = {
+				id: userData.id,
 				username: userData.username,
 				email: userData.email,
 				publicKey: userData.publicKey,
-				privateKey: new Uint8Array(),
-				passwordHash: new Uint8Array(),
-				salt: new Uint8Array(),
-				nonce: new Uint8Array(),
+				privateKey: Uint8Array.fromBase64(userData.privateKey),
+				passwordHash: new Uint8Array(passwordHash),
+				salt: Uint8Array.fromBase64(userData.salt),
+				nonce: Uint8Array.fromBase64(userData.nonce),
 				preferences: defaultPreferences
-			});
+			};
+
+			await db.users.add(currentUser);
+			return currentUser;
 		} catch (error) {
 			console.error('Error adding user to database:', error);
 			throw error;
@@ -62,7 +61,7 @@
 			loading = false;
 			if (result.type === 'redirect') {
 				success = true;
-				const username = formData.get('username') as string;
+				const username = (formData.get('username') as string).toLowerCase();
 				const password = formData.get('password') as string;
 				const user = await db.users.where('username').equals(username).first();
 				if (user) {
@@ -77,13 +76,20 @@
 						btoa(String.fromCharCode(...new Uint8Array(decryptedKeyBuffer)))
 					);
 				} else {
-					// Add existing user to database if not found - retrieve user data from server
+					// User not found in local database, retrieve from server and add to database.
 					try {
-						const response = await fetch('/api/user');
-						if (response.ok) {
-							const userData = await response.json();
-							await addExistingUserToDatabase(userData.id, username);
-						}
+						const currentUser = await addCurrentUserToDatabase(password);
+
+						const decryptedKeyBuffer = await decryptPrivateKey(
+							currentUser.privateKey,
+							password,
+							currentUser.salt,
+							currentUser.nonce
+						);
+						sessionStorage.setItem(
+							'privateKey',
+							btoa(String.fromCharCode(...new Uint8Array(decryptedKeyBuffer)))
+						);
 					} catch (error) {
 						console.error('Failed to add user to database:', error);
 						throw new Error('Failed to add user to database', { cause: error });

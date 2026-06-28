@@ -1,22 +1,31 @@
+const PASSWORD_HASH_ALGORITHM = 'PBKDF2';
+const PASSWORD_HASH_SETTINGS = {
+	name: PASSWORD_HASH_ALGORITHM,
+	iterations: 100_000,
+	hash: 'SHA-256'
+};
+const PASSWORD_HASH_LENGTH = 256; // bits
+
 export async function encryptPrivateKey(privateKey: Uint8Array, password: string) {
 	// 1. Generate a random salt
 	const salt = crypto.getRandomValues(new Uint8Array(16));
 
 	// 2. Derive a 32-byte key from the password using PBKDF2
 	const passwordBuffer = new TextEncoder().encode(password);
-	const baseKey = await crypto.subtle.importKey('raw', passwordBuffer, 'PBKDF2', false, [
-		'deriveKey',
-		'deriveBits'
-	]);
+	const baseKey = await crypto.subtle.importKey(
+		'raw',
+		passwordBuffer,
+		PASSWORD_HASH_ALGORITHM,
+		false,
+		['deriveKey', 'deriveBits']
+	);
 	const passwordHash = await crypto.subtle.deriveBits(
 		{
-			name: 'PBKDF2',
-			salt,
-			iterations: 100_000,
-			hash: 'SHA-256'
+			...PASSWORD_HASH_SETTINGS,
+			salt
 		},
 		baseKey,
-		256
+		PASSWORD_HASH_LENGTH
 	);
 	const derivedKey = await crypto.subtle.deriveKey(
 		{
@@ -94,4 +103,24 @@ export function sessionGetPrivateKey(): Uint8Array | null {
 }
 export function sessionRemovePrivateKey(): void {
 	sessionStorage.removeItem('privateKey');
+}
+
+export async function hashPassword(password: string, salt: Uint8Array<ArrayBuffer>) {
+	const passwordBuffer = new TextEncoder().encode(password);
+	const baseKey = await crypto.subtle.importKey(
+		'raw',
+		passwordBuffer,
+		PASSWORD_HASH_ALGORITHM,
+		false,
+		['deriveBits']
+	);
+
+	return crypto.subtle.deriveBits(
+		{
+			...PASSWORD_HASH_SETTINGS,
+			salt
+		},
+		baseKey,
+		PASSWORD_HASH_LENGTH
+	);
 }

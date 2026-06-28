@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@friendofsvelte/tipex':
-        specifier: ^0.1.1
+        specifier: 0.1.1
         version: 0.1.1(highlight.js@11.8.0)(svelte@5.55.9(@typescript-eslint/types@8.59.4))
       '@iconify-svelte/charm':
         specifier: ^1.0.2

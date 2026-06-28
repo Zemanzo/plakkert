@@ -41,7 +41,7 @@
 </script>
 
 <main>
-	{#if showPasswordPrompt}
+	{#if showPasswordPrompt && user}
 		<form
 			bind:this={passwordForm}
 			onsubmit={async (event) => {

@@ -42,31 +42,41 @@
 	}
 }
 
-.tipex-editor-section .ProseMirror {
-	h1 {
-		margin-block: 0;
-		font-weight: 400;
-	}
+.tipex-editor-section {
+	padding-inline: 0;
+	padding-block: 0;
+	padding: 0;
 
-	.is-empty::before {
-		color: #0009;
-		font-style: italic;
-	}
-	p.is-empty {
-		visibility: hidden;
-	}
+	.ProseMirror {
+		padding-inline: 0;
+		padding-block: 0;
+		padding: 0;
 
-	pre {
-		background-color: var(--color-background-primary);
-
-		&.is-empty::before {
-			color: #fff9;
+		h1 {
+			margin-block: 0;
+			font-weight: 400;
 		}
 
-		code {
-			padding-inline: 0;
-			background-color: transparent;
-			color: var(--color-text-primary);
+		.is-empty::before {
+			color: #0009;
+			font-style: italic;
+		}
+		p.is-empty {
+			visibility: hidden;
+		}
+
+		pre {
+			background-color: var(--color-background-primary);
+
+			&.is-empty::before {
+				color: #fff9;
+			}
+
+			code {
+				padding-inline: 0;
+				background-color: transparent;
+				color: var(--color-text-primary);
+			}
 		}
 	}
 }
