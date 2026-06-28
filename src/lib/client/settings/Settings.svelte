@@ -1,8 +1,14 @@
 <script lang="ts">
+	import Cookies from 'js-cookie';
 	import Button from '../components/Button.svelte';
 	import { localUser } from '../User.svelte';
 	import { db } from '../Database';
-	import { defaultPreferences, type Preferences } from './Preferences';
+	import {
+		COOKIE_PREFIX,
+		cookiePreferences,
+		defaultPreferences,
+		type Preferences
+	} from './Preferences';
 
 	let settings = $state<Preferences>(
 		localUser.data?.preferences ? { ...localUser.data.preferences } : defaultPreferences
@@ -22,6 +28,18 @@
 		if (!localUser.data) return false;
 		return JSON.stringify(settings) !== JSON.stringify(localUser.data.preferences);
 	});
+
+	async function saveChanges() {
+		await db.users.update(localUser.data!.id, { preferences: $state.snapshot(settings) });
+
+		for (const prefKey of cookiePreferences) {
+			// Since the theme should be applied during SSR, we also store it in a cookie so that the server can read it on the next request.
+			Cookies.set(`${COOKIE_PREFIX}${prefKey}`, settings[prefKey], {
+				expires: 2 ** 31 - 1,
+				sameSite: 'strict'
+			});
+		}
+	}
 </script>
 
 <section>
@@ -32,11 +50,7 @@
 	{:else}
 		<div>
 			{#if hasChanges}
-				<Button
-					onclick={async () => {
-						await db.users.update(localUser.data!.id, { preferences: $state.snapshot(settings) });
-					}}>Save Changes</Button
-				>
+				<Button onclick={saveChanges}>Save Changes</Button>
 			{:else}
 				<p>All changes saved.</p>
 			{/if}

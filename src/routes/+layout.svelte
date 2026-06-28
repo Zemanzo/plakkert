@@ -23,8 +23,10 @@
 					case 'dark':
 						document.documentElement.style.colorScheme = 'dark';
 						break;
-					default:
+					case 'system':
 						document.documentElement.style.colorScheme = 'light dark';
+						break;
+					// No default, the fallback is already set in the server hooks.
 				}
 			}
 		});
