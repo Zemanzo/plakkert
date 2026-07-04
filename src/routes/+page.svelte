@@ -84,6 +84,12 @@
 		overflow: hidden;
 
 		.loadingIndicator {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			margin-top: 2rem;
 			opacity: 0;
 			animation-name: fade-in;
 			animation-duration: 0.2s;

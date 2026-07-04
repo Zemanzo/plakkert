@@ -2,10 +2,11 @@
 	import { fade } from 'svelte/transition';
 	import { getContext, onMount } from 'svelte';
 	import Note from './Note.svelte';
-	import { db, type NoteKey, type Note as NoteType } from './Database';
-	import { decryptNote, encryptNote, getNoteKey } from './serialization/Serialize';
+	import { db, type NoteKey } from './Database';
+	import { decryptNote } from './serialization/Serialize';
 	import type { RuntimeUser } from '$lib/types';
 	import Button from './components/Button.svelte';
+	import { createNote } from './NotesCRUD';
 
 	const user = getContext<() => RuntimeUser>('user')();
 	let focusedNoteId = $state<string | null>(null);
@@ -32,32 +33,6 @@
 		return noteKeys.map((noteKey) => [noteKey.noteId, getNoteContent(noteKey)] as const);
 	})();
 
-	const addNote = async () => {
-		const { noteKey, encryptedKey } = await getNoteKey(user.publicKeyUint8);
-		const { encryptedData } = await encryptNote('', noteKey);
-		const noteId = crypto.randomUUID();
-
-		await db.transaction('rw', [db.notes, db.noteKeys], async () => {
-			await db.notes.add({
-				id: noteId,
-				ownerId: user.id,
-				content: encryptedData,
-				meta: {
-					color: 'yellow'
-				},
-				createdAt: new Date(),
-				updatedAt: new Date()
-			} satisfies NoteType);
-
-			await db.noteKeys.add({
-				id: crypto.randomUUID(),
-				noteId,
-				userId: user.id,
-				encryptedKey
-			} satisfies NoteKey);
-		});
-	};
-
 	function unfocus(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			focusedNoteId = null;
@@ -74,7 +49,7 @@
 </script>
 
 <div class="controls">
-	<Button onclick={addNote}>+ New note</Button>
+	<Button onclick={() => createNote(user)}>+ New note</Button>
 </div>
 {#if hasFocusedNote}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->

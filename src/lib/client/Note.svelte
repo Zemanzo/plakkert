@@ -2,8 +2,9 @@
 	import { getContext, onMount } from 'svelte';
 	import { db, type Note } from './Database';
 	import RichTextComposer from './editor/RichTextComposer.svelte';
-	import { decryptNoteKey, encryptNote } from './serialization/Serialize';
+	import { decryptNoteKey } from './serialization/Serialize';
 	import { type RuntimeUser } from '$lib/types';
+	import { updateNote } from './NotesCRUD';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let {
@@ -113,14 +114,6 @@
 			focusedNoteId = null;
 		}
 	};
-
-	const onUpdateData = async (id: string, htmlContent: string) => {
-		performance.mark('start');
-		const { encryptedData: encryptedNote } = await encryptNote(htmlContent, decryptedNoteKey!);
-		db.notes.update(id, { content: encryptedNote });
-		performance.mark('end');
-		console.log(htmlContent.length, performance.measure('updateNote', 'start', 'end').duration);
-	};
 </script>
 
 {#if decryptedNoteKey === null}
@@ -151,7 +144,7 @@
 				disabled={!isFocused}
 				focused={isFocused}
 				initialContent={content}
-				onUpdateData={(...args) => onUpdateData(id, ...args)}
+				onUpdateData={(htmlContent) => updateNote(id, htmlContent, decryptedNoteKey!)}
 			/>
 		</div>
 	</div>
