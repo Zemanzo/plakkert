@@ -14,6 +14,9 @@ importers:
       '@iconify-svelte/charm':
         specifier: ^1.0.2
         version: 1.0.2(svelte@5.55.9(@typescript-eslint/types@8.59.4))
+      '@iconify-svelte/lucide':
+        specifier: ^1.0.48
+        version: 1.0.48(svelte@5.55.9(@typescript-eslint/types@8.59.4))
       better-sqlite3:
         specifier: ^12.8.0
         version: 12.10.0
@@ -885,6 +888,9 @@ packages:
 
   '@iconify-svelte/charm@1.0.2':
     resolution: {integrity: sha512-m/Hrl9TYEibCNDxtXxZvTKWbOmPtbDLsSUyYnJEyp1xggrWHJCitgcJ24m4sZQURVv/UNH90SQpGpD1qFWubiQ==}
+
+  '@iconify-svelte/lucide@1.0.48':
+    resolution: {integrity: sha512-4XfzIR+PVI0s4KGp0xeI5WcVjwUn7orNKp8mL0+nf8MqA1GhcN3nhfln868WyJBuT7FfQwym9ZsZvTJ2WSt+Uw==}
 
   '@iconify/css-svelte@1.0.1':
     resolution: {integrity: sha512-f9w1anXXBm48VjDEWDrGTybdiwnDTIChcUpBK/UtXR/AhNp/Co/VPp00t7dO93j+4Je0OwMKyc/HvI7Lpv3PKg==}
@@ -4331,6 +4337,12 @@ snapshots:
   '@humanwhocodes/retry@0.4.3': {}
 
   '@iconify-svelte/charm@1.0.2(svelte@5.55.9(@typescript-eslint/types@8.59.4))':
+    dependencies:
+      '@iconify/css-svelte': 1.0.1(svelte@5.55.9(@typescript-eslint/types@8.59.4))
+    transitivePeerDependencies:
+      - svelte
+
+  '@iconify-svelte/lucide@1.0.48(svelte@5.55.9(@typescript-eslint/types@8.59.4))':
     dependencies:
       '@iconify/css-svelte': 1.0.1(svelte@5.55.9(@typescript-eslint/types@8.59.4))
     transitivePeerDependencies:

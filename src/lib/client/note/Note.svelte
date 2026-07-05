@@ -1,24 +1,22 @@
 <script lang="ts">
 	import { getContext, onMount } from 'svelte';
-	import { db, type Note } from './Database';
-	import RichTextComposer from './editor/RichTextComposer.svelte';
-	import { decryptNoteKey } from './serialization/Serialize';
+	import { db, type Note } from '../Database';
+	import RichTextComposer from '../editor/RichTextComposer.svelte';
+	import { decryptNoteKey } from '../serialization/Serialize';
 	import { type RuntimeUser } from '$lib/types';
-	import { deleteNote, updateNote } from './NotesCRUD';
-	import Button from './components/Button.svelte';
+	import { deleteNote, updateNoteContent } from './NotesCRUD';
+	import NoteOptions from './NoteOptions.svelte';
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let {
-		id,
-		content,
-		onDelete,
-		focusedNoteId = $bindable()
+		data,
+		focusedNoteId = $bindable(),
+		onDelete
 	}: {
-		id: Note['id'];
+		data: Omit<Note, 'content'> & { content: string };
 		focusedNoteId: string | null;
-		content: string;
 		onDelete: (noteId: string) => void;
 	} = $props();
+	let { id, content } = $derived(data);
 	const isFocused = $derived(focusedNoteId === id);
 	const isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
 	const user = getContext<() => RuntimeUser>('user')();
@@ -146,6 +144,7 @@
 	>
 		<div
 			role="button"
+			style="--bg:var(--color-{data.meta.color})"
 			tabindex="0"
 			onclick={onClick}
 			onkeydown={onKeyDown}
@@ -157,12 +156,10 @@
 				disabled={!isFocused}
 				focused={isFocused}
 				initialContent={content}
-				onUpdateData={(htmlContent) => updateNote(id, htmlContent, decryptedNoteKey!)}
+				onUpdateData={(htmlContent) => updateNoteContent(id, htmlContent, decryptedNoteKey!)}
 			/>
 			{#if isFocused}
-				<div class="">
-					<Button --bg="var(--color-red)" onclick={deleteCurrentNote}>Delete</Button>
-				</div>
+				<NoteOptions onDelete={deleteCurrentNote} {data} />
 			{/if}
 		</div>
 	</div>
@@ -212,7 +209,7 @@
 		width: 100%;
 		max-width: 100%;
 		height: 100%;
-		background: var(--color-yellow);
+		background: var(--bg, var(--color-yellow));
 		border-radius: var(--radius-md);
 
 		outline: 2px solid transparent;

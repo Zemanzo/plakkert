@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, setContext } from 'svelte';
-	import NotesContainer from '$lib/client/NotesContainer.svelte';
+	import NotesContainer from '$lib/client/note/NotesContainer.svelte';
 	import { db } from '$lib/client/Database';
 	import {
 		decodeKey,

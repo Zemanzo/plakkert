@@ -1,5 +1,5 @@
-import { db, type NoteKey, type Note as NoteType } from './Database';
-import { encryptNote, getNoteKey } from './serialization/Serialize';
+import { db, type NoteKey, type Note as NoteType } from '../Database';
+import { encryptNote, getNoteKey } from '../serialization/Serialize';
 import type { RuntimeUser } from '$lib/types';
 
 /**
@@ -40,13 +40,20 @@ export const createNote = async (user: RuntimeUser) => {
  * Updates the content of an existing note. Encrypts the new content using the
  * provided decrypted note key and updates the note in the database.
  */
-export const updateNote = async (
+export const updateNoteContent = async (
 	noteId: string,
 	htmlContent: string,
 	decryptedNoteKey: Uint8Array
 ) => {
 	const { encryptedData: encryptedNote } = await encryptNote(htmlContent, decryptedNoteKey!);
-	db.notes.update(noteId, { content: encryptedNote });
+	db.notes.update(noteId, { content: encryptedNote, updatedAt: new Date() });
+};
+
+/**
+ * Updates the metadata of an existing note.
+ */
+export const updateNoteMeta = async (noteId: string, newMeta: NoteType['meta']) => {
+	db.notes.update(noteId, { meta: newMeta, updatedAt: new Date() });
 };
 
 export const deleteNote = async (noteId: string) => {

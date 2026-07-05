@@ -2,10 +2,10 @@
 	import { fade } from 'svelte/transition';
 	import { getContext, onMount } from 'svelte';
 	import Note from './Note.svelte';
-	import { db, type NoteKey, type Note as NoteType } from './Database';
-	import { decryptNote } from './serialization/Serialize';
+	import { db, type NoteKey, type Note as NoteType } from '../Database';
+	import { decryptNote } from '../serialization/Serialize';
 	import type { RuntimeUser } from '$lib/types';
-	import Button from './components/Button.svelte';
+	import Button from '../components/Button.svelte';
 	import { createNote } from './NotesCRUD';
 
 	type NoteWithContent = Omit<NoteType, 'content'> & { content: string };
@@ -86,12 +86,11 @@
 				{#await decryptedNotePromise}
 					<div>Loading note...</div>
 				{:then note}
-					<Note
-						id={noteId}
-						content={note?.content ?? ''}
-						bind:focusedNoteId
-						onDelete={onDeleteNote}
-					/>
+					{#if note === null}
+						<div>Note not found or failed to decrypt.</div>
+					{:else}
+						<Note data={note} bind:focusedNoteId onDelete={onDeleteNote} />
+					{/if}
 				{/await}
 			{/each}
 		{:catch error}
