@@ -11,17 +11,19 @@ export const createNote = async (user: RuntimeUser) => {
 	const { encryptedData } = await encryptNote('', noteKey);
 	const noteId = crypto.randomUUID();
 
+	const note = {
+		id: noteId,
+		ownerId: user.id,
+		content: encryptedData,
+		meta: {
+			color: 'yellow'
+		},
+		createdAt: new Date(),
+		updatedAt: new Date()
+	} satisfies NoteType;
+
 	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
-		await db.notes.add({
-			id: noteId,
-			ownerId: user.id,
-			content: encryptedData,
-			meta: {
-				color: 'yellow'
-			},
-			createdAt: new Date(),
-			updatedAt: new Date()
-		} satisfies NoteType);
+		await db.notes.add(note);
 
 		await db.noteKeys.add({
 			id: crypto.randomUUID(),
@@ -30,6 +32,8 @@ export const createNote = async (user: RuntimeUser) => {
 			encryptedKey
 		} satisfies NoteKey);
 	});
+
+	return [noteId, Promise.resolve({ ...note, content: '' })] as const;
 };
 
 /**
@@ -43,4 +47,11 @@ export const updateNote = async (
 ) => {
 	const { encryptedData: encryptedNote } = await encryptNote(htmlContent, decryptedNoteKey!);
 	db.notes.update(noteId, { content: encryptedNote });
+};
+
+export const deleteNote = async (noteId: string) => {
+	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
+		await db.noteKeys.where({ noteId }).delete();
+		await db.notes.delete(noteId);
+	});
 };

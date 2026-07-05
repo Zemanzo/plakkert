@@ -4,14 +4,21 @@
 	import RichTextComposer from './editor/RichTextComposer.svelte';
 	import { decryptNoteKey } from './serialization/Serialize';
 	import { type RuntimeUser } from '$lib/types';
-	import { updateNote } from './NotesCRUD';
+	import { deleteNote, updateNote } from './NotesCRUD';
+	import Button from './components/Button.svelte';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let {
 		id,
 		content,
+		onDelete,
 		focusedNoteId = $bindable()
-	}: { id: Note['id']; focusedNoteId: string | null; content: string } = $props();
+	}: {
+		id: Note['id'];
+		focusedNoteId: string | null;
+		content: string;
+		onDelete: (noteId: string) => void;
+	} = $props();
 	const isFocused = $derived(focusedNoteId === id);
 	const isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
 	const user = getContext<() => RuntimeUser>('user')();
@@ -114,6 +121,12 @@
 			focusedNoteId = null;
 		}
 	};
+
+	const deleteCurrentNote = async (event: MouseEvent) => {
+		event.stopPropagation();
+		deleteNote(id);
+		onDelete(id);
+	};
 </script>
 
 {#if decryptedNoteKey === null}
@@ -146,6 +159,11 @@
 				initialContent={content}
 				onUpdateData={(htmlContent) => updateNote(id, htmlContent, decryptedNoteKey!)}
 			/>
+			{#if isFocused}
+				<div class="">
+					<Button --bg="var(--color-red)" onclick={deleteCurrentNote}>Delete</Button>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -186,6 +204,8 @@
 		border: none;
 		text-align: left;
 		cursor: pointer;
+		display: flex;
+		flex-direction: column;
 
 		padding: var(--spacing-md) var(--spacing-xl);
 

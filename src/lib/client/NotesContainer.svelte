@@ -2,13 +2,16 @@
 	import { fade } from 'svelte/transition';
 	import { getContext, onMount } from 'svelte';
 	import Note from './Note.svelte';
-	import { db, type NoteKey } from './Database';
+	import { db, type NoteKey, type Note as NoteType } from './Database';
 	import { decryptNote } from './serialization/Serialize';
 	import type { RuntimeUser } from '$lib/types';
 	import Button from './components/Button.svelte';
 	import { createNote } from './NotesCRUD';
 
+	type NoteWithContent = Omit<NoteType, 'content'> & { content: string };
+
 	const user = getContext<() => RuntimeUser>('user')();
+	let notes = $state<(readonly [NoteKey['id'], Promise<null | NoteWithContent>])[]>([]);
 	let focusedNoteId = $state<string | null>(null);
 	let hasFocusedNote = $derived(focusedNoteId !== null);
 
@@ -30,13 +33,24 @@
 
 	const initialNotes = (async () => {
 		const noteKeys = await db.noteKeys.where({ userId: user.id }).toArray();
-		return noteKeys.map((noteKey) => [noteKey.noteId, getNoteContent(noteKey)] as const);
+		notes = noteKeys.map((noteKey) => [noteKey.noteId, getNoteContent(noteKey)] as const);
 	})();
 
 	function unfocus(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			focusedNoteId = null;
 		}
+	}
+
+	async function addNote() {
+		const note = await createNote(user);
+		notes.unshift(note);
+		focusedNoteId = note[0];
+	}
+
+	function onDeleteNote(noteId: string) {
+		focusedNoteId = null;
+		notes = notes.filter(([id]) => id !== noteId);
 	}
 
 	onMount(() => {
@@ -49,7 +63,7 @@
 </script>
 
 <div class="controls">
-	<Button onclick={() => createNote(user)}>+ New note</Button>
+	<Button onclick={addNote}>+ New note</Button>
 </div>
 {#if hasFocusedNote}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -64,15 +78,20 @@
 	<div class="notes-container" class:hasFocusedNote>
 		{#await initialNotes}
 			<p>Loading...</p>
-		{:then encryptedNotes}
-			{#if encryptedNotes.length === 0}
+		{:then}
+			{#if notes.length === 0}
 				<p>No notes yet. Click "Add note" to create your first note!</p>
 			{/if}
-			{#each encryptedNotes as [noteId, decryptedNotePromise] (noteId)}
+			{#each notes as [noteId, decryptedNotePromise] (noteId)}
 				{#await decryptedNotePromise}
 					<div>Loading note...</div>
 				{:then note}
-					<Note id={noteId} content={note?.content ?? ''} bind:focusedNoteId />
+					<Note
+						id={noteId}
+						content={note?.content ?? ''}
+						bind:focusedNoteId
+						onDelete={onDeleteNote}
+					/>
 				{/await}
 			{/each}
 		{:catch error}

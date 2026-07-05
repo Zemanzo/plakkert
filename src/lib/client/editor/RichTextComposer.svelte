@@ -43,7 +43,7 @@
 	body={initialContent}
 	bind:focused
 	bind:tipex={editor}
-	class={`${disabled ? 'pointer-events-none' : ''} h-full w-full`}
+	class={`${disabled ? 'pointer-events-none' : ''} w-full flex-1`}
 	controlComponent={null}
 	autofocus={false}
 	onupdate={() => onUpdateData?.(editor?.getHTML() ?? '')}
