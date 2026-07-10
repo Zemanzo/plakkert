@@ -14,13 +14,17 @@ export interface User {
 	preferences: Preferences;
 }
 
-export interface Note {
-	id: string;
-	ownerId: string;
-	content: Uint8Array;
+interface NoteData {
+	content: string;
 	meta: {
 		color: string;
 	};
+}
+
+export interface Note<TData extends NoteData | Uint8Array = NoteData> {
+	id: string;
+	ownerId: string;
+	data: TData;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -38,7 +42,7 @@ const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 		'id' // primary key "id" (for the typings only)
 	>;
 	notes: EntityTable<
-		Note,
+		Note<Uint8Array>,
 		'id' // primary key "id" (for the typings only)
 	>;
 	noteKeys: EntityTable<

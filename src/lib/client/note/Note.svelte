@@ -4,19 +4,19 @@
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
 	import { decryptNoteKey } from '../serialization/Serialize';
 	import { type RuntimeUser } from '$lib/types';
-	import { deleteNote, updateNoteContent } from './NotesCRUD';
+	import { deleteNote, updateNoteData } from './NotesCRUD';
 	import NoteOptions from './NoteOptions.svelte';
 
 	let {
-		data,
+		note,
 		focusedNoteId = $bindable(),
 		onDelete
 	}: {
-		data: Omit<Note, 'content'> & { content: string };
+		note: Note;
 		focusedNoteId: string | null;
 		onDelete: (noteId: string) => void;
 	} = $props();
-	let { id, content } = $derived(data);
+	let { id, data } = $derived(note);
 	const isFocused = $derived(focusedNoteId === id);
 	const isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
 	const user = getContext<() => RuntimeUser>('user')();
@@ -144,7 +144,7 @@
 	>
 		<div
 			role="button"
-			style="--bg:var(--color-{data.meta.color})"
+			style="--bg:var(--color-{note.data.meta.color})"
 			tabindex="0"
 			onclick={onClick}
 			onkeydown={onKeyDown}
@@ -155,11 +155,12 @@
 			<RichTextComposer
 				disabled={!isFocused}
 				focused={isFocused}
-				initialContent={content}
-				onUpdateData={(htmlContent) => updateNoteContent(id, htmlContent, decryptedNoteKey!)}
+				initialContent={data.content}
+				onUpdateData={(htmlContent) =>
+					updateNoteData(id, { content: htmlContent, meta: note.data.meta }, decryptedNoteKey!)}
 			/>
 			{#if isFocused}
-				<NoteOptions onDelete={deleteCurrentNote} {data} />
+				<NoteOptions onDelete={deleteCurrentNote} {note} decryptedNoteKey={decryptedNoteKey!} />
 			{/if}
 		</div>
 	</div>

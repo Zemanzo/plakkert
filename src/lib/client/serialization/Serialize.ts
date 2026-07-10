@@ -1,4 +1,5 @@
 import _sodium from 'libsodium-wrappers';
+import type { Note } from '../Database';
 
 async function initCrypto() {
 	// Always wait for the WASM binary to load completely
@@ -26,17 +27,11 @@ export async function decryptNoteKey(
 	return sodium.crypto_box_seal_open(encryptedKey, publicKey, privateKey);
 }
 
-export async function encryptNote(note: string, noteKey: Uint8Array) {
+export async function encryptNote(data: Note['data'], noteKey: Uint8Array) {
 	const sodium = await initCrypto();
-
-	// 2. Generate a random unique nonce (24 bytes)
+	const stringData = JSON.stringify(data);
 	const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
-
-	// 3. Scramble the text string using the key and nonce
-	const encryptedRaw = sodium.crypto_secretbox_easy(note, nonce, noteKey);
-
-	// 4. Combine the nonce + encrypted message into one single package.
-	// This is a standard security practice because the recipient needs the nonce to decrypt.
+	const encryptedRaw = sodium.crypto_secretbox_easy(stringData, nonce, noteKey);
 	const combinedPayload = new Uint8Array(nonce.length + encryptedRaw.length);
 	combinedPayload.set(nonce);
 	combinedPayload.set(encryptedRaw, nonce.length);
@@ -56,21 +51,22 @@ export async function decryptNote(
 
 	const publicKeyBytes = Uint8Array.from(atob(publicKey), (c) => c.charCodeAt(0));
 
-	// Step 1: Open the sealed box using your keys to get the raw Note Key back
 	const decryptedNoteKey = sodium.crypto_box_seal_open(
 		encryptedNoteKey,
 		publicKeyBytes,
 		privateKey
 	);
-
-	// Step 2: Extract the nonce from the front of the main note payload
 	const nonceBytes = sodium.crypto_secretbox_NONCEBYTES;
 	const nonce = encryptedData.slice(0, nonceBytes);
 	const ciphertext = encryptedData.slice(nonceBytes);
-
-	// Step 3: Unscramble the actual text of the note back into plaintext
 	const decryptedNoteRaw = sodium.crypto_secretbox_open_easy(ciphertext, nonce, decryptedNoteKey);
 
-	// Step 4: Convert binary back to readable text string
-	return sodium.to_string(decryptedNoteRaw);
+	const data = sodium.to_string(decryptedNoteRaw);
+
+	try {
+		const parsedData = JSON.parse(data) as Note['data'];
+		return parsedData;
+	} catch (error) {
+		throw new Error('Failed to parse decrypted note data', { cause: error });
+	}
 }

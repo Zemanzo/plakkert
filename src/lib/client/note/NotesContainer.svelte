@@ -8,10 +8,8 @@
 	import Button from '../components/Button.svelte';
 	import { createNote } from './NotesCRUD';
 
-	type NoteWithContent = Omit<NoteType, 'content'> & { content: string };
-
 	const user = getContext<() => RuntimeUser>('user')();
-	let notes = $state<(readonly [NoteKey['id'], Promise<null | NoteWithContent>])[]>([]);
+	let notes = $state<(readonly [NoteKey['id'], Promise<null | NoteType>])[]>([]);
 	let focusedNoteId = $state<string | null>(null);
 	let hasFocusedNote = $derived(focusedNoteId !== null);
 
@@ -22,13 +20,16 @@
 			return null;
 		}
 		const decryptedContent = await decryptNote(
-			encryptedNote.content,
+			encryptedNote.data,
 			noteKey.encryptedKey,
 			user.decodedPrivateKey!,
 			user.publicKey
 		);
 
-		return { ...encryptedNote, content: decryptedContent };
+		return {
+			...encryptedNote,
+			data: decryptedContent
+		} satisfies NoteType;
 	};
 
 	const initialNotes = (async () => {
@@ -89,7 +90,7 @@
 					{#if note === null}
 						<div>Note not found or failed to decrypt.</div>
 					{:else}
-						<Note data={note} bind:focusedNoteId onDelete={onDeleteNote} />
+						<Note {note} bind:focusedNoteId onDelete={onDeleteNote} />
 					{/if}
 				{/await}
 			{/each}

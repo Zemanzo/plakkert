@@ -8,19 +8,22 @@ import type { RuntimeUser } from '$lib/types';
  */
 export const createNote = async (user: RuntimeUser) => {
 	const { noteKey, encryptedKey } = await getNoteKey(user.publicKeyUint8);
-	const { encryptedData } = await encryptNote('', noteKey);
+	const defaultNoteData = {
+		content: '',
+		meta: {
+			color: 'yellow'
+		}
+	};
+	const { encryptedData } = await encryptNote(defaultNoteData, noteKey);
 	const noteId = crypto.randomUUID();
 
 	const note = {
 		id: noteId,
 		ownerId: user.id,
-		content: encryptedData,
-		meta: {
-			color: 'yellow'
-		},
+		data: encryptedData,
 		createdAt: new Date(),
 		updatedAt: new Date()
-	} satisfies NoteType;
+	} satisfies NoteType<Uint8Array>;
 
 	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
 		await db.notes.add(note);
@@ -33,27 +36,20 @@ export const createNote = async (user: RuntimeUser) => {
 		} satisfies NoteKey);
 	});
 
-	return [noteId, Promise.resolve({ ...note, content: '' })] as const;
+	return [noteId, Promise.resolve({ ...note, data: defaultNoteData } satisfies NoteType)] as const;
 };
 
 /**
  * Updates the content of an existing note. Encrypts the new content using the
  * provided decrypted note key and updates the note in the database.
  */
-export const updateNoteContent = async (
+export const updateNoteData = async (
 	noteId: string,
-	htmlContent: string,
+	newData: NoteType['data'],
 	decryptedNoteKey: Uint8Array
 ) => {
-	const { encryptedData: encryptedNote } = await encryptNote(htmlContent, decryptedNoteKey!);
-	db.notes.update(noteId, { content: encryptedNote, updatedAt: new Date() });
-};
-
-/**
- * Updates the metadata of an existing note.
- */
-export const updateNoteMeta = async (noteId: string, newMeta: NoteType['meta']) => {
-	db.notes.update(noteId, { meta: newMeta, updatedAt: new Date() });
+	const { encryptedData: encryptedNote } = await encryptNote(newData, decryptedNoteKey!);
+	db.notes.update(noteId, { data: encryptedNote, updatedAt: new Date() });
 };
 
 export const deleteNote = async (noteId: string) => {

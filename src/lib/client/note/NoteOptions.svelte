@@ -3,16 +3,18 @@
 	import PaletteIcon from '@iconify-svelte/lucide/palette';
 	import Button from '../components/Button.svelte';
 	import type { Note } from '../Database';
-	import { updateNoteMeta } from './NotesCRUD';
+	import { updateNoteData } from './NotesCRUD';
 
 	const COLORS = ['red', 'yellow', 'green', 'blue'];
 
 	let {
 		onDelete,
-		data
+		note,
+		decryptedNoteKey
 	}: {
 		onDelete: (event: MouseEvent) => void;
-		data: Omit<Note, 'content'>;
+		note: Note;
+		decryptedNoteKey: Uint8Array;
 	} = $props();
 
 	function handleColorChange(event: Event) {
@@ -20,7 +22,7 @@
 		const selectedColor = target.value;
 
 		if (COLORS.includes(selectedColor)) {
-			updateNoteMeta(data.id, { color: selectedColor });
+			updateNoteData(note.id, { ...note.data, meta: { color: selectedColor } }, decryptedNoteKey);
 		} else {
 			console.warn(`Selected color "${selectedColor}" is not in the allowed colors.`);
 		}
@@ -42,7 +44,7 @@
 				id={`colorSelector-${color}`}
 				name="colorSelector"
 				value={color}
-				checked={color === data.meta.color}
+				checked={color === note.data.meta.color}
 				onchange={handleColorChange}
 			/>
 			<label for={`colorSelector-${color}`} data-color={`--color-${color}`} aria-label={color}
