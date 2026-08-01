@@ -27,35 +27,3 @@ export const GET: RequestHandler = async ({ locals }) => {
 		}))
 	);
 };
-
-export const POST: RequestHandler = async ({ locals, request }) => {
-	if (!locals.user) throw error(401, 'Unauthorized');
-
-	let body: { content?: unknown; noteKey?: unknown };
-	try {
-		body = await request.json();
-	} catch {
-		throw error(400, 'Invalid JSON');
-	}
-
-	const { content, noteKey } = body;
-	if (typeof content !== 'string' || typeof noteKey !== 'string') {
-		throw error(400, 'content and noteKey are required strings');
-	}
-
-	const contentBuffer = Buffer.from(content, 'base64');
-
-	const [note] = await db
-		.insert(notes)
-		.values({ owner: locals.user.id, content: contentBuffer })
-		.returning({ id: notes.id, createdAt: notes.createdAt, updatedAt: notes.updatedAt });
-
-	await db.insert(userNotes).values({
-		userId: locals.user.id,
-		noteId: note.id,
-		noteKey,
-		permissions: 'edit'
-	});
-
-	return json(note, { status: 201 });
-};

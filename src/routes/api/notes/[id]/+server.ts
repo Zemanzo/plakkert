@@ -31,29 +31,60 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
 	if (!locals.user) throw error(401, 'Unauthorized');
 
-	const [userNote] = await db
-		.select({ permissions: userNotes.permissions })
-		.from(userNotes)
-		.where(and(eq(userNotes.noteId, params.id), eq(userNotes.userId, locals.user.id)));
-
-	if (!userNote) throw error(404, 'Not found');
-	if (userNote.permissions !== 'edit') throw error(403, 'Forbidden');
-
-	let body: { content?: unknown };
+	let body: { content?: unknown; noteKey?: unknown; createdAt?: unknown; updatedAt?: unknown };
 	try {
 		body = await request.json();
 	} catch {
 		throw error(400, 'Invalid JSON');
 	}
 
-	const { content } = body;
+	const { content, noteKey, updatedAt, createdAt } = body;
 	if (typeof content !== 'string') throw error(400, 'content is required');
+	if (typeof updatedAt !== 'number') throw error(400, 'updatedAt is required');
+
+	const updatedAtDate = new Date(updatedAt);
 
 	const contentBuffer = Buffer.from(content, 'base64');
 
+	const [userNote] = await db
+		.select({ permissions: userNotes.permissions })
+		.from(userNotes)
+		.where(and(eq(userNotes.noteId, params.id), eq(userNotes.userId, locals.user.id)));
+
+	if (!userNote) {
+		const [existing] = await db.select({ id: notes.id }).from(notes).where(eq(notes.id, params.id));
+		if (existing) throw error(404, 'Not found');
+		if (typeof noteKey !== 'string') {
+			throw error(400, 'noteKey is required when creating a note');
+		}
+		if (typeof createdAt !== 'number') throw error(400, 'createdAt is required');
+
+		const [created] = await db
+			.insert(notes)
+			.values({
+				id: params.id,
+				owner: locals.user.id,
+				content: contentBuffer,
+				createdAt: new Date(createdAt),
+				updatedAt: updatedAtDate
+			})
+			.returning({ id: notes.id, updatedAt: notes.updatedAt });
+
+		await db.insert(userNotes).values({
+			userId: locals.user.id,
+			noteId: created.id,
+			noteKey,
+			permissions: 'edit'
+		});
+
+		return json(created);
+	}
+
+	if (userNote.permissions !== 'edit') throw error(403, 'Forbidden');
+
 	const [updated] = await db
 		.update(notes)
-		.set({ content: contentBuffer, updatedAt: new Date() })
+		.set({ content: contentBuffer, updatedAt: updatedAtDate })
 		.where(eq(notes.id, params.id))
 		.returning({ id: notes.id, updatedAt: notes.updatedAt });
 
@@ -63,10 +94,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 export const DELETE: RequestHandler = async ({ locals, params }) => {
 	if (!locals.user) throw error(401, 'Unauthorized');
 
-	const [note] = await db
-		.select({ owner: notes.owner })
-		.from(notes)
-		.where(eq(notes.id, params.id));
+	const [note] = await db.select({ owner: notes.owner }).from(notes).where(eq(notes.id, params.id));
 
 	if (!note) throw error(404, 'Not found');
 	if (note.owner !== locals.user.id) throw error(403, 'Forbidden');
