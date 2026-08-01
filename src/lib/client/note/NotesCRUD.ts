@@ -101,9 +101,14 @@ export const updateNoteData = async (
 };
 
 export const deleteNote = async (noteId: string) => {
+	const deletedAt = new Date();
 	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
 		await db.noteKeys.where({ noteId }).delete();
-		await db.notes.delete(noteId);
+		await db.notes.update(noteId, {
+			data: new Uint8Array(),
+			deletedAt,
+			updatedAt: deletedAt
+		});
 	});
 
 	const response = await fetch(`/api/notes/${noteId}`, {

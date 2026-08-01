@@ -34,7 +34,10 @@
 
 	const initialNotes = (async () => {
 		const noteKeys = await db.noteKeys.where({ userId: user.id }).toArray();
-		notes = noteKeys.map((noteKey) => [noteKey.noteId, getNoteContent(noteKey)] as const);
+		const deletedNoteIds = new Set(await db.notes.orderBy('deletedAt').primaryKeys());
+		notes = noteKeys
+			.filter((noteKey) => !deletedNoteIds.has(noteKey.noteId))
+			.map((noteKey) => [noteKey.noteId, getNoteContent(noteKey)] as const);
 	})();
 
 	function unfocus(event: KeyboardEvent) {

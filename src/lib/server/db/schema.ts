@@ -16,6 +16,8 @@ export const notes = sqliteTable('notes', {
 	updatedAt: integer('updated_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date()),
+	// Non-null value acts as a tombstone marker so deletions can propagate via sync.
+	deletedAt: integer('deleted_at', { mode: 'timestamp' })
 });
 
 export const userNotes = sqliteTable(
@@ -39,12 +41,12 @@ export const userNotes = sqliteTable(
 			.default('view'),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
-			.$defaultFn(() => new Date()),
+			.$defaultFn(() => new Date())
 	},
 	(table) => [
 		// Ensure each user can only have one permission entry per note
-		uniqueIndex('user_note_unique').on(table.userId, table.noteId),
-	],
+		uniqueIndex('user_note_unique').on(table.userId, table.noteId)
+	]
 );
 
 export * from './auth.schema';

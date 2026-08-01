@@ -27,6 +27,7 @@ export interface Note<TData extends NoteData | Uint8Array = NoteData> {
 	data: TData;
 	createdAt: Date;
 	updatedAt: Date;
+	deletedAt?: Date;
 }
 
 export interface NoteKey {
@@ -55,6 +56,12 @@ const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 db.version(1).stores({
 	users: 'id, username',
 	notes: 'id, ownerId, createdAt, updatedAt',
+	noteKeys: '[noteId+userId], [userId+noteId]'
+});
+
+db.version(2).stores({
+	users: 'id, username',
+	notes: 'id, ownerId, createdAt, updatedAt, deletedAt',
 	noteKeys: '[noteId+userId], [userId+noteId]'
 });
 

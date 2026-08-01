@@ -14,7 +14,8 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 			noteKey: userNotes.noteKey,
 			permissions: userNotes.permissions,
 			createdAt: notes.createdAt,
-			updatedAt: notes.updatedAt
+			updatedAt: notes.updatedAt,
+			deletedAt: notes.deletedAt
 		})
 		.from(userNotes)
 		.innerJoin(notes, eq(userNotes.noteId, notes.id))
@@ -47,8 +48,9 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 	const contentBuffer = Buffer.from(content, 'base64');
 
 	const [userNote] = await db
-		.select({ permissions: userNotes.permissions })
+		.select({ permissions: userNotes.permissions, deletedAt: notes.deletedAt })
 		.from(userNotes)
+		.innerJoin(notes, eq(userNotes.noteId, notes.id))
 		.where(and(eq(userNotes.noteId, params.id), eq(userNotes.userId, locals.user.id)));
 
 	if (!userNote) {
@@ -80,6 +82,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 		return json(created);
 	}
 
+	if (userNote.deletedAt) throw error(410, 'Gone');
 	if (userNote.permissions !== 'edit') throw error(403, 'Forbidden');
 
 	const [updated] = await db
@@ -99,7 +102,11 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 	if (!note) throw error(404, 'Not found');
 	if (note.owner !== locals.user.id) throw error(403, 'Forbidden');
 
-	await db.delete(notes).where(eq(notes.id, params.id));
+	const now = new Date();
+	await db
+		.update(notes)
+		.set({ content: null, deletedAt: now, updatedAt: now })
+		.where(eq(notes.id, params.id));
 
 	return new Response(null, { status: 204 });
 };

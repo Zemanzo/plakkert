@@ -14,7 +14,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 			noteKey: userNotes.noteKey,
 			permissions: userNotes.permissions,
 			createdAt: notes.createdAt,
-			updatedAt: notes.updatedAt
+			updatedAt: notes.updatedAt,
+			deletedAt: notes.deletedAt
 		})
 		.from(userNotes)
 		.innerJoin(notes, eq(userNotes.noteId, notes.id))
