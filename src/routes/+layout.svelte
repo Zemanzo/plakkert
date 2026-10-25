@@ -1,36 +1,41 @@
 <script lang="ts">
 	import './layout.css';
 	import Header from '#lib/client/Header.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
 	import { localUser } from '#lib/client/User.svelte.js';
+	import { getUnlockedSession } from '#lib/client/auth/Session.js';
+	import { applyTheme } from '#lib/client/settings/Preferences.js';
 
-	let { children, data } = $props();
+	let { children } = $props();
+
+	const PUBLIC_ROUTES: (string | null)[] = ['/login', '/register'];
 
 	$effect(() => {
+		// Pages are a static shell, so access is decided here: only a user that has unlocked their
+		// private key in this tab can see their notes. The API checks the server session itself.
+		const session = getUnlockedSession();
+		const routeId = page.route.id;
+
 		// (Re-)initialize localUser as otherwise it will lose the user state when navigating to a new page.
-		localUser.init(page.data.user?.id);
+		localUser.init(session?.userId);
+
+		if (!session && !PUBLIC_ROUTES.includes(routeId)) {
+			goto(resolve('/login'), { replace: true });
+		} else if (session && routeId === '/login') {
+			goto(resolve('/'), { replace: true });
+		}
 	});
 
-	onMount(() => {
-		$effect(() => {
-			if (!localUser.isLoading) {
-				switch (localUser?.data?.preferences?.theme) {
-					case 'light':
-						document.documentElement.style.colorScheme = 'light';
-						break;
-					case 'dark':
-						document.documentElement.style.colorScheme = 'dark';
-						break;
-					case 'system':
-						document.documentElement.style.colorScheme = 'light dark';
-						break;
-					// No default, the fallback is already set in the server hooks.
-				}
-			}
-		});
+	$effect(() => {
+		const theme = localUser.data?.preferences?.theme;
+		// Without a user, the theme remembered by app.html stays in place.
+		if (theme) {
+			applyTheme(theme);
+		}
 	});
 </script>
 
-<Header user={data.user} />
+<Header />
 {@render children()}

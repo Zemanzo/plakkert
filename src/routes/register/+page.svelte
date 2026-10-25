@@ -1,109 +1,43 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { onMount } from 'svelte';
-	import type { ActionData } from './$types';
-	import _sodium from 'libsodium-wrappers';
-	import { db } from '#lib/client/Database.js';
-	import { encryptPrivateKey } from '#lib/client/cryptography/PrivateKey.js';
-	import { defaultPreferences } from '#lib/client/settings/Preferences.js';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { register } from '#lib/client/auth/Account.js';
+	import { OfflineError } from '#lib/client/auth/AuthApi.js';
 	import Button from '#lib/client/components/Button.svelte';
 
-	async function initCrypto() {
-		// Always wait for the WASM binary to load completely
-		await _sodium.ready;
-		return _sodium;
-	}
-
-	let publicKeyStr = $state<string | undefined>(),
-		privateKeyBuffer = $state<Uint8Array | undefined>();
-
-	async function generateUserKeys() {
-		const sodium = await initCrypto();
-
-		const { publicKey, privateKey } = sodium.crypto_box_keypair();
-
-		return {
-			publicKey,
-			privateKey
-		};
-	}
-	onMount(async () => {
-		const keys = await generateUserKeys();
-		publicKeyStr = btoa(String.fromCharCode(...keys.publicKey));
-		privateKeyBuffer = keys.privateKey;
-	});
-
-	let { form }: { form: ActionData } = $props();
+	let username = $state('');
+	let password = $state('');
 	let isCreating = $state(false);
-	let success = $state(false);
+	let errorMessage = $state<string | null>(null);
+
+	async function onsubmit(event: SubmitEvent) {
+		event.preventDefault();
+		isCreating = true;
+		errorMessage = null;
+		try {
+			await register(username, password);
+			await goto(resolve('/'));
+		} catch (error) {
+			console.error('Registration failed', error);
+			if (error instanceof OfflineError) {
+				errorMessage = 'You need to be online to create an account.';
+			} else {
+				errorMessage = error instanceof Error ? error.message : 'Unexpected error';
+			}
+		} finally {
+			isCreating = false;
+		}
+	}
 </script>
 
-<form
-	method="post"
-	action="?/signUpEmail"
-	use:enhance={async ({ formData }) => {
-		isCreating = true;
-
-		const password = formData.get('password') as string;
-		const { encryptedKey, salt, nonce } = await encryptPrivateKey(privateKeyBuffer!, password);
-
-		formData.append('privateKey', btoa(String.fromCharCode(...encryptedKey)));
-		formData.append('salt', btoa(String.fromCharCode(...salt)));
-		formData.append('nonce', btoa(String.fromCharCode(...nonce)));
-
-		return async ({ result, update, formData }) => {
-			await update();
-			if (result.type === 'success') {
-				try {
-					success = true;
-					const id = result.data?.id as string;
-					const publicKey = formData.get('publicKey') as string;
-					const email = formData.get('email') as string;
-					// The server normalizes usernames to lowercase; store it the same way locally.
-					const username = (formData.get('username') as string).toLowerCase();
-
-					if (!id || !password || !publicKey || !email || !username) {
-						console.error('Missing required form data');
-						isCreating = false;
-						return;
-					}
-
-					await db.users.add(
-						{
-							id,
-							username,
-							email,
-							privateKey: new Uint8Array(encryptedKey),
-							publicKey: publicKeyStr!,
-							salt,
-							nonce,
-							preferences: defaultPreferences
-						},
-						id
-					);
-
-					sessionStorage.setItem('privateKey', btoa(String.fromCharCode(...privateKeyBuffer!)));
-					// Redirect to login page or home page after successful registration
-					window.location.href = '/';
-				} catch (error) {
-					console.error('Failed to store encrypted key in IndexedDB', error);
-					throw error;
-				}
-			} else if (result.type === 'error') {
-				console.error('Form submission failed', result.error);
-			} else if (result.type === 'failure') {
-				console.error('Form validation failed', result.data);
-			}
-			isCreating = false;
-		};
-	}}
->
+<form {onsubmit}>
 	<label for="username"> Username </label>
 	<input
 		id="username"
 		type="text"
 		name="username"
 		autocomplete={null}
+		bind:value={username}
 		disabled={isCreating}
 		required
 	/>
@@ -113,15 +47,14 @@
 		type="password"
 		name="password"
 		autocomplete="new-password"
+		bind:value={password}
 		disabled={isCreating}
 		required
 	/>
-	<input type="hidden" name="publicKey" required value={publicKeyStr} />
-	<input type="hidden" name="email" required value={`${crypto.randomUUID()}@example.com`} />
 	<Button type="submit" disabled={isCreating} class="submitButton">Register</Button>
 </form>
-{#if !isCreating && !success && form?.message}
-	<p>{form.message}</p>
+{#if !isCreating && errorMessage}
+	<p>{errorMessage}</p>
 {/if}
 
 <style>

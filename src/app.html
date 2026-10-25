@@ -1,9 +1,19 @@
 <!doctype html>
-<html lang="en" style="color-scheme: %theme%">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<script>
+			// Apply the theme before first paint. Kept in sync by applyTheme() in Preferences.ts.
+			try {
+				const theme = localStorage.getItem('plakkert_theme');
+				document.documentElement.style.colorScheme =
+					theme === 'light' || theme === 'dark' ? theme : 'light dark';
+			} catch {
+				document.documentElement.style.colorScheme = 'light dark';
+			}
+		</script>
 		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
 		<link rel="icon" type="image/png" sizes="48x48" href="/icon_48x.png" />
 		<link rel="icon" type="image/png" sizes="32x32" href="/icon_32x.png" />

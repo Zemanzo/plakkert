@@ -7,6 +7,15 @@ async function initCrypto() {
 	return _sodium;
 }
 
+/** Generates the asymmetric key pair that note keys are encrypted with. */
+export async function generateUserKeys() {
+	const sodium = await initCrypto();
+
+	const { publicKey, privateKey } = sodium.crypto_box_keypair();
+
+	return { publicKey, privateKey };
+}
+
 export async function getNoteKey(publicKey: Uint8Array) {
 	const sodium = await initCrypto();
 

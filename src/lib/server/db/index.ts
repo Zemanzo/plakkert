@@ -4,16 +4,18 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import Database from 'better-sqlite3';
 import * as schema from './schema';
+import { building } from '$app/env';
 import { DATABASE_URL } from '$app/env/private';
 
-if (!DATABASE_URL) throw new Error('DATABASE_URL is not set');
+// The build imports server modules (e.g. to prerender pages); don't touch the real database then.
+const databaseUrl = building ? ':memory:' : DATABASE_URL;
 
 // Make sure /data (or any parent dir) exists before opening sqlite file.
-if (!DATABASE_URL.startsWith(':memory:')) {
-	mkdirSync(dirname(DATABASE_URL), { recursive: true });
+if (!databaseUrl.startsWith(':memory:')) {
+	mkdirSync(dirname(databaseUrl), { recursive: true });
 }
 
-const client = new Database(DATABASE_URL);
+const client = new Database(databaseUrl);
 
 export const db = drizzle(client, { schema });
 

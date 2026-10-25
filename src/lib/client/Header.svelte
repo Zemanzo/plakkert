@@ -1,11 +1,17 @@
 <script lang="ts">
-	import { applyAction, enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { sessionRemovePrivateKey } from '#lib/client/cryptography/PrivateKey.js';
+	import { logout } from '#lib/client/auth/Account.js';
+	import { localUser } from '#lib/client/User.svelte.js';
 	import Button from './components/Button.svelte';
 
-	let { user }: { user?: { id: string } } = $props();
+	const user = $derived(localUser.data);
+
+	async function signOut() {
+		await logout();
+		await goto(resolve('/login'));
+	}
 </script>
 
 <svelte:head>
@@ -23,20 +29,7 @@
 			<a href={resolve('settings')} aria-current={page.url.pathname === '/settings'}>Settings</a>
 		</nav>
 		<!-- <p>Your user ID is {user.id}.</p> -->
-		<form
-			method="post"
-			action="/?/signOut"
-			use:enhance={() => {
-				return async ({ result }) => {
-					if (result.type === 'redirect') {
-						sessionRemovePrivateKey();
-					}
-					await applyAction(result);
-				};
-			}}
-		>
-			<Button class="sm" --bg="var(--color-red)" type="submit">Sign out</Button>
-		</form>
+		<Button class="sm" --bg="var(--color-red)" onclick={signOut}>Sign out</Button>
 	{/if}
 </header>
 

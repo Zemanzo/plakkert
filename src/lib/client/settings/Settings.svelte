@@ -1,14 +1,8 @@
 <script lang="ts">
-	import Cookies from 'js-cookie';
 	import Button from '../components/Button.svelte';
 	import { localUser } from '../User.svelte';
 	import { db } from '../Database';
-	import {
-		COOKIE_PREFIX,
-		cookiePreferences,
-		defaultPreferences,
-		type Preferences
-	} from './Preferences';
+	import { defaultPreferences, type Preferences } from './Preferences';
 
 	let settings = $state<Preferences>(
 		localUser.data?.preferences ? { ...localUser.data.preferences } : defaultPreferences
@@ -30,15 +24,8 @@
 	});
 
 	async function saveChanges() {
+		// The layout applies preferences such as the theme when the user record changes.
 		await db.users.update(localUser.data!.id, { preferences: $state.snapshot(settings) });
-
-		for (const prefKey of cookiePreferences) {
-			// Since the theme should be applied during SSR, we also store it in a cookie so that the server can read it on the next request.
-			Cookies.set(`${COOKIE_PREFIX}${prefKey}`, settings[prefKey], {
-				expires: 2 ** 31 - 1,
-				sameSite: 'strict'
-			});
-		}
 	}
 </script>
 

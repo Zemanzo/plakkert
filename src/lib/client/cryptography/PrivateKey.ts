@@ -56,7 +56,7 @@ export async function decryptPrivateKey(
 		derivedKey,
 		privateKey.buffer as ArrayBuffer
 	);
-	return decryptedKeyBuffer;
+	return new Uint8Array(decryptedKeyBuffer);
 }
 
 /**
@@ -71,16 +71,4 @@ export function encodeKey(privateKey: Uint8Array) {
  */
 export function decodeKey(encodedKey: string) {
 	return Uint8Array.from(atob(encodedKey), (c) => c.charCodeAt(0));
-}
-
-export function sessionStorePrivateKey(key: Uint8Array): void {
-	sessionStorage.setItem('privateKey', encodeKey(key));
-}
-export function sessionGetPrivateKey(): Uint8Array | null {
-	const encodedKey = sessionStorage.getItem('privateKey');
-	if (!encodedKey) return null;
-	return decodeKey(encodedKey);
-}
-export function sessionRemovePrivateKey(): void {
-	sessionStorage.removeItem('privateKey');
 }

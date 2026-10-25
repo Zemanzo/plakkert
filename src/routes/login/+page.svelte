@@ -1,83 +1,44 @@
 <script lang="ts">
-	import { enhance, applyAction } from '$app/forms';
-	import { goto, refreshAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import EyeIcon from '@iconify-svelte/charm/eye';
 	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
-	import type { ActionData } from './$types';
-	import { db } from '#lib/client/Database.js';
-	import {
-		decryptPrivateKey,
-		sessionStorePrivateKey
-	} from '#lib/client/cryptography/PrivateKey.js';
-	import { defaultPreferences } from '#lib/client/settings/Preferences.js';
+	import { login } from '#lib/client/auth/Account.js';
+	import { getLastUsername } from '#lib/client/auth/Session.js';
 	import Button from '#lib/client/components/Button.svelte';
 
-	let { form }: { form: ActionData } = $props();
+	let username = $state(getLastUsername());
+	let password = $state('');
 	let loading = $state(false);
-	let success = $state(false);
+	let errorMessage = $state<string | null>(null);
 	let showPassword = $state(false);
 
-	/**
-	 * Retrieves the signed-in user from the server and stores it in the local
-	 * IndexedDB, keeping any local preferences.
-	 */
-	async function storeCurrentUser() {
-		const response = await fetch('/api/user');
-		if (!response.ok) {
-			throw new Error('Failed to fetch user data');
+	async function onsubmit(event: SubmitEvent) {
+		event.preventDefault();
+		loading = true;
+		errorMessage = null;
+		try {
+			await login(username, password);
+			await goto(resolve('/'));
+		} catch (error) {
+			console.error('Login failed', error);
+			errorMessage = error instanceof Error ? error.message : 'Unexpected error';
+		} finally {
+			loading = false;
 		}
-
-		const userData = await response.json();
-		const existingUser = await db.users.get(userData.id);
-
-		const currentUser = {
-			id: userData.id,
-			username: userData.username,
-			email: userData.email,
-			publicKey: userData.publicKey,
-			privateKey: Uint8Array.fromBase64(userData.privateKey),
-			salt: Uint8Array.fromBase64(userData.salt),
-			nonce: Uint8Array.fromBase64(userData.nonce),
-			preferences: existingUser?.preferences ?? defaultPreferences
-		};
-
-		await db.users.put(currentUser);
-		return currentUser;
 	}
 </script>
 
-<form
-	method="post"
-	action="?/signInUsername"
-	use:enhance={() => {
-		loading = true;
-		return async ({ result, formData }) => {
-			loading = false;
-			if (result.type === 'redirect') {
-				success = true;
-				const password = formData.get('password') as string;
-				// Always refresh the local copy from the server, so the user is matched by ID rather
-				// than by the (normalized) username.
-				const currentUser = await storeCurrentUser();
-				const decryptedKeyBuffer = await decryptPrivateKey(
-					currentUser.privateKey,
-					password,
-					currentUser.salt,
-					currentUser.nonce
-				);
-				sessionStorePrivateKey(new Uint8Array(decryptedKeyBuffer));
-				await refreshAll();
-				// eslint-disable-next-line svelte/no-navigation-without-resolve
-				goto(result.location);
-			} else {
-				console.log(result);
-				await applyAction(result);
-			}
-		};
-	}}
->
+<form {onsubmit}>
 	<label for="username"> Username </label>
-	<input id="username" name="username" autocomplete="username" disabled={loading} required />
+	<input
+		id="username"
+		name="username"
+		autocomplete="username"
+		bind:value={username}
+		disabled={loading}
+		required
+	/>
 	<div></div>
 	<label for="password"> Password </label>
 	<input
@@ -85,7 +46,9 @@
 		type={showPassword ? 'text' : 'password'}
 		name="password"
 		autocomplete="current-password"
+		bind:value={password}
 		disabled={loading}
+		required
 	/>
 	<button
 		type="button"
@@ -103,8 +66,8 @@
 	</button>
 	<Button type="submit" disabled={loading} class="submitButton">Login</Button>
 </form>
-{#if !loading && !success && form?.message}
-	<p>{form.message}</p>
+{#if !loading && errorMessage}
+	<p>{errorMessage}</p>
 {/if}
 
 <style>
