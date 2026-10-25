@@ -5,7 +5,7 @@
 	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
 	import type { ActionData } from './$types';
 	import { db } from '#lib/client/Database.js';
-	import { decryptPrivateKey, hashPassword } from '#lib/client/cryptography/PrivateKey.js';
+	import { decryptPrivateKey } from '#lib/client/cryptography/PrivateKey.js';
 	import { defaultPreferences } from '#lib/client/settings/Preferences.js';
 	import Button from '#lib/client/components/Button.svelte';
 
@@ -18,7 +18,7 @@
 	 * Retrieves user data from the server and adds it to the local IndexedDB if
 	 * the user does not already exist.
 	 */
-	async function addCurrentUserToDatabase(password: string) {
+	async function addCurrentUserToDatabase() {
 		try {
 			const response = await fetch('/api/user');
 			if (!response.ok) {
@@ -29,15 +29,12 @@
 
 			console.log('userData', userData);
 
-			const passwordHash = await hashPassword(password, Uint8Array.fromBase64(userData.salt));
-
 			const currentUser = {
 				id: userData.id,
 				username: userData.username,
 				email: userData.email,
 				publicKey: userData.publicKey,
 				privateKey: Uint8Array.fromBase64(userData.privateKey),
-				passwordHash: new Uint8Array(passwordHash),
 				salt: Uint8Array.fromBase64(userData.salt),
 				nonce: Uint8Array.fromBase64(userData.nonce),
 				preferences: defaultPreferences
@@ -78,7 +75,7 @@
 				} else {
 					// User not found in local database, retrieve from server and add to database.
 					try {
-						const currentUser = await addCurrentUserToDatabase(password);
+						const currentUser = await addCurrentUserToDatabase();
 
 						const decryptedKeyBuffer = await decryptPrivateKey(
 							currentUser.privateKey,

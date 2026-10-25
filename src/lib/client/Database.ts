@@ -8,7 +8,6 @@ export interface User {
 	email: string;
 	publicKey: string;
 	privateKey: Uint8Array;
-	passwordHash: Uint8Array;
 	salt: Uint8Array;
 	nonce: Uint8Array;
 	preferences: Preferences;
@@ -58,5 +57,18 @@ db.version(2).stores({
 	notes: 'id, ownerId, createdAt, updatedAt, deletedAt',
 	noteKeys: '[noteId+userId], [userId+noteId]'
 });
+
+// Earlier versions stored a "password hash" that was identical to the key used to encrypt the
+// private key, which made the password unnecessary for decrypting it.
+db.version(3)
+	.stores({})
+	.upgrade((tx) =>
+		tx
+			.table('users')
+			.toCollection()
+			.modify((user) => {
+				delete user.passwordHash;
+			})
+	);
 
 export { db };

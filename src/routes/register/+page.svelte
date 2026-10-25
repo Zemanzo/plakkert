@@ -45,10 +45,7 @@
 		isCreating = true;
 
 		const password = formData.get('password') as string;
-		const { encryptedKey, salt, nonce, passwordHash } = await encryptPrivateKey(
-			privateKeyBuffer!,
-			password
-		);
+		const { encryptedKey, salt, nonce } = await encryptPrivateKey(privateKeyBuffer!, password);
 
 		formData.append('privateKey', btoa(String.fromCharCode(...encryptedKey)));
 		formData.append('salt', btoa(String.fromCharCode(...salt)));
@@ -77,7 +74,6 @@
 							email,
 							privateKey: new Uint8Array(encryptedKey),
 							publicKey: publicKeyStr!,
-							passwordHash: new Uint8Array(passwordHash),
 							salt,
 							nonce,
 							preferences: defaultPreferences
