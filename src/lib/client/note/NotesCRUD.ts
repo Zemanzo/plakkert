@@ -1,16 +1,16 @@
-import { db, type NoteKey, type Note as NoteType } from '../Database';
+import { db, type NoteData, type NoteKey, type Note as NoteType } from '../Database';
 import { encryptNote, getNoteKey } from '../serialization/Serialize';
+import { syncEngine } from '../sync/Sync.svelte';
 import type { RuntimeUser } from '#lib/types.js';
 
-async function ensureOk(response: Response, message: string) {
-	if (!response.ok) {
-		throw new Error(message);
-	}
-}
+// Notes are only written to IndexedDB here, and marked dirty. The sync engine sends them to the
+// server in the background, so all of this also works offline.
 
 /**
  * Adds a new note for the given user. Generates a new note key, encrypts an
  * empty note, and stores both the note and the encrypted key in the database.
+ *
+ * @returns The ID of the new note.
  */
 export const createNote = async (user: RuntimeUser) => {
 	const { noteKey, encryptedKey } = await getNoteKey(user.publicKeyUint8);
@@ -19,37 +19,17 @@ export const createNote = async (user: RuntimeUser) => {
 		meta: {
 			color: 'yellow'
 		}
-	};
+	} satisfies NoteData;
 	const { encryptedData } = await encryptNote(defaultNoteData, noteKey);
-	const noteId = crypto.randomUUID();
-
-	const createdAt = new Date();
-	const updatedAt = new Date();
-
-	const response = await fetch(`/api/notes/${noteId}`, {
-		method: 'PUT',
-		headers: {
-			'content-type': 'application/json'
-		},
-		body: JSON.stringify({
-			content: encryptedData.toBase64(),
-			noteKey: encryptedKey.toBase64(),
-			createdAt: createdAt.getTime(),
-			updatedAt: updatedAt.getTime()
-		})
-	});
-	await ensureOk(response, 'Failed to create note on server');
-
-	const createdNote = (await response.json()) as {
-		id: string;
-	};
+	const now = new Date();
 
 	const note = {
-		id: createdNote.id,
+		id: crypto.randomUUID(),
 		ownerId: user.id,
 		data: encryptedData,
-		createdAt,
-		updatedAt
+		createdAt: now,
+		updatedAt: now,
+		dirty: 1
 	} satisfies NoteType<Uint8Array>;
 
 	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
@@ -62,11 +42,10 @@ export const createNote = async (user: RuntimeUser) => {
 			encryptedKey
 		} satisfies NoteKey);
 	});
+	syncEngine.requestSync();
 
-	return [note.id, Promise.resolve({ ...note, data: defaultNoteData } satisfies NoteType)] as const;
+	return note.id;
 };
-
-const debounceUpdateTimeoutMap = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
  * Updates the content of an existing note. Encrypts the new content using the
@@ -74,30 +53,13 @@ const debounceUpdateTimeoutMap = new Map<string, ReturnType<typeof setTimeout>>(
  */
 export const updateNoteData = async (
 	noteId: string,
-	newData: NoteType['data'],
-	decryptedNoteKey: Uint8Array
+	newData: NoteData,
+	decryptedNoteKey: Uint8Array,
+	updatedAt = new Date()
 ) => {
-	const { encryptedData: encryptedNote } = await encryptNote(newData, decryptedNoteKey!);
-	const updatedAt = new Date();
-	await db.notes.update(noteId, { data: encryptedNote, updatedAt });
-
-	if (debounceUpdateTimeoutMap.has(noteId)) {
-		clearTimeout(debounceUpdateTimeoutMap.get(noteId));
-	}
-	const debounceUpdateTimeout = setTimeout(async () => {
-		const response = await fetch(`/api/notes/${noteId}`, {
-			method: 'PUT',
-			headers: {
-				'content-type': 'application/json'
-			},
-			body: JSON.stringify({
-				content: encryptedNote.toBase64(),
-				updatedAt: updatedAt.getTime()
-			})
-		});
-		await ensureOk(response, 'Failed to update note on server');
-	}, 600);
-	debounceUpdateTimeoutMap.set(noteId, debounceUpdateTimeout);
+	const { encryptedData: encryptedNote } = await encryptNote(newData, decryptedNoteKey);
+	await db.notes.update(noteId, { data: encryptedNote, updatedAt, dirty: 1 });
+	syncEngine.requestSync();
 };
 
 export const deleteNote = async (noteId: string) => {
@@ -107,12 +69,9 @@ export const deleteNote = async (noteId: string) => {
 		await db.notes.update(noteId, {
 			data: new Uint8Array(),
 			deletedAt,
-			updatedAt: deletedAt
+			updatedAt: deletedAt,
+			dirty: 1
 		});
 	});
-
-	const response = await fetch(`/api/notes/${noteId}`, {
-		method: 'DELETE'
-	});
-	await ensureOk(response, 'Failed to delete note on server');
+	syncEngine.requestSync();
 };

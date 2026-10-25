@@ -50,25 +50,14 @@ export async function encryptNote(data: Note['data'], noteKey: Uint8Array) {
 	};
 }
 
-export async function decryptNote(
-	encryptedData: Uint8Array,
-	encryptedNoteKey: Uint8Array,
-	privateKey: Uint8Array,
-	publicKey: string
-) {
+/** Decrypts note data that was encrypted with {@link encryptNote}. */
+export async function decryptNoteData(encryptedData: Uint8Array, noteKey: Uint8Array) {
 	const sodium = await initCrypto();
 
-	const publicKeyBytes = Uint8Array.from(atob(publicKey), (c) => c.charCodeAt(0));
-
-	const decryptedNoteKey = sodium.crypto_box_seal_open(
-		encryptedNoteKey,
-		publicKeyBytes,
-		privateKey
-	);
 	const nonceBytes = sodium.crypto_secretbox_NONCEBYTES;
 	const nonce = encryptedData.slice(0, nonceBytes);
 	const ciphertext = encryptedData.slice(nonceBytes);
-	const decryptedNoteRaw = sodium.crypto_secretbox_open_easy(ciphertext, nonce, decryptedNoteKey);
+	const decryptedNoteRaw = sodium.crypto_secretbox_open_easy(ciphertext, nonce, noteKey);
 
 	const data = sodium.to_string(decryptedNoteRaw);
 

@@ -10,14 +10,15 @@ export const notes = sqliteTable('notes', {
 		.references(() => user.id, { onDelete: 'cascade' }),
 	// (encrypted) contains title, content, style, category in JSON format
 	content: blob('content'),
-	createdAt: integer('created_at', { mode: 'timestamp' })
+	// Timestamps are in milliseconds, so last-write-wins sync can tell apart edits within a second.
+	createdAt: integer('created_at', { mode: 'timestamp_ms' })
 		.notNull()
 		.$defaultFn(() => new Date()),
-	updatedAt: integer('updated_at', { mode: 'timestamp' })
+	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
 		.notNull()
 		.$defaultFn(() => new Date()),
 	// Non-null value acts as a tombstone marker so deletions can propagate via sync.
-	deletedAt: integer('deleted_at', { mode: 'timestamp' })
+	deletedAt: integer('deleted_at', { mode: 'timestamp_ms' })
 });
 
 export const userNotes = sqliteTable(

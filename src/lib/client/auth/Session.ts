@@ -10,19 +10,22 @@ const LAST_USERNAME_STORAGE_KEY = 'plakkert_lastUsername';
 export interface UnlockedSession {
 	userId: string;
 	privateKey: Uint8Array;
+	/** Lets the sync engine sign in again when the server session has expired. */
+	authKey: string;
 }
 
 interface StoredSession {
 	userId: string;
 	privateKey: string;
+	authKey: string;
 }
 
 export function getUnlockedSession(): UnlockedSession | null {
 	try {
 		const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
 		if (!stored) return null;
-		const { userId, privateKey } = JSON.parse(stored) as StoredSession;
-		return { userId, privateKey: decodeKey(privateKey) };
+		const { userId, privateKey, authKey } = JSON.parse(stored) as StoredSession;
+		return { userId, privateKey: decodeKey(privateKey), authKey };
 	} catch {
 		return null;
 	}
@@ -33,7 +36,8 @@ export function storeUnlockedSession(session: UnlockedSession) {
 		SESSION_STORAGE_KEY,
 		JSON.stringify({
 			userId: session.userId,
-			privateKey: encodeKey(session.privateKey)
+			privateKey: encodeKey(session.privateKey),
+			authKey: session.authKey
 		} satisfies StoredSession)
 	);
 }

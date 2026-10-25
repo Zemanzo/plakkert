@@ -10,11 +10,11 @@ import {
 } from '../cryptography/PrivateKey';
 import { generateUserKeys } from '../serialization/Serialize';
 import { defaultPreferences } from '../settings/Preferences';
+import { ApiError, OfflineError } from '../Api';
+import { syncEngine } from '../sync/Sync.svelte';
 import {
-	ApiError,
 	changePassword,
 	fetchServerUser,
-	OfflineError,
 	signInUsername,
 	signOut,
 	signUpEmail,
@@ -51,8 +51,8 @@ async function storeServerUser(serverUser: ServerUser) {
 	return user;
 }
 
-function unlock(user: User, privateKey: Uint8Array) {
-	storeUnlockedSession({ userId: user.id, privateKey });
+function unlock(user: User, privateKey: Uint8Array, authKey: string) {
+	storeUnlockedSession({ userId: user.id, privateKey, authKey });
 	setLastUsername(user.username);
 }
 
@@ -63,7 +63,7 @@ const kdfIterationsOf = (user: User) => user.kdfIterations ?? LEGACY_KDF_ITERATI
  * contacting the server. The password is verified by decrypting the private
  * key.
  */
-async function unlockOffline(user: User | undefined, password: string) {
+async function unlockOffline(user: User | undefined, password: string, authKey: string) {
 	if (!user) {
 		throw new Error(
 			"You're offline, and this account hasn't been used on this device before. Connect to the internet to log in."
@@ -83,7 +83,7 @@ async function unlockOffline(user: User | undefined, password: string) {
 		throw new Error('Invalid username or password');
 	}
 
-	unlock(user, privateKey);
+	unlock(user, privateKey, authKey);
 	return user;
 }
 
@@ -148,7 +148,7 @@ export async function login(rawUsername: string, password: string) {
 		await signIn(username, password, authKey, localUser);
 	} catch (error) {
 		if (error instanceof OfflineError) {
-			return unlockOffline(localUser, password);
+			return unlockOffline(localUser, password, authKey);
 		}
 		throw error;
 	}
@@ -165,7 +165,7 @@ export async function login(rawUsername: string, password: string) {
 		user = await upgradePrivateKeyEncryption(user, privateKey, password);
 	}
 
-	unlock(user, privateKey);
+	unlock(user, privateKey, authKey);
 	return user;
 }
 
@@ -206,7 +206,7 @@ export async function register(rawUsername: string, password: string) {
 	};
 	await db.users.add(user);
 
-	unlock(user, keys.privateKey);
+	unlock(user, keys.privateKey, authKey);
 	return user;
 }
 
@@ -215,6 +215,7 @@ export async function register(rawUsername: string, password: string) {
  * server session simply stays around until it expires.
  */
 export async function logout() {
+	syncEngine.stop();
 	clearUnlockedSession();
 	try {
 		await signOut();

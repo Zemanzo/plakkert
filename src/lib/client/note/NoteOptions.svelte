@@ -2,19 +2,17 @@
 	import MenuKebabIcon from '@iconify-svelte/charm/menu-kebab';
 	import PaletteIcon from '@iconify-svelte/lucide/palette';
 	import Button from '../components/Button.svelte';
-	import type { Note } from '../Database';
-	import { updateNoteData } from './NotesCRUD';
 
 	const COLORS = ['red', 'yellow', 'green', 'blue'];
 
 	let {
 		onDelete,
-		note,
-		decryptedNoteKey
+		color,
+		onColorChange
 	}: {
 		onDelete: (event: MouseEvent) => void;
-		note: Note;
-		decryptedNoteKey: Uint8Array;
+		color: string;
+		onColorChange: (color: string) => void;
 	} = $props();
 
 	function handleColorChange(event: Event) {
@@ -22,7 +20,7 @@
 		const selectedColor = target.value;
 
 		if (COLORS.includes(selectedColor)) {
-			updateNoteData(note.id, { ...note.data, meta: { color: selectedColor } }, decryptedNoteKey);
+			onColorChange(selectedColor);
 		} else {
 			console.warn(`Selected color "${selectedColor}" is not in the allowed colors.`);
 		}
@@ -38,16 +36,16 @@
 	</button>
 
 	<div popover id="colorSelection">
-		{#each COLORS as color (color)}
+		{#each COLORS as option (option)}
 			<input
 				type="radio"
-				id={`colorSelector-${color}`}
+				id={`colorSelector-${option}`}
 				name="colorSelector"
-				value={color}
-				checked={color === note.data.meta.color}
+				value={option}
+				checked={option === color}
 				onchange={handleColorChange}
 			/>
-			<label for={`colorSelector-${color}`} data-color={`--color-${color}`} aria-label={color}
+			<label for={`colorSelector-${option}`} data-color={`--color-${option}`} aria-label={option}
 			></label>
 		{/each}
 	</div>

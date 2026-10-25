@@ -7,6 +7,7 @@
 	import { localUser } from '#lib/client/User.svelte.js';
 	import { getUnlockedSession } from '#lib/client/auth/Session.js';
 	import { applyTheme } from '#lib/client/settings/Preferences.js';
+	import { syncEngine } from '#lib/client/sync/Sync.svelte.js';
 
 	let { children } = $props();
 
@@ -25,6 +26,14 @@
 			goto(resolve('/login'), { replace: true });
 		} else if (session && routeId === '/login') {
 			goto(resolve('/'), { replace: true });
+		}
+	});
+
+	$effect(() => {
+		const user = localUser.data;
+		// Sync in the background for as long as the user is unlocked; logout() stops it.
+		if (user && getUnlockedSession()?.userId === user.id) {
+			syncEngine.start({ id: user.id, username: user.username });
 		}
 	});
 

@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { register } from '#lib/client/auth/Account.js';
-	import { OfflineError } from '#lib/client/auth/AuthApi.js';
+	import { OfflineError } from '#lib/client/Api.js';
 	import Button from '#lib/client/components/Button.svelte';
 
 	let username = $state('');

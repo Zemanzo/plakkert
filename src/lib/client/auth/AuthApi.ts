@@ -1,16 +1,4 @@
-/** Thrown when the server can't be reached, e.g. because the device is offline. */
-export class OfflineError extends Error {}
-
-/** Thrown when the server responds with an error. */
-export class ApiError extends Error {
-	constructor(
-		message: string,
-		public readonly status: number,
-		public readonly code?: string
-	) {
-		super(message);
-	}
-}
+import { request } from '../Api';
 
 /** The current user as returned by `/api/user`. Binary fields are base64 encoded. */
 export interface ServerUser {
@@ -22,30 +10,6 @@ export interface ServerUser {
 	salt: string;
 	nonce: string;
 	kdfIterations: number;
-}
-
-/**
- * Wrapper around fetch that turns network failures into an {@link OfflineError}
- * and error responses into an {@link ApiError}.
- */
-export async function request(input: string, init?: RequestInit) {
-	let response: Response;
-	try {
-		response = await fetch(input, init);
-	} catch (error) {
-		throw new OfflineError('Could not reach the server', { cause: error });
-	}
-
-	if (!response.ok) {
-		const body = await response.json().catch(() => null);
-		throw new ApiError(
-			body?.message ?? `Request failed with status ${response.status}`,
-			response.status,
-			body?.code
-		);
-	}
-
-	return response;
 }
 
 async function postAuth(path: string, body: Record<string, unknown>) {

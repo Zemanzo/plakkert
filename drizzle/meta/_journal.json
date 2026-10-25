@@ -29,6 +29,13 @@
       "when": 1792944409447,
       "tag": "0003_chubby_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792944736632,
+      "tag": "0004_note_timestamps_ms",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,7 @@ export interface User {
 	preferences: Preferences;
 }
 
-interface NoteData {
+export interface NoteData {
 	content: string;
 	meta: {
 		color: string;
@@ -29,6 +29,8 @@ export interface Note<TData extends NoteData | Uint8Array = NoteData> {
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt?: Date;
+	/** 1 when the note has local changes that haven't been sent to the server yet. */
+	dirty?: 0 | 1;
 }
 
 export interface NoteKey {
@@ -72,6 +74,21 @@ db.version(3)
 				delete user.passwordHash;
 				// Usernames used to be stored as typed, while the server normalizes them to lowercase.
 				user.username = user.username.toLowerCase();
+			})
+	);
+
+// Notes are now written locally first and synced in the background. Existing notes are marked
+// dirty, so they are reconciled with the server once (it keeps whichever version is newer).
+db.version(4)
+	.stores({
+		notes: 'id, ownerId, createdAt, updatedAt, deletedAt, dirty'
+	})
+	.upgrade((tx) =>
+		tx
+			.table('notes')
+			.toCollection()
+			.modify((note) => {
+				note.dirty = 1;
 			})
 	);
 

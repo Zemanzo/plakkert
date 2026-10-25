@@ -1,27 +1,61 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
-	import { db, type Note } from '../Database';
+	import { untrack } from 'svelte';
+	import type { Note, NoteData } from '../Database';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
-	import { decryptNoteKey } from '../serialization/Serialize';
-	import { type RuntimeUser } from '#lib/types.js';
 	import { deleteNote, updateNoteData } from './NotesCRUD';
 	import NoteOptions from './NoteOptions.svelte';
 
 	let {
 		note,
+		noteKey,
 		focusedNoteId = $bindable(),
 		onDelete
 	}: {
 		note: Note;
+		/** The decrypted key of this note. */
+		noteKey: Uint8Array;
 		focusedNoteId: string | null;
 		onDelete: (noteId: string) => void;
 	} = $props();
-	let { id, data } = $derived(note);
+	let { id } = $derived(note);
 	const isFocused = $derived(focusedNoteId === id);
 	const isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
-	const user = getContext<() => RuntimeUser>('user')();
 
-	let decryptedNoteKey = $state<Uint8Array | null>(null);
+	// The note prop is re-read from IndexedDB after every save, so it can lag behind what was just
+	// typed. Edits therefore build on the data as last saved here, rather than on the prop.
+	let currentData: NoteData = untrack(() => note.data);
+	let lastSavedAt = untrack(() => note.updatedAt.getTime());
+	let color = $state(untrack(() => note.data.meta.color));
+	let editorContent = $state(untrack(() => note.data.content));
+	// Bumped to recreate the editor when the content changed elsewhere.
+	let editorRevision = $state(0);
+
+	function save(data: NoteData) {
+		currentData = data;
+		const updatedAt = new Date();
+		lastSavedAt = updatedAt.getTime();
+		updateNoteData(id, data, noteKey, updatedAt);
+	}
+
+	function changeColor(newColor: string) {
+		color = newColor;
+		save({ ...currentData, meta: { ...currentData.meta, color: newColor } });
+	}
+
+	$effect(() => {
+		const { data, updatedAt } = note;
+		// Only take versions that are newer than our own saves, e.g. synced from another device,
+		// and not while the note is being edited.
+		if (isFocused || updatedAt.getTime() <= lastSavedAt) return;
+
+		lastSavedAt = updatedAt.getTime();
+		currentData = data;
+		color = data.meta.color;
+		if (data.content !== untrack(() => editorContent)) {
+			editorContent = data.content;
+			editorRevision++;
+		}
+	});
 
 	let containerElement = $state<HTMLDivElement | null>(null);
 	let placeholder = $state<HTMLDivElement | null>(null);
@@ -39,19 +73,6 @@
 			focus();
 		} else {
 			unfocus();
-		}
-	});
-
-	onMount(async () => {
-		const noteKeyEntry = await db.noteKeys.where({ noteId: id, userId: user.id }).first();
-		if (noteKeyEntry) {
-			decryptedNoteKey = await decryptNoteKey(
-				noteKeyEntry.encryptedKey,
-				user.publicKeyUint8,
-				user.decodedPrivateKey!
-			);
-		} else {
-			console.warn(`No note key found for note ${id} and user ${user.id}`);
 		}
 	});
 
@@ -127,44 +148,41 @@
 	};
 </script>
 
-{#if decryptedNoteKey === null}
-	<div class="container">Loading...</div>
-{:else}
-	{#if isFloating}
-		<div bind:this={placeholder} class="placeholder" style="height: {placeholderHeight}px"></div>
-	{/if}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+{#if isFloating}
+	<div bind:this={placeholder} class="placeholder" style="height: {placeholderHeight}px"></div>
+{/if}
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	bind:this={containerElement}
+	class="container"
+	class:isFloating
+	style="--float-left:{floatLeft}; --float-top:{floatTop}; --float-width:{floatWidth}; --float-height:{floatHeight};"
+	onclick={onContainerClick}
+>
 	<div
-		bind:this={containerElement}
-		class="container"
-		class:isFloating
-		style="--float-left:{floatLeft}; --float-top:{floatTop}; --float-width:{floatWidth}; --float-height:{floatHeight};"
-		onclick={onContainerClick}
+		role="button"
+		style="--bg:var(--color-{color})"
+		tabindex="0"
+		onclick={onClick}
+		onkeydown={onKeyDown}
+		data-note-id={id}
+		class:isFocused
+		class:isInBackground
 	>
-		<div
-			role="button"
-			style="--bg:var(--color-{note.data.meta.color})"
-			tabindex="0"
-			onclick={onClick}
-			onkeydown={onKeyDown}
-			data-note-id={id}
-			class:isFocused
-			class:isInBackground
-		>
+		{#key editorRevision}
 			<RichTextComposer
 				disabled={!isFocused}
 				focused={isFocused}
-				initialContent={data.content}
-				onUpdateData={(htmlContent) =>
-					updateNoteData(id, { content: htmlContent, meta: note.data.meta }, decryptedNoteKey!)}
+				initialContent={editorContent}
+				onUpdateData={(htmlContent) => save({ ...currentData, content: htmlContent })}
 			/>
-			{#if isFocused}
-				<NoteOptions onDelete={deleteCurrentNote} {note} decryptedNoteKey={decryptedNoteKey!} />
-			{/if}
-		</div>
+		{/key}
+		{#if isFocused}
+			<NoteOptions onDelete={deleteCurrentNote} {color} onColorChange={changeColor} />
+		{/if}
 	</div>
-{/if}
+</div>
 
 <style>
 	.placeholder {
