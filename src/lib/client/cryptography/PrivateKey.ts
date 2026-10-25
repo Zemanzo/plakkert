@@ -1,60 +1,91 @@
-export async function encryptPrivateKey(privateKey: Uint8Array, password: string) {
-	// 1. Generate a random salt
-	const salt = crypto.getRandomValues(new Uint8Array(16));
+/** PBKDF2 iterations for keys derived from the password, as recommended by OWASP for SHA-256. */
+export const KDF_ITERATIONS = 600_000;
+/** PBKDF2 iterations used by accounts created before {@link KDF_ITERATIONS} was raised. */
+export const LEGACY_KDF_ITERATIONS = 100_000;
 
-	// 2. Derive a 32-byte key from the password using PBKDF2
-	const passwordBuffer = new TextEncoder().encode(password);
-	const baseKey = await crypto.subtle.importKey('raw', passwordBuffer, 'PBKDF2', false, [
-		'deriveKey'
+/** Prefix of the salt for the auth key, so it never matches a key derived for another purpose. */
+const AUTH_KEY_SALT_PREFIX = 'plakkert-auth:';
+
+/** Copies into a Uint8Array that owns its whole buffer, as WebCrypto reads the entire view. */
+function bytes(data: Uint8Array) {
+	return new Uint8Array(data);
+}
+
+function importPassword(password: string) {
+	return crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, [
+		'deriveKey',
+		'deriveBits'
 	]);
-	const derivedKey = await crypto.subtle.deriveKey(
+}
+
+/**
+ * Derives the secret that is sent to the server instead of the password. The
+ * server only ever sees this value, so it can't use it to decrypt the private
+ * key, which is encrypted with a key derived using a different (random) salt.
+ *
+ * @param username The normalized username, which acts as the salt.
+ */
+export async function deriveAuthKey(password: string, username: string) {
+	const authKey = await crypto.subtle.deriveBits(
 		{
 			name: 'PBKDF2',
-			salt,
-			iterations: 100_000,
+			salt: new TextEncoder().encode(AUTH_KEY_SALT_PREFIX + username),
+			iterations: KDF_ITERATIONS,
 			hash: 'SHA-256'
 		},
-		baseKey,
+		await importPassword(password),
+		256
+	);
+	return encodeKey(new Uint8Array(authKey));
+}
+
+/** Derives the AES key that the private key is encrypted with. */
+async function deriveKeyEncryptionKey(
+	password: string,
+	salt: Uint8Array,
+	iterations: number,
+	usage: KeyUsage
+) {
+	return crypto.subtle.deriveKey(
+		{ name: 'PBKDF2', salt: bytes(salt), iterations, hash: 'SHA-256' },
+		await importPassword(password),
 		{ name: 'AES-GCM', length: 256 },
 		false,
-		['encrypt']
+		[usage]
 	);
+}
 
-	// 3. Encrypt the private key
+export async function encryptPrivateKey(
+	privateKey: Uint8Array,
+	password: string,
+	iterations = KDF_ITERATIONS
+) {
+	const salt = crypto.getRandomValues(new Uint8Array(16));
+	const derivedKey = await deriveKeyEncryptionKey(password, salt, iterations, 'encrypt');
+
 	const nonce = crypto.getRandomValues(new Uint8Array(12));
 	const encryptedKey = await crypto.subtle.encrypt(
 		{ name: 'AES-GCM', iv: nonce },
 		derivedKey,
-		privateKey!.buffer as ArrayBuffer
+		bytes(privateKey)
 	);
 
-	return { encryptedKey: new Uint8Array(encryptedKey), salt, nonce };
+	return { encryptedKey: new Uint8Array(encryptedKey), salt, nonce, iterations };
 }
 
+/** Decrypts the private key. Rejects if the password is wrong. */
 export async function decryptPrivateKey(
-	privateKey: Uint8Array,
+	encryptedKey: Uint8Array,
 	password: string,
 	salt: Uint8Array,
-	nonce: Uint8Array
+	nonce: Uint8Array,
+	iterations: number
 ) {
-	const baseKey = await crypto.subtle.importKey(
-		'raw',
-		new TextEncoder().encode(password),
-		'PBKDF2',
-		false,
-		['deriveKey']
-	);
-	const derivedKey = await crypto.subtle.deriveKey(
-		{ name: 'PBKDF2', salt: salt.buffer as ArrayBuffer, iterations: 100_000, hash: 'SHA-256' },
-		baseKey,
-		{ name: 'AES-GCM', length: 256 },
-		false,
-		['decrypt']
-	);
+	const derivedKey = await deriveKeyEncryptionKey(password, salt, iterations, 'decrypt');
 	const decryptedKeyBuffer = await crypto.subtle.decrypt(
-		{ name: 'AES-GCM', iv: nonce.buffer as ArrayBuffer },
+		{ name: 'AES-GCM', iv: bytes(nonce) },
 		derivedKey,
-		privateKey.buffer as ArrayBuffer
+		bytes(encryptedKey)
 	);
 	return new Uint8Array(decryptedKeyBuffer);
 }

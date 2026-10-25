@@ -33,6 +33,13 @@ export const auth = betterAuth({
 				type: 'string',
 				required: true,
 				input: true
+			},
+			// PBKDF2 iterations used to derive the key that encrypts the private key
+			kdfIterations: {
+				type: 'number',
+				required: false,
+				defaultValue: 100_000,
+				input: true
 			}
 		}
 	},

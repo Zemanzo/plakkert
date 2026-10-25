@@ -10,6 +10,8 @@ export interface User {
 	privateKey: Uint8Array;
 	salt: Uint8Array;
 	nonce: Uint8Array;
+	/** PBKDF2 iterations the private key was encrypted with. Missing for legacy records. */
+	kdfIterations?: number;
 	preferences: Preferences;
 }
 

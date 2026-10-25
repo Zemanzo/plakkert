@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `kdf_iterations` integer DEFAULT 100000 NOT NULL;

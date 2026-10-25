@@ -21,6 +21,7 @@ export interface ServerUser {
 	privateKey: string;
 	salt: string;
 	nonce: string;
+	kdfIterations: number;
 }
 
 /**
@@ -71,10 +72,25 @@ export function signUpEmail(body: {
 	privateKey: string;
 	salt: string;
 	nonce: string;
+	kdfIterations: number;
 }) {
 	return postAuth('sign-up/email', { ...body, rememberMe: true }) as Promise<{
 		user: { id: string };
 	}>;
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+	return postAuth('change-password', { currentPassword, newPassword, revokeOtherSessions: false });
+}
+
+/** Replaces the encrypted private key, e.g. after re-encrypting it with stronger settings. */
+export function updateEncryptedPrivateKey(body: {
+	privateKey: string;
+	salt: string;
+	nonce: string;
+	kdfIterations: number;
+}) {
+	return postAuth('update-user', body);
 }
 
 export function signOut() {

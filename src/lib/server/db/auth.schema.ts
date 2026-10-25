@@ -11,6 +11,7 @@ export const user = sqliteTable('user', {
 	privateKey: text('private_key').notNull(),
 	nonce: text('nonce').notNull(),
 	salt: text('salt').notNull(),
+	kdfIterations: integer('kdf_iterations').default(100000).notNull(),
 	emailVerified: integer('email_verified', { mode: 'boolean' }).default(false).notNull(),
 	image: text('image'),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' })
