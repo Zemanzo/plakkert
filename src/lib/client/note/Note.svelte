@@ -1,30 +1,39 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import type { Note, NoteData } from '../Database';
+	import { getContext, untrack } from 'svelte';
+	import type { Note, NoteData, NotePermission } from '../Database';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
+	import type { RuntimeUser } from '#lib/types.js';
 	import { deleteNote, updateNoteData } from './NotesCRUD';
 	import NoteOptions from './NoteOptions.svelte';
+	import { leaveNote } from './Sharing';
 
 	let {
 		note,
 		noteKey,
+		permission,
 		focusedNoteId = $bindable(),
 		onDelete
 	}: {
 		note: Note;
 		/** The decrypted key of this note. */
 		noteKey: Uint8Array;
+		permission: NotePermission;
 		focusedNoteId: string | null;
 		onDelete: (noteId: string) => void;
 	} = $props();
+	const user = getContext<() => RuntimeUser>('user')();
 	let { id } = $derived(note);
 	const isFocused = $derived(focusedNoteId === id);
 	const isInBackground = $derived(focusedNoteId !== null && focusedNoteId !== id);
+	const isOwner = $derived(note.ownerId === user.id);
+	const canEdit = $derived(permission === 'edit');
 
 	// The note prop is re-read from IndexedDB after every save, so it can lag behind what was just
 	// typed. Edits therefore build on the data as last saved here, rather than on the prop.
 	let currentData: NoteData = untrack(() => note.data);
-	let lastSavedAt = untrack(() => note.updatedAt.getTime());
+	// Versions (updatedAt) saved here that may still come back from IndexedDB. Any other version
+	// was written elsewhere, e.g. by sync, and replaces what is shown, even if it's older.
+	let ownVersions = [untrack(() => note.updatedAt.getTime())];
 	let color = $state(untrack(() => note.data.meta.color));
 	let editorContent = $state(untrack(() => note.data.content));
 	// Bumped to recreate the editor when the content changed elsewhere.
@@ -33,7 +42,7 @@
 	function save(data: NoteData) {
 		currentData = data;
 		const updatedAt = new Date();
-		lastSavedAt = updatedAt.getTime();
+		ownVersions.push(updatedAt.getTime());
 		updateNoteData(id, data, noteKey, updatedAt);
 	}
 
@@ -44,11 +53,16 @@
 
 	$effect(() => {
 		const { data, updatedAt } = note;
-		// Only take versions that are newer than our own saves, e.g. synced from another device,
-		// and not while the note is being edited.
-		if (isFocused || updatedAt.getTime() <= lastSavedAt) return;
+		const version = updatedAt.getTime();
+		if (ownVersions.includes(version)) {
+			// Once the latest save is stored, earlier ones won't be read back anymore.
+			if (version === ownVersions.at(-1)) ownVersions = [version];
+			return;
+		}
+		// Don't replace what is being typed; the effect runs again once the note is closed.
+		if (isFocused && canEdit) return;
 
-		lastSavedAt = updatedAt.getTime();
+		ownVersions = [version];
 		currentData = data;
 		color = data.meta.color;
 		if (data.content !== untrack(() => editorContent)) {
@@ -141,9 +155,12 @@
 		}
 	};
 
-	const deleteCurrentNote = async (event: MouseEvent) => {
-		event.stopPropagation();
-		deleteNote(id);
+	const deleteCurrentNote = async () => {
+		if (isOwner) {
+			await deleteNote(id);
+		} else {
+			await leaveNote(id, user.id);
+		}
 		onDelete(id);
 	};
 </script>
@@ -173,18 +190,38 @@
 		{#key editorRevision}
 			<RichTextComposer
 				disabled={!isFocused}
+				readonly={!canEdit}
 				focused={isFocused}
 				initialContent={editorContent}
 				onUpdateData={(htmlContent) => save({ ...currentData, content: htmlContent })}
 			/>
 		{/key}
+		{#if !isOwner}
+			<p class="sharedBy">
+				Shared by {note.ownerUsername ?? 'someone else'}{canEdit ? '' : ' · view only'}
+			</p>
+		{/if}
 		{#if isFocused}
-			<NoteOptions onDelete={deleteCurrentNote} {color} onColorChange={changeColor} />
+			<NoteOptions
+				noteId={id}
+				{noteKey}
+				{isOwner}
+				{canEdit}
+				onDelete={deleteCurrentNote}
+				{color}
+				onColorChange={changeColor}
+			/>
 		{/if}
 	</div>
 </div>
 
 <style>
+	.sharedBy {
+		margin: 0;
+		font-size: 0.8rem;
+		color: #1119;
+	}
+
 	.placeholder {
 		min-width: 350px;
 		max-width: 500px;

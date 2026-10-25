@@ -1,5 +1,5 @@
 import { liveQuery } from 'dexie';
-import { db, type Note } from '../Database';
+import { db, type Note, type NotePermission } from '../Database';
 import { ApiError, fetchOrOffline, OfflineError, request, toApiError } from '../Api';
 import { signInUsername } from '../auth/AuthApi';
 import { getUnlockedSession } from '../auth/Session';
@@ -16,8 +16,10 @@ interface SyncUser {
 interface ServerNote {
 	id: string;
 	owner: string;
+	ownerUsername: string;
 	content: string | null;
 	noteKey: string;
+	permissions: NotePermission;
 	createdAt: string;
 	updatedAt: string;
 	deletedAt: string | null;
@@ -29,6 +31,38 @@ const SYNC_DELAY_MS = 1000;
 const SYNC_INTERVAL_MS = 60_000;
 
 const isUnauthorized = (error: unknown) => error instanceof ApiError && error.status === 401;
+
+/**
+ * Removes the user's access to a note from this device, e.g. after it was
+ * unshared. The note itself is only removed when no other user on this device
+ * has access to it.
+ */
+export async function forgetNote(noteId: string, userId: string) {
+	await db.transaction('rw', db.notes, db.noteKeys, async () => {
+		await db.noteKeys.where({ noteId, userId }).delete();
+		if ((await db.noteKeys.where({ noteId }).count()) === 0) {
+			await db.notes.delete(noteId);
+		}
+	});
+}
+
+/** Stores the user's note key and permission, which can change when the owner reshares. */
+async function updateAccess(serverNote: ServerNote, userId: string) {
+	const noteKey = await db.noteKeys.where({ noteId: serverNote.id, userId }).first();
+	if (!noteKey) {
+		await db.noteKeys.put({
+			id: crypto.randomUUID(),
+			noteId: serverNote.id,
+			userId,
+			encryptedKey: Uint8Array.fromBase64(serverNote.noteKey),
+			permission: serverNote.permissions
+		});
+	} else if (noteKey.permission !== serverNote.permissions) {
+		await db.noteKeys
+			.where({ noteId: serverNote.id, userId })
+			.modify({ permission: serverNote.permissions });
+	}
+}
 
 async function applyServerNote(
 	serverNote: ServerNote,
@@ -42,38 +76,35 @@ async function applyServerNote(
 	const updatedAt = new Date(serverNote.updatedAt);
 	const deletedAt = serverNote.deletedAt ? new Date(serverNote.deletedAt) : null;
 	const local = await db.notes.get(serverNote.id);
+	const action = choose(local, { updatedAt, deletedAt });
 
-	switch (choose(local, { updatedAt, deletedAt })) {
-		case 'keep-local':
-			return;
-		case 'delete-local':
-			await db.noteKeys.where({ noteId: serverNote.id }).delete();
-			await db.notes.update(serverNote.id, {
-				data: new Uint8Array(),
-				deletedAt: deletedAt ?? updatedAt,
-				updatedAt,
-				dirty: 0
-			});
-			return;
-		case 'take-server':
-			if (serverNote.content === null) return;
-			await db.notes.put({
-				id: serverNote.id,
-				ownerId: serverNote.owner,
-				data: Uint8Array.fromBase64(serverNote.content),
-				createdAt,
-				updatedAt,
-				dirty: 0
-			});
-			if (!(await db.noteKeys.where({ noteId: serverNote.id, userId }).first())) {
-				await db.noteKeys.put({
-					id: crypto.randomUUID(),
-					noteId: serverNote.id,
-					userId,
-					encryptedKey: Uint8Array.fromBase64(serverNote.noteKey)
-				});
-			}
+	if (action === 'delete-local') {
+		await db.noteKeys.where({ noteId: serverNote.id }).delete();
+		await db.notes.update(serverNote.id, {
+			data: new Uint8Array(),
+			deletedAt: deletedAt ?? updatedAt,
+			updatedAt,
+			dirty: 0
+		});
+		return;
 	}
+	// Deleted on the server and locally, or a local deletion that still has to be pushed.
+	if (deletedAt || local?.deletedAt) return;
+
+	if (action === 'take-server' && serverNote.content !== null) {
+		await db.notes.put({
+			id: serverNote.id,
+			ownerId: serverNote.owner,
+			ownerUsername: serverNote.ownerUsername,
+			data: Uint8Array.fromBase64(serverNote.content),
+			createdAt,
+			updatedAt,
+			dirty: 0
+		});
+	} else if (local && local.ownerUsername !== serverNote.ownerUsername) {
+		await db.notes.update(serverNote.id, { ownerUsername: serverNote.ownerUsername });
+	}
+	await updateAccess(serverNote, userId);
 }
 
 /** Clears the dirty flag, unless the note was changed again while it was being sent. */
@@ -115,6 +146,13 @@ async function pushNote(note: Note<Uint8Array>, userId: string) {
 		// Deleted on another device.
 		const serverNote = (await response.json()) as ServerNote;
 		await db.transaction('rw', db.notes, db.noteKeys, () => applyServerNote(serverNote, userId));
+	} else if (response.status === 403) {
+		// The owner made the note view-only. Drop the local edit; marking it as older than any
+		// server version makes the next pull restore the server version.
+		await db.notes.update(note.id, { dirty: 0, updatedAt: new Date(0) });
+	} else if (response.status === 404 && note.ownerId !== userId) {
+		// The note is no longer shared with this user.
+		await forgetNote(note.id, userId);
 	} else {
 		throw await toApiError(response);
 	}
@@ -131,16 +169,29 @@ async function pushDeletion(note: Note<Uint8Array>) {
 }
 
 /**
+ * Returns the notes with local changes that this user can send: edits to notes
+ * they may edit, and deletions of notes they own.
+ */
+async function getPushableNotes(userId: string) {
+	const [dirtyNotes, noteKeys] = await Promise.all([
+		db.notes.where('dirty').equals(1).toArray(),
+		db.noteKeys.where({ userId }).toArray()
+	]);
+	const editableNoteIds = new Set(
+		noteKeys.filter((noteKey) => noteKey.permission !== 'view').map((noteKey) => noteKey.noteId)
+	);
+	return dirtyNotes.filter((note) =>
+		note.deletedAt ? note.ownerId === userId : editableNoteIds.has(note.id)
+	);
+}
+
+/**
  * Sends all local changes to the server.
  *
  * @returns Whether every change was sent.
  */
 async function pushChanges(userId: string) {
-	const dirtyNotes = await db.notes
-		.where('dirty')
-		.equals(1)
-		.filter((note) => note.ownerId === userId)
-		.toArray();
+	const dirtyNotes = await getPushableNotes(userId);
 
 	let succeeded = true;
 	for (const note of dirtyNotes) {
@@ -170,6 +221,16 @@ async function pullChanges(userId: string) {
 		for (const serverNote of serverNotes) {
 			await applyServerNote(serverNote, userId);
 		}
+
+		// Notes of others that the server no longer lists were unshared, or the user removed them
+		// on another device. (Own notes that haven't been pushed yet aren't listed either.)
+		const serverNoteIds = new Set(serverNotes.map((serverNote) => serverNote.id));
+		for (const noteKey of await db.noteKeys.where({ userId }).toArray()) {
+			if (serverNoteIds.has(noteKey.noteId)) continue;
+			const note = await db.notes.get(noteKey.noteId);
+			if (note?.ownerId === userId) continue;
+			await forgetNote(noteKey.noteId, userId);
+		}
 	});
 }
 
@@ -197,13 +258,9 @@ class SyncEngine {
 		this.#user = user;
 		this.#signInRejected = false;
 
-		const pending = liveQuery(() =>
-			db.notes
-				.where('dirty')
-				.equals(1)
-				.filter((note) => note.ownerId === user.id)
-				.count()
-		).subscribe((count) => (this.pendingChanges = count));
+		const pending = liveQuery(async () => (await getPushableNotes(user.id)).length).subscribe(
+			(count) => (this.pendingChanges = count)
+		);
 		const syncNow = () => void this.syncNow();
 		const onVisibilityChange = () => {
 			if (document.visibilityState === 'visible') syncNow();

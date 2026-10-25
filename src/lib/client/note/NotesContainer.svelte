@@ -3,7 +3,7 @@
 	import { getContext, onMount } from 'svelte';
 	import { liveQuery } from 'dexie';
 	import Note from './Note.svelte';
-	import { db, type Note as NoteType } from '../Database';
+	import { db, type Note as NoteType, type NotePermission } from '../Database';
 	import { decryptNoteData, decryptNoteKey } from '../serialization/Serialize';
 	import type { RuntimeUser } from '#lib/types.js';
 	import Button from '../components/Button.svelte';
@@ -12,6 +12,7 @@
 	interface DecryptedNote {
 		note: NoteType;
 		noteKey: Uint8Array;
+		permission: NotePermission;
 	}
 
 	const user = getContext<() => RuntimeUser>('user')();
@@ -32,7 +33,7 @@
 	async function decrypt(
 		encryptedNote: NoteType<Uint8Array>,
 		encryptedKey: Uint8Array
-	): Promise<DecryptedNote | null> {
+	): Promise<Omit<DecryptedNote, 'permission'> | null> {
 		try {
 			let noteKey = noteKeyCache.get(encryptedNote.id);
 			if (!noteKey) {
@@ -80,13 +81,18 @@
 			const encryptedNotes = await db.notes.bulkGet(noteKeys.map((noteKey) => noteKey.noteId));
 			return noteKeys.flatMap((noteKey, i) => {
 				const note = encryptedNotes[i];
-				return note && !note.deletedAt ? [{ note, encryptedKey: noteKey.encryptedKey }] : [];
+				return note && !note.deletedAt
+					? [{ note, encryptedKey: noteKey.encryptedKey, permission: noteKey.permission ?? 'edit' }]
+					: [];
 			});
 		}).subscribe({
 			next: async (rows) => {
 				const result = ++latestResult;
 				const decrypted = await Promise.all(
-					rows.map(({ note, encryptedKey }) => decrypt(note, encryptedKey))
+					rows.map(async ({ note, encryptedKey, permission }) => {
+						const decryptedNote = await decrypt(note, encryptedKey);
+						return decryptedNote && { ...decryptedNote, permission };
+					})
 				);
 				// A newer result may have arrived while decrypting.
 				if (result !== latestResult) return;
@@ -133,8 +139,8 @@
 			{#if notes.length === 0 && failedCount === 0}
 				<p>No notes yet. Click "New note" to create your first note!</p>
 			{/if}
-			{#each notes as { note, noteKey } (note.id)}
-				<Note {note} {noteKey} bind:focusedNoteId onDelete={onDeleteNote} />
+			{#each notes as { note, noteKey, permission } (note.id)}
+				<Note {note} {noteKey} {permission} bind:focusedNoteId onDelete={onDeleteNote} />
 			{/each}
 			{#if failedCount > 0}
 				<div>

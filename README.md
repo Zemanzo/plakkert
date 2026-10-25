@@ -12,6 +12,10 @@ A true end-to-end encrypted notes web app, built for offline-first.
   - Notes can be created, edited and deleted offline, and sync once back online
   - Accounts that have been used on a device before can be unlocked offline
 - Sync across devices (last write wins; deletions win over edits)
+- Sharing notes with other users, who can view or edit them
+  - Only the owner can share, change permissions or stop sharing; recipients can remove a shared
+    note from their own notes
+  - Changing who a note is shared with needs a connection; editing shared notes works offline
 - Basic input
   - Plain text
   - Bold
@@ -29,6 +33,10 @@ A true end-to-end encrypted notes web app, built for offline-first.
   from it (PBKDF2 with the username as salt), which the server uses as the account password.
 - Every note has its own key, which is encrypted with the owner's public key. Note contents are
   encrypted with that note key, so the server only ever stores ciphertext.
+- Sharing a note encrypts its note key with the recipient's public key, so the server never sees it.
+  The recipient's public key is fetched from the server and not verified, so this relies on the
+  server handing out the right key. Stopping sharing does not change the note key, so someone who
+  had access could still decrypt the note if they got hold of its ciphertext later.
 
 ## Development
 

@@ -39,7 +39,8 @@ export const createNote = async (user: RuntimeUser) => {
 			id: crypto.randomUUID(),
 			noteId: note.id,
 			userId: user.id,
-			encryptedKey
+			encryptedKey,
+			permission: 'edit'
 		} satisfies NoteKey);
 	});
 	syncEngine.requestSync();

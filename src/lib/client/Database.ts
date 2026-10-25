@@ -25,6 +25,8 @@ export interface NoteData {
 export interface Note<TData extends NoteData | Uint8Array = NoteData> {
 	id: string;
 	ownerId: string;
+	/** Username of the owner, shown on notes that were shared with the user. */
+	ownerUsername?: string;
 	data: TData;
 	createdAt: Date;
 	updatedAt: Date;
@@ -38,7 +40,11 @@ export interface NoteKey {
 	noteId: string;
 	userId: string;
 	encryptedKey: Uint8Array;
+	/** What the user may do with the note. Missing for older records, which are all editable. */
+	permission?: NotePermission;
 }
+
+export type NotePermission = 'view' | 'edit';
 
 const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 	// primary key "id" (for the typings only)

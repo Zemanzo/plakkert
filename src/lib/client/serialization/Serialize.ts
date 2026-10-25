@@ -21,9 +21,16 @@ export async function getNoteKey(publicKey: Uint8Array) {
 
 	const noteKey = sodium.crypto_secretbox_keygen();
 
-	const encryptedKey = sodium.crypto_box_seal(noteKey, publicKey);
+	const encryptedKey = await sealNoteKey(noteKey, publicKey);
 
 	return { noteKey, encryptedKey };
+}
+
+/** Encrypts a note key so that only the owner of the given public key can decrypt it. */
+export async function sealNoteKey(noteKey: Uint8Array, publicKey: Uint8Array) {
+	const sodium = await initCrypto();
+
+	return sodium.crypto_box_seal(noteKey, publicKey);
 }
 
 export async function decryptNoteKey(
