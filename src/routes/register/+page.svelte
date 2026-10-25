@@ -59,7 +59,8 @@
 					const id = result.data?.id as string;
 					const publicKey = formData.get('publicKey') as string;
 					const email = formData.get('email') as string;
-					const username = formData.get('username') as string;
+					// The server normalizes usernames to lowercase; store it the same way locally.
+					const username = (formData.get('username') as string).toLowerCase();
 
 					if (!id || !password || !publicKey || !email || !username) {
 						console.error('Missing required form data');

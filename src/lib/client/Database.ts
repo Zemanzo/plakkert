@@ -68,6 +68,8 @@ db.version(3)
 			.toCollection()
 			.modify((user) => {
 				delete user.passwordHash;
+				// Usernames used to be stored as typed, while the server normalizes them to lowercase.
+				user.username = user.username.toLowerCase();
 			})
 	);
 

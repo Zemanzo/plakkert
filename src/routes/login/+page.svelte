@@ -5,7 +5,10 @@
 	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
 	import type { ActionData } from './$types';
 	import { db } from '#lib/client/Database.js';
-	import { decryptPrivateKey } from '#lib/client/cryptography/PrivateKey.js';
+	import {
+		decryptPrivateKey,
+		sessionStorePrivateKey
+	} from '#lib/client/cryptography/PrivateKey.js';
 	import { defaultPreferences } from '#lib/client/settings/Preferences.js';
 	import Button from '#lib/client/components/Button.svelte';
 
@@ -15,37 +18,31 @@
 	let showPassword = $state(false);
 
 	/**
-	 * Retrieves user data from the server and adds it to the local IndexedDB if
-	 * the user does not already exist.
+	 * Retrieves the signed-in user from the server and stores it in the local
+	 * IndexedDB, keeping any local preferences.
 	 */
-	async function addCurrentUserToDatabase() {
-		try {
-			const response = await fetch('/api/user');
-			if (!response.ok) {
-				throw new Error('Failed to fetch user data');
-			}
-
-			const userData = await response.json();
-
-			console.log('userData', userData);
-
-			const currentUser = {
-				id: userData.id,
-				username: userData.username,
-				email: userData.email,
-				publicKey: userData.publicKey,
-				privateKey: Uint8Array.fromBase64(userData.privateKey),
-				salt: Uint8Array.fromBase64(userData.salt),
-				nonce: Uint8Array.fromBase64(userData.nonce),
-				preferences: defaultPreferences
-			};
-
-			await db.users.add(currentUser);
-			return currentUser;
-		} catch (error) {
-			console.error('Error adding user to database:', error);
-			throw error;
+	async function storeCurrentUser() {
+		const response = await fetch('/api/user');
+		if (!response.ok) {
+			throw new Error('Failed to fetch user data');
 		}
+
+		const userData = await response.json();
+		const existingUser = await db.users.get(userData.id);
+
+		const currentUser = {
+			id: userData.id,
+			username: userData.username,
+			email: userData.email,
+			publicKey: userData.publicKey,
+			privateKey: Uint8Array.fromBase64(userData.privateKey),
+			salt: Uint8Array.fromBase64(userData.salt),
+			nonce: Uint8Array.fromBase64(userData.nonce),
+			preferences: existingUser?.preferences ?? defaultPreferences
+		};
+
+		await db.users.put(currentUser);
+		return currentUser;
 	}
 </script>
 
@@ -58,40 +55,17 @@
 			loading = false;
 			if (result.type === 'redirect') {
 				success = true;
-				const username = (formData.get('username') as string).toLowerCase();
 				const password = formData.get('password') as string;
-				const user = await db.users.where('username').equals(username).first();
-				if (user) {
-					const decryptedKeyBuffer = await decryptPrivateKey(
-						user.privateKey,
-						password,
-						user.salt,
-						user.nonce
-					);
-					sessionStorage.setItem(
-						'privateKey',
-						btoa(String.fromCharCode(...new Uint8Array(decryptedKeyBuffer)))
-					);
-				} else {
-					// User not found in local database, retrieve from server and add to database.
-					try {
-						const currentUser = await addCurrentUserToDatabase();
-
-						const decryptedKeyBuffer = await decryptPrivateKey(
-							currentUser.privateKey,
-							password,
-							currentUser.salt,
-							currentUser.nonce
-						);
-						sessionStorage.setItem(
-							'privateKey',
-							btoa(String.fromCharCode(...new Uint8Array(decryptedKeyBuffer)))
-						);
-					} catch (error) {
-						console.error('Failed to add user to database:', error);
-						throw new Error('Failed to add user to database', { cause: error });
-					}
-				}
+				// Always refresh the local copy from the server, so the user is matched by ID rather
+				// than by the (normalized) username.
+				const currentUser = await storeCurrentUser();
+				const decryptedKeyBuffer = await decryptPrivateKey(
+					currentUser.privateKey,
+					password,
+					currentUser.salt,
+					currentUser.nonce
+				);
+				sessionStorePrivateKey(new Uint8Array(decryptedKeyBuffer));
 				await refreshAll();
 				// eslint-disable-next-line svelte/no-navigation-without-resolve
 				goto(result.location);
