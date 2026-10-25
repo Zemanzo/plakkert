@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Tipex, type TipexEditor } from '@friendofsvelte/tipex';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 
 	let editor = $state<TipexEditor>();
 	let {
@@ -27,18 +27,25 @@
 		}
 	});
 
+	let wasEditable = false;
+
 	$effect(() => {
 		if (editor) {
-			if (disabled || readonly) {
-				editor.$doc.element.contentEditable = 'false';
-				editor.$doc.element.removeAttribute('tabindex');
-			} else {
+			const isEditable = !disabled && !readonly;
+			if (isEditable) {
 				editor.$doc.element.contentEditable = 'true';
 				editor.$doc.element.setAttribute('tabindex', '0');
-				if (focused) {
+				// Only focus the editor when it becomes editable (i.e. the note was opened). Tipex
+				// updates `focused` on every focus change in the document, so reacting to it would
+				// pull focus back from other inputs in the note, like the share dialog.
+				if (!wasEditable && untrack(() => focused)) {
 					editor.$doc.element.focus();
 				}
+			} else {
+				editor.$doc.element.contentEditable = 'false';
+				editor.$doc.element.removeAttribute('tabindex');
 			}
+			wasEditable = isEditable;
 		}
 	});
 </script>
