@@ -1,9 +1,9 @@
-import { redirect, type Handle } from '@sveltejs/kit';
-import { sequence } from '@sveltejs/kit/hooks';
-import { building } from '$app/environment';
-import { auth } from '$lib/server/auth';
+import { redirect } from '@sveltejs/kit';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import { building } from '$app/env';
+import { auth } from '#lib/server/auth.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { COOKIE_PREFIX } from '$lib/client/settings/Preferences';
+import { COOKIE_PREFIX } from '#lib/client/settings/Preferences.js';
 
 // 1. Better Auth Session Provider
 const handleBetterAuth: Handle = async ({ event, resolve }) => {

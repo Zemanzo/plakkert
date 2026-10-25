@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onMount, setContext } from 'svelte';
-	import NotesContainer from '$lib/client/note/NotesContainer.svelte';
-	import { db } from '$lib/client/Database';
+	import NotesContainer from '#lib/client/note/NotesContainer.svelte';
+	import { db } from '#lib/client/Database.js';
 	import {
 		decodeKey,
 		decryptPrivateKey,
 		sessionGetPrivateKey,
 		sessionStorePrivateKey
-	} from '$lib/client/cryptography/PrivateKey';
-	import type { RuntimeUser } from '$lib/types';
+	} from '#lib/client/cryptography/PrivateKey.js';
+	import type { RuntimeUser } from '#lib/types.js';
 
 	let { data } = $props();
 

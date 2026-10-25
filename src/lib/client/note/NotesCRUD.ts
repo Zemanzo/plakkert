@@ -1,6 +1,6 @@
 import { db, type NoteKey, type Note as NoteType } from '../Database';
 import { encryptNote, getNoteKey } from '../serialization/Serialize';
-import type { RuntimeUser } from '$lib/types';
+import type { RuntimeUser } from '#lib/types.js';
 
 async function ensureOk(response: Response, message: string) {
 	if (!response.ok) {

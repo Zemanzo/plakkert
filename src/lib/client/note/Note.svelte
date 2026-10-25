@@ -3,7 +3,7 @@
 	import { db, type Note } from '../Database';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
 	import { decryptNoteKey } from '../serialization/Serialize';
-	import { type RuntimeUser } from '$lib/types';
+	import { type RuntimeUser } from '#lib/types.js';
 	import { deleteNote, updateNoteData } from './NotesCRUD';
 	import NoteOptions from './NoteOptions.svelte';
 

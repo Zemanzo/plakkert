@@ -1,4 +1,4 @@
-import { PUBLIC_APP_NAME } from '$env/static/public';
+import { PUBLIC_APP_NAME } from '$app/env/public';
 import { Dexie, type EntityTable } from 'dexie';
 import type { Preferences } from './settings/Preferences';
 
@@ -38,18 +38,12 @@ export interface NoteKey {
 }
 
 const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
-	users: EntityTable<
-		User,
-		'id' // primary key "id" (for the typings only)
-	>;
-	notes: EntityTable<
-		Note<Uint8Array>,
-		'id' // primary key "id" (for the typings only)
-	>;
-	noteKeys: EntityTable<
-		NoteKey,
-		'id' // not the primary key but it doesnt support composite keys in typings, so we use "id" as a placeholder
-	>;
+	// primary key "id" (for the typings only)
+	users: EntityTable<User, 'id'>;
+	// primary key "id" (for the typings only)
+	notes: EntityTable<Note<Uint8Array>, 'id'>;
+	// not the primary key but it doesnt support composite keys in typings, so we use "id" as a placeholder
+	noteKeys: EntityTable<NoteKey, 'id'>;
 };
 
 // Indexed columns

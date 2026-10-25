@@ -11,7 +11,7 @@
 </button>
 
 <style lang="scss">
-	@import '../../../mixins.scss';
+	@use '../../../mixins.scss' as *;
 
 	button {
 		--background-color: var(--bg, var(--color-yellow));

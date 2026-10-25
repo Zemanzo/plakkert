@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
-import { auth } from '$lib/server/auth';
+import { auth } from '#lib/server/auth.js';
 import { APIError } from 'better-auth/api';
 
 export const actions: Actions = {

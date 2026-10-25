@@ -4,7 +4,7 @@
 	import Note from './Note.svelte';
 	import { db, type NoteKey, type Note as NoteType } from '../Database';
 	import { decryptNote } from '../serialization/Serialize';
-	import type { RuntimeUser } from '$lib/types';
+	import type { RuntimeUser } from '#lib/types.js';
 	import Button from '../components/Button.svelte';
 	import { createNote } from './NotesCRUD';
 

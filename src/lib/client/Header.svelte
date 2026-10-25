@@ -2,7 +2,7 @@
 	import { applyAction, enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { sessionRemovePrivateKey } from '$lib/client/cryptography/PrivateKey';
+	import { sessionRemovePrivateKey } from '#lib/client/cryptography/PrivateKey.js';
 	import Button from './components/Button.svelte';
 
 	let { user }: { user?: { id: string } } = $props();
@@ -19,7 +19,8 @@
 	{#if user}
 		<nav>
 			<a href={resolve('/')} aria-current={page.url.pathname === '/'}>Notes</a>
-			<a href={resolve('/settings')} aria-current={page.url.pathname === '/settings'}>Settings</a>
+
+			<a href={resolve('settings')} aria-current={page.url.pathname === '/settings'}>Settings</a>
 		</nav>
 		<!-- <p>Your user ID is {user.id}.</p> -->
 		<form

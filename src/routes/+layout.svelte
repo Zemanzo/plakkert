@@ -1,9 +1,9 @@
 <script lang="ts">
 	import './layout.css';
-	import Header from '$lib/client/Header.svelte';
+	import Header from '#lib/client/Header.svelte';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { localUser } from '$lib/client/User.svelte';
+	import { localUser } from '#lib/client/User.svelte.js';
 
 	let { children, data } = $props();
 

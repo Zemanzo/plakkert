@@ -3,10 +3,10 @@
 	import { onMount } from 'svelte';
 	import type { ActionData } from './$types';
 	import _sodium from 'libsodium-wrappers';
-	import { db } from '$lib/client/Database';
-	import { encryptPrivateKey } from '$lib/client/cryptography/PrivateKey';
-	import { defaultPreferences } from '$lib/client/settings/Preferences';
-	import Button from '$lib/client/components/Button.svelte';
+	import { db } from '#lib/client/Database.js';
+	import { encryptPrivateKey } from '#lib/client/cryptography/PrivateKey.js';
+	import { defaultPreferences } from '#lib/client/settings/Preferences.js';
+	import Button from '#lib/client/components/Button.svelte';
 
 	async function initCrypto() {
 		// Always wait for the WASM binary to load completely

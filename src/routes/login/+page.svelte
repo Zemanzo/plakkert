@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { enhance, applyAction } from '$app/forms';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, refreshAll } from '$app/navigation';
 	import EyeIcon from '@iconify-svelte/charm/eye';
 	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
 	import type { ActionData } from './$types';
-	import { db } from '$lib/client/Database';
-	import { decryptPrivateKey, hashPassword } from '$lib/client/cryptography/PrivateKey';
-	import { defaultPreferences } from '$lib/client/settings/Preferences';
-	import Button from '$lib/client/components/Button.svelte';
+	import { db } from '#lib/client/Database.js';
+	import { decryptPrivateKey, hashPassword } from '#lib/client/cryptography/PrivateKey.js';
+	import { defaultPreferences } from '#lib/client/settings/Preferences.js';
+	import Button from '#lib/client/components/Button.svelte';
 
 	let { form }: { form: ActionData } = $props();
 	let loading = $state(false);
@@ -95,7 +95,7 @@
 						throw new Error('Failed to add user to database', { cause: error });
 					}
 				}
-				await invalidateAll();
+				await refreshAll();
 				// eslint-disable-next-line svelte/no-navigation-without-resolve
 				goto(result.location);
 			} else {

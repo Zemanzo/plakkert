@@ -1,7 +1,7 @@
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
-import { notes, userNotes } from '$lib/server/db/schema';
+import { db } from '#lib/server/db/index.js';
+import { notes, userNotes } from '#lib/server/db/schema.js';
 import { and, eq } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 	if (!result) throw error(404, 'Not found');
 
-	return json({
+	return Response.json({
 		...result,
 		content: result.content ? (result.content as Buffer).toString('base64') : null
 	});
@@ -79,7 +79,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 			permissions: 'edit'
 		});
 
-		return json(created);
+		return Response.json(created);
 	}
 
 	if (userNote.deletedAt) throw error(410, 'Gone');
@@ -91,7 +91,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 		.where(eq(notes.id, params.id))
 		.returning({ id: notes.id, updatedAt: notes.updatedAt });
 
-	return json(updated);
+	return Response.json(updated);
 };
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {

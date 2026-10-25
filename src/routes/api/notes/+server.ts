@@ -1,7 +1,7 @@
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
-import { notes, userNotes } from '$lib/server/db/schema';
+import { db } from '#lib/server/db/index.js';
+import { notes, userNotes } from '#lib/server/db/schema.js';
 import { eq } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		.innerJoin(notes, eq(userNotes.noteId, notes.id))
 		.where(eq(userNotes.userId, locals.user.id));
 
-	return json(
+	return Response.json(
 		results.map((r) => ({
 			...r,
 			content: r.content ? (r.content as Buffer).toString('base64') : null

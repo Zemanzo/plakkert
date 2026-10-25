@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -6,7 +6,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 
-	return json({
+	return Response.json({
 		...locals.user
 	});
 };
