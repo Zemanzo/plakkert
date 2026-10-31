@@ -1,6 +1,7 @@
 import { matchesSearch } from '../search/Search';
 import { ARCHIVED_TAG, hasTag, isArchived, isTrashed, TRASHED_TAG } from '../tags/Tags';
 import type { NoteEntry } from './NoteStore.svelte';
+import { byPosition } from './Order';
 
 /** Which notes are shown: all current notes, those with a tag, the archive or the trash. */
 export type NotesViewKind =
@@ -61,7 +62,8 @@ export function selectNotes<T extends Entry>(
 	}
 
 	return {
-		main: current.filter((entry) => !isArchived(entry.tags)).sort(byNewest),
+		// The user's own order. The archive and the trash are in the order notes ended up there.
+		main: current.filter((entry) => !isArchived(entry.tags)).sort(byPosition),
 		archived: view.kind === 'tag' || searching ? archived.sort(byTagAddedAt(ARCHIVED_TAG)) : [],
 		trashedMatches
 	};

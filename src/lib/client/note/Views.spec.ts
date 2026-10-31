@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildSearchText, normalizeForSearch, parseSearchQuery } from '../search/Search';
-import { ARCHIVED_TAG, TRASHED_TAG, userTags, type NoteTags } from '../tags/Tags';
+import { ARCHIVED_TAG, POSITION_TAG, TRASHED_TAG, userTags, type NoteTags } from '../tags/Tags';
 import { selectNotes, type NotesViewKind } from './Views';
 
 function entry(id: string, createdAt: number, tags: NoteTags = {}) {
@@ -32,6 +32,11 @@ describe('selectNotes', () => {
 		expect(ids(main)).toEqual(['work', 'newer', 'plain']);
 		expect(archived).toEqual([]);
 		expect(trashedMatches).toBe(0);
+	});
+
+	it("shows notes in the user's own order", () => {
+		const moved = [entry('first', 1, { [POSITION_TAG]: 10 }), entry('second', 2)];
+		expect(ids(selectNotes(moved, { kind: 'notes' }, []).main)).toEqual(['first', 'second']);
 	});
 
 	it('shows notes with a tag, with archived ones apart', () => {

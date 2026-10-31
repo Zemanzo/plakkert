@@ -20,8 +20,11 @@ A true end-to-end encrypted notes web app, built for offline-first.
   - Tags, to find notes back quickly; tags can be renamed and deleted for all notes at once
   - Archive, for notes you want to keep but not see
   - Trash: notes in the trash are deleted forever after 30 days, or earlier by hand
-  - Tags, archive and trash are per user: on a shared note, everyone organises it their own way,
-    and only deleting it forever from the trash deletes it for everyone
+  - Your own order: drag notes around, or on a touch screen hold a note and then drag it. With the
+    keyboard, Shift and the arrow keys move the selected note. The archive and the trash are in the
+    order notes ended up there.
+  - Tags, archive, trash and order are per user: on a shared note, everyone organises it their own
+    way, and only deleting it forever from the trash deletes it for everyone
 - Search through the text and tags of notes (`/` jumps to the search field)
 - Ten note colours
 - Basic input
@@ -43,7 +46,7 @@ A true end-to-end encrypted notes web app, built for offline-first.
 - Every note has its own key, which is encrypted with the owner's public key. Note contents are
   encrypted with that note key, so the server only ever stores ciphertext.
 - Tags are encrypted with the note key as well, and stored per user. Archiving and trashing a note
-  are special tags, so the server can't tell either. Because of that, the server can't empty the
+  are special tags, so the server can't tell either, and so is a note's place in the user's order. Because of that, the server can't empty the
   trash itself: the app deletes notes that have been in the trash for 30 days, once it has synced,
   so a note that was restored on another device isn't deleted by mistake.
 - Searching happens in the browser, on the decrypted notes, so it also works offline.

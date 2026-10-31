@@ -10,10 +10,11 @@
 	import SyncStatus from '../sync/SyncStatus.svelte';
 	import { isTrashed, TRASH_RETENTION_DAYS } from '../tags/Tags';
 	import type { RuntimeUser } from '#lib/types.js';
-	import { confirmEmptyTrash } from './NoteActions';
+	import { toasts } from '../components/ToastStore.svelte';
+	import { confirmEmptyTrash, moveNote } from './NoteActions';
 	import { createNote } from './NotesCRUD';
 	import NotesGrid from './NotesGrid.svelte';
-	import type { NoteStore } from './NoteStore.svelte';
+	import type { NoteEntry, NoteStore } from './NoteStore.svelte';
 	import { selectNotes, type NotesViewKind } from './Views';
 
 	let { view }: { view: NotesViewKind } = $props();
@@ -34,6 +35,17 @@
 	const isEmpty = $derived(selection?.main.length === 0 && selection.archived.length === 0);
 	// New notes are neither archived nor trashed, so they'd be hidden right away in those views.
 	const canCreate = $derived(view.kind === 'notes' || view.kind === 'tag');
+	// The archive and the trash are in the order notes ended up there.
+	const canReorder = $derived(view.kind === 'notes' || view.kind === 'tag');
+
+	async function move(entries: NoteEntry[], from: number, to: number) {
+		try {
+			await moveNote(entries, from, to, user.id);
+		} catch (error) {
+			console.error('Failed to move the note', error);
+			toasts.show('The note couldn’t be moved.');
+		}
+	}
 	// "Empty trash" empties all of it, not just the notes that match the search.
 	const trashedEntries = $derived(
 		view.kind === 'trash' ? (store.entries ?? []).filter((entry) => isTrashed(entry.tags)) : []
@@ -200,7 +212,11 @@
 				</p>
 			{/if}
 
-			<NotesGrid entries={selection.main} bind:focusedNoteId />
+			<NotesGrid
+				entries={selection.main}
+				bind:focusedNoteId
+				onMove={canReorder ? (from, to) => move(selection.main, from, to) : undefined}
+			/>
 
 			{#if selection.archived.length > 0}
 				<h3 class="sectionHeading">Archived</h3>

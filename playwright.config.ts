@@ -18,8 +18,12 @@ export default defineConfig({
 	},
 	projects: [
 		{ name: 'chromium', use: devices['Desktop Chrome'] },
-		// Only for layout that browsers are known to disagree on.
-		{ name: 'firefox', use: devices['Desktop Firefox'], testMatch: 'popovers.test.ts' }
+		// Only for what browsers are known to disagree on: layout and dragging.
+		{
+			name: 'firefox',
+			use: devices['Desktop Firefox'],
+			testMatch: ['popovers.test.ts', 'reorder.test.ts']
+		}
 	],
 	webServer: {
 		command: 'node e2e/server.js',

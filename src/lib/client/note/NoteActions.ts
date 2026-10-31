@@ -4,6 +4,7 @@ import { loadTags, updateTags } from '../tags/TagsCRUD';
 import {
 	ARCHIVED_TAG,
 	isTrashExpired,
+	POSITION_TAG,
 	TRASHED_TAG,
 	withoutTag,
 	withTag,
@@ -11,6 +12,7 @@ import {
 } from '../tags/Tags';
 import { deleteNote } from './NotesCRUD';
 import type { NoteEntry } from './NoteStore.svelte';
+import { positionsAfterMove } from './Order';
 import { leaveNote } from './Sharing';
 
 // Archiving and trashing only change the user's own tags, so they work offline and don't affect
@@ -45,6 +47,24 @@ export const trashNote = (entry: NoteEntry, userId: string) =>
 /** Takes a note out of the trash, back to where it was (e.g. still archived). */
 export const restoreNote = (entry: NoteEntry, userId: string) =>
 	toggleTag(entry, userId, TRASHED_TAG, false, 'Note restored');
+
+/**
+ * Moves a note within a list of notes in the user's order, e.g. after it was
+ * dragged elsewhere. Like tags, the order is the user's own.
+ */
+export async function moveNote(entries: NoteEntry[], from: number, to: number, userId: string) {
+	const changes = positionsAfterMove(entries, from, to);
+	await Promise.all(
+		entries
+			.filter((entry) => changes.has(entry.note.id))
+			.map((entry) =>
+				updateTags(entry.note.id, userId, entry.noteKey, (tags) => ({
+					...tags,
+					[POSITION_TAG]: changes.get(entry.note.id)!
+				}))
+			)
+	);
+}
 
 /**
  * Deletes a note for good: for everyone if the user owns it, or otherwise

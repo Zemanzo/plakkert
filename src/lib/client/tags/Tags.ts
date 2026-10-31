@@ -4,12 +4,14 @@
  * organises it their own way.
  *
  * Archiving and trashing a note are special tags as well. They start with a
- * `$`, which tags typed by the user can't.
+ * `$`, which tags typed by the user can't. So is the note's place in the
+ * user's own order, `$position`, whose value is a sort key rather than a time.
  */
 export type NoteTags = Record<string, number>;
 
 export const ARCHIVED_TAG = '$archived';
 export const TRASHED_TAG = '$trashed';
+export const POSITION_TAG = '$position';
 
 /** How long a note stays in the trash before it is deleted for good. */
 export const TRASH_RETENTION_DAYS = 30;
