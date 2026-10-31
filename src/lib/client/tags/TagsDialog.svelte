@@ -226,6 +226,7 @@
 		flex: 1;
 
 		input {
+			margin: var(--spacing-sm);
 			flex: 1;
 			min-width: 0;
 		}
