@@ -50,10 +50,19 @@
 	});
 </script>
 
+<!-- Tipex writes these bindings from editor events, which can fire in the middle of an update:
+     removing a focused editor from the page blurs it. Svelte doesn't allow changing state at that
+     point, so the writes are untracked. -->
 <Tipex
 	body={initialContent}
-	bind:focused
-	bind:tipex={editor}
+	bind:focused={() => focused, (value) => untrack(() => (focused = value))}
+	bind:tipex={
+		() => editor,
+		(value) => {
+			// It's set again on every transaction, but it's always the same editor.
+			if (value !== editor) untrack(() => (editor = value));
+		}
+	}
 	class={`${disabled ? 'pointer-events-none' : ''} w-full flex-1`}
 	controlComponent={null}
 	autofocus={false}
