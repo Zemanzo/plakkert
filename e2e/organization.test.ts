@@ -127,6 +127,22 @@ test('tags, the archive, the trash and search', async ({ app }) => {
 		await page.getByRole('button', { name: 'Done' }).click();
 		await expect(note(page, 'Work plan').locator('.tag')).toHaveCount(0);
 	});
+
+	await test.step('emptying the trash empties all of it, even while searching', async () => {
+		await noteAction(page, 'Groceries list', 'Move to trash');
+		await noteAction(page, 'Work plan', 'Move to trash');
+		await goTo(page, 'Trash');
+		await page.locator('input[type=search]').fill('groceries');
+		await expect(page.locator('[data-note-id]')).toHaveText([/Groceries list/]);
+
+		const emptyTrash = page.getByRole('button', { name: 'Empty trash' });
+		await emptyTrash.click();
+		await expect(page.locator('dialog[open]')).toContainText('all 2 notes');
+		await page.locator('dialog[open]').getByRole('button', { name: 'Empty trash' }).click();
+		await page.locator('input[type=search]').fill('');
+		await expect(page.getByText('The trash is empty.')).toBeVisible();
+		await expect(emptyTrash).toBeDisabled();
+	});
 });
 
 test('tags sync between devices, and are personal on shared notes', async ({ app }) => {

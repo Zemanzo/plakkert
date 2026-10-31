@@ -7,7 +7,7 @@
 	import Button from '../components/Button.svelte';
 	import { parseSearchQuery } from '../search/Search';
 	import SyncStatus from '../sync/SyncStatus.svelte';
-	import { TRASH_RETENTION_DAYS } from '../tags/Tags';
+	import { isTrashed, TRASH_RETENTION_DAYS } from '../tags/Tags';
 	import type { RuntimeUser } from '#lib/types.js';
 	import { confirmEmptyTrash } from './NoteActions';
 	import { createNote } from './NotesCRUD';
@@ -33,6 +33,10 @@
 	const isEmpty = $derived(selection?.main.length === 0 && selection.archived.length === 0);
 	// New notes are neither archived nor trashed, so they'd be hidden right away in those views.
 	const canCreate = $derived(view.kind === 'notes' || view.kind === 'tag');
+	// "Empty trash" empties all of it, not just the notes that match the search.
+	const trashedEntries = $derived(
+		view.kind === 'trash' ? (store.entries ?? []).filter((entry) => isTrashed(entry.tags)) : []
+	);
 
 	const searchPlaceholder = $derived.by(() => {
 		switch (view.kind) {
@@ -137,6 +141,14 @@
 			</div>
 			{#if canCreate}
 				<Button onclick={addNote}>+ New note</Button>
+			{:else if view.kind === 'trash'}
+				<Button
+					--bg="var(--color-red)"
+					disabled={trashedEntries.length === 0}
+					onclick={() => confirmEmptyTrash(trashedEntries, user.id)}
+				>
+					Empty trash
+				</Button>
 			{/if}
 		</div>
 	</div>
@@ -153,28 +165,15 @@
 
 	<div class="scroll-container">
 		{#if view.kind === 'archive'}
-			<div class="explainer">
-				<p>
-					Archived notes stay out of the way of your other notes, but still show up when you search
-					them.
-				</p>
-			</div>
+			<p class="explainer">
+				Archived notes stay out of the way of your other notes, but still show up when you search
+				them.
+			</p>
 		{:else if view.kind === 'trash'}
-			<div class="explainer">
-				<p>
-					Notes in the trash are deleted forever after {TRASH_RETENTION_DAYS} days. Notes you shared stay
-					available to others until then.
-				</p>
-				{#if selection && selection.main.length > 0 && terms.length === 0}
-					<Button
-						class="sm"
-						--bg="var(--color-red)"
-						onclick={() => confirmEmptyTrash(selection.main, user.id)}
-					>
-						Empty trash
-					</Button>
-				{/if}
-			</div>
+			<p class="explainer">
+				Notes in the trash are deleted forever after {TRASH_RETENTION_DAYS} days. Notes you shared stay
+				available to others until then.
+			</p>
 		{/if}
 
 		{#if store.loadError}
@@ -318,18 +317,9 @@
 	}
 
 	.explainer {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--spacing-sm) var(--spacing-lg);
-		margin-bottom: var(--spacing-lg);
-
-		p {
-			flex: 1 1 20rem;
-			margin: 0;
-			font-size: 0.8rem;
-			opacity: 0.6;
-		}
+		margin: 0 0 var(--spacing-lg);
+		font-size: 0.8rem;
+		opacity: 0.6;
 	}
 
 	.message {
