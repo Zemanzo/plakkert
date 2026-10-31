@@ -119,10 +119,17 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 	if (note.deletedAt) return new Response(null, { status: 204 });
 
 	const now = new Date();
-	await db
-		.update(notes)
-		.set({ content: null, deletedAt: now, updatedAt: now })
-		.where(eq(notes.id, params.id));
+	db.transaction((tx) => {
+		tx.update(notes)
+			.set({ content: null, deletedAt: now, updatedAt: now })
+			.where(eq(notes.id, params.id))
+			.run();
+		// Everyone's tags are encrypted with the note key too, so they go along with the content.
+		tx.update(userNotes)
+			.set({ tags: null, tagsUpdatedAt: null })
+			.where(eq(userNotes.noteId, params.id))
+			.run();
+	});
 
 	return new Response(null, { status: 204 });
 };

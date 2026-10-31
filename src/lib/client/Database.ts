@@ -42,6 +42,12 @@ export interface NoteKey {
 	encryptedKey: Uint8Array;
 	/** What the user may do with the note. Missing for older records, which are all editable. */
 	permission?: NotePermission;
+	/** The user's tags for the note, encrypted with the note key. See `tags/Tags.ts`. */
+	tags?: Uint8Array;
+	/** When the tags last changed, for last-write-wins sync. Missing when there are no tags. */
+	tagsUpdatedAt?: Date;
+	/** 1 when the tags changed locally and haven't been sent to the server yet. */
+	tagsDirty?: 0 | 1;
 }
 
 export type NotePermission = 'view' | 'edit';
@@ -97,5 +103,10 @@ db.version(4)
 				note.dirty = 1;
 			})
 	);
+
+// Tags (including archived and trashed) are stored per user on their note key, and sync on their own.
+db.version(5).stores({
+	noteKeys: '[noteId+userId], [userId+noteId], tagsDirty'
+});
 
 export { db };

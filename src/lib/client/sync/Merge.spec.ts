@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeServerNote } from './Merge';
+import { mergeServerNote, mergeServerTags } from './Merge';
 
 const earlier = new Date('2026-01-01T10:00:00.000Z');
 const later = new Date('2026-01-01T10:00:00.250Z');
@@ -47,5 +47,26 @@ describe('mergeServerNote', () => {
 				{ updatedAt: later, deletedAt: null }
 			)
 		).toBe('keep-local');
+	});
+});
+
+describe('mergeServerTags', () => {
+	it('takes tags from the server when there are none locally', () => {
+		expect(mergeServerTags(undefined, { tagsUpdatedAt: earlier })).toBe('take-server');
+		expect(mergeServerTags({}, { tagsUpdatedAt: earlier })).toBe('take-server');
+	});
+
+	it('keeps local tags when the server has none', () => {
+		expect(mergeServerTags({ tagsUpdatedAt: earlier }, { tagsUpdatedAt: null })).toBe('keep-local');
+	});
+
+	it('takes whichever tags were changed last', () => {
+		expect(mergeServerTags({ tagsUpdatedAt: earlier }, { tagsUpdatedAt: later })).toBe(
+			'take-server'
+		);
+		expect(mergeServerTags({ tagsUpdatedAt: later }, { tagsUpdatedAt: earlier })).toBe(
+			'keep-local'
+		);
+		expect(mergeServerTags({ tagsUpdatedAt: later }, { tagsUpdatedAt: later })).toBe('keep-local');
 	});
 });

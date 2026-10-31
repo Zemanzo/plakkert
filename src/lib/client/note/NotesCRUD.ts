@@ -1,6 +1,7 @@
 import { db, type NoteData, type NoteKey, type Note as NoteType } from '../Database';
-import { encryptNote, getNoteKey } from '../serialization/Serialize';
+import { encryptNote, encryptTags, getNoteKey } from '../serialization/Serialize';
 import { syncEngine } from '../sync/Sync.svelte';
+import type { NoteTags } from '../tags/Tags';
 import { DEFAULT_NOTE_COLOR } from './NoteColors';
 import type { RuntimeUser } from '#lib/types.js';
 
@@ -11,9 +12,10 @@ import type { RuntimeUser } from '#lib/types.js';
  * Adds a new note for the given user. Generates a new note key, encrypts an
  * empty note, and stores both the note and the encrypted key in the database.
  *
+ * @param tags Tags to give the note right away, e.g. the tag that is being viewed.
  * @returns The ID of the new note.
  */
-export const createNote = async (user: RuntimeUser) => {
+export const createNote = async (user: RuntimeUser, tags?: NoteTags) => {
 	const { noteKey, encryptedKey } = await getNoteKey(user.publicKeyUint8);
 	const defaultNoteData = {
 		content: '',
@@ -32,6 +34,7 @@ export const createNote = async (user: RuntimeUser) => {
 		updatedAt: now,
 		dirty: 1
 	} satisfies NoteType<Uint8Array>;
+	const encryptedTags = tags && (await encryptTags(tags, noteKey));
 
 	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
 		await db.notes.add(note);
@@ -41,7 +44,8 @@ export const createNote = async (user: RuntimeUser) => {
 			noteId: note.id,
 			userId: user.id,
 			encryptedKey,
-			permission: 'edit'
+			permission: 'edit',
+			...(encryptedTags && { tags: encryptedTags, tagsUpdatedAt: now, tagsDirty: 1 })
 		} satisfies NoteKey);
 	});
 	syncEngine.requestSync();

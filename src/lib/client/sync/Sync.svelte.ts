@@ -1,9 +1,9 @@
 import { liveQuery } from 'dexie';
-import { db, type Note, type NotePermission } from '../Database';
+import { db, type Note, type NoteKey, type NotePermission } from '../Database';
 import { ApiError, fetchOrOffline, OfflineError, request, toApiError } from '../Api';
 import { signInUsername } from '../auth/AuthApi';
 import { getUnlockedSession } from '../auth/Session';
-import { mergeServerNote, type MergeAction } from './Merge';
+import { mergeServerNote, mergeServerTags, type MergeAction, type TagsMergeAction } from './Merge';
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'signed-out' | 'error';
 
@@ -20,10 +20,18 @@ interface ServerNote {
 	content: string | null;
 	noteKey: string;
 	permissions: NotePermission;
+	/** The user's own tags for the note, encrypted with the note key. */
+	tags: string | null;
+	tagsUpdatedAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 	deletedAt: string | null;
 }
+
+type ChooseTags = (
+	local: NoteKey | undefined,
+	server: { tagsUpdatedAt: Date | null }
+) => TagsMergeAction;
 
 /** How long to wait after a local change, so that a burst of edits is sent together. */
 const SYNC_DELAY_MS = 1000;
@@ -46,21 +54,39 @@ export async function forgetNote(noteId: string, userId: string) {
 	});
 }
 
-/** Stores the user's note key and permission, which can change when the owner reshares. */
-async function updateAccess(serverNote: ServerNote, userId: string) {
+/**
+ * Stores the user's note key and permission, which can change when the owner
+ * reshares, and their tags for the note if the server has newer ones.
+ */
+async function updateAccess(
+	serverNote: ServerNote,
+	userId: string,
+	chooseTags: ChooseTags = mergeServerTags
+) {
 	const noteKey = await db.noteKeys.where({ noteId: serverNote.id, userId }).first();
+	const tagsUpdatedAt = serverNote.tagsUpdatedAt ? new Date(serverNote.tagsUpdatedAt) : null;
+	const serverTags =
+		chooseTags(noteKey, { tagsUpdatedAt }) === 'take-server' && tagsUpdatedAt
+			? {
+					tags: serverNote.tags ? Uint8Array.fromBase64(serverNote.tags) : undefined,
+					tagsUpdatedAt,
+					tagsDirty: 0 as const
+				}
+			: {};
+
 	if (!noteKey) {
 		await db.noteKeys.put({
 			id: crypto.randomUUID(),
 			noteId: serverNote.id,
 			userId,
 			encryptedKey: Uint8Array.fromBase64(serverNote.noteKey),
-			permission: serverNote.permissions
+			permission: serverNote.permissions,
+			...serverTags
 		});
-	} else if (noteKey.permission !== serverNote.permissions) {
+	} else if (noteKey.permission !== serverNote.permissions || 'tags' in serverTags) {
 		await db.noteKeys
 			.where({ noteId: serverNote.id, userId })
-			.modify({ permission: serverNote.permissions });
+			.modify({ permission: serverNote.permissions, ...serverTags });
 	}
 }
 
@@ -168,6 +194,66 @@ async function pushDeletion(note: Note<Uint8Array>) {
 	}
 }
 
+/** Clears the tags' dirty flag, unless they were changed again while they were being sent. */
+async function markTagsSynced(noteKey: NoteKey) {
+	await db.transaction('rw', db.noteKeys, async () => {
+		const current = await db.noteKeys
+			.where({ noteId: noteKey.noteId, userId: noteKey.userId })
+			.first();
+		if (current?.tagsUpdatedAt?.getTime() === noteKey.tagsUpdatedAt?.getTime()) {
+			await db.noteKeys
+				.where({ noteId: noteKey.noteId, userId: noteKey.userId })
+				.modify({ tagsDirty: 0 });
+		}
+	});
+}
+
+async function pushTags(noteKey: NoteKey, userId: string) {
+	const response = await fetchOrOffline(`/api/notes/${noteKey.noteId}/tags`, {
+		method: 'PUT',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			tags: (noteKey.tags ?? new Uint8Array()).toBase64(),
+			updatedAt: noteKey.tagsUpdatedAt?.getTime() ?? Date.now()
+		})
+	});
+
+	if (response.ok) {
+		await markTagsSynced(noteKey);
+	} else if (response.status === 409) {
+		// The server has tags that are at least as new; take them, unless they were changed again
+		// in the meantime, in which case those are pushed next time.
+		const serverNote = (await response.json()) as ServerNote;
+		await db.transaction('rw', db.notes, db.noteKeys, () =>
+			updateAccess(serverNote, userId, (local, server) =>
+				local?.tagsUpdatedAt && server.tagsUpdatedAt && local.tagsUpdatedAt > server.tagsUpdatedAt
+					? 'keep-local'
+					: 'take-server'
+			)
+		);
+	} else if (response.status === 410) {
+		// The note was deleted, so its tags don't matter anymore.
+		const serverNote = (await response.json()) as ServerNote;
+		await db.transaction('rw', db.notes, db.noteKeys, () => applyServerNote(serverNote, userId));
+	} else if (response.status === 404) {
+		const note = await db.notes.get(noteKey.noteId);
+		// An own note that hasn't reached the server yet; its tags are sent once it has.
+		if (note?.ownerId === userId) return;
+		await forgetNote(noteKey.noteId, userId);
+	} else {
+		throw await toApiError(response);
+	}
+}
+
+/** Returns the user's notes whose tags changed locally and haven't been sent yet. */
+function getPushableTags(userId: string) {
+	return db.noteKeys
+		.where('tagsDirty')
+		.equals(1)
+		.filter((noteKey) => noteKey.userId === userId)
+		.toArray();
+}
+
 /**
  * Returns the notes with local changes that this user can send: edits to notes
  * they may edit, and deletions of notes they own.
@@ -191,25 +277,33 @@ async function getPushableNotes(userId: string) {
  * @returns Whether every change was sent.
  */
 async function pushChanges(userId: string) {
-	const dirtyNotes = await getPushableNotes(userId);
-
 	let succeeded = true;
-	for (const note of dirtyNotes) {
+	/** Runs one push. On failure, keeps going, so one problematic note doesn't block the others. */
+	async function attempt(noteId: string, push: () => Promise<void>) {
 		try {
-			if (note.deletedAt) {
-				await pushDeletion(note);
-			} else {
-				await pushNote(note, userId);
-			}
+			await push();
 		} catch (error) {
 			if (error instanceof OfflineError || isUnauthorized(error)) throw error;
-			// Keep going, so one problematic note doesn't block the others. It stays dirty and is
-			// retried on the next sync.
-			console.error(`Failed to sync note ${note.id}`, error);
+			// It stays dirty and is retried on the next sync.
+			console.error(`Failed to sync note ${noteId}`, error);
 			succeeded = false;
 		}
 	}
+
+	for (const note of await getPushableNotes(userId)) {
+		await attempt(note.id, () => (note.deletedAt ? pushDeletion(note) : pushNote(note, userId)));
+	}
+	// After the notes, so new notes exist on the server by the time their tags are sent.
+	for (const noteKey of await getPushableTags(userId)) {
+		await attempt(noteKey.noteId, () => pushTags(noteKey, userId));
+	}
 	return succeeded;
+}
+
+/** Number of notes with changes (to their content or tags) that haven't been sent yet. */
+async function countPendingChanges(userId: string) {
+	const [notes, noteKeys] = await Promise.all([getPushableNotes(userId), getPushableTags(userId)]);
+	return new Set([...notes.map((note) => note.id), ...noteKeys.map((key) => key.noteId)]).size;
 }
 
 /** Applies all changes made on the server, e.g. from other devices. */
@@ -243,6 +337,11 @@ class SyncEngine {
 	status = $state<SyncStatus>('idle');
 	/** Number of notes with changes that haven't reached the server yet. */
 	pendingChanges = $state(0);
+	/**
+	 * When changes from the server were last applied in this session. Until then, the local
+	 * notes may be outdated, e.g. a note that is still trashed here may be restored elsewhere.
+	 */
+	lastPulledAt = $state<Date | null>(null);
 
 	#user: SyncUser | null = null;
 	#running: Promise<void> | null = null;
@@ -258,7 +357,7 @@ class SyncEngine {
 		this.#user = user;
 		this.#signInRejected = false;
 
-		const pending = liveQuery(async () => (await getPushableNotes(user.id)).length).subscribe(
+		const pending = liveQuery(() => countPendingChanges(user.id)).subscribe(
 			(count) => (this.pendingChanges = count)
 		);
 		const syncNow = () => void this.syncNow();
@@ -286,6 +385,7 @@ class SyncEngine {
 		this.#user = null;
 		this.status = 'idle';
 		this.pendingChanges = 0;
+		this.lastPulledAt = null;
 	}
 
 	/** Syncs shortly after a local change. */
@@ -325,6 +425,7 @@ class SyncEngine {
 			await this.#ensureServerSession(user);
 			const pushed = await pushChanges(user.id);
 			await pullChanges(user.id);
+			if (this.#user?.id === user.id) this.lastPulledAt = new Date();
 			status = pushed ? 'idle' : 'error';
 		} catch (error) {
 			if (error instanceof OfflineError) {

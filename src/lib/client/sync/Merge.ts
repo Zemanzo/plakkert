@@ -25,3 +25,20 @@ export function mergeServerNote(
 	if (local.deletedAt) return 'keep-local';
 	return server.updatedAt > local.updatedAt ? 'take-server' : 'keep-local';
 }
+
+/** What to do with the user's local tags for a note, given the tags on the server. */
+export type TagsMergeAction = 'keep-local' | 'take-server';
+
+/**
+ * Decides how to merge a user's tags from the server. Tags sync separately
+ * from note content, with their own last-write-wins timestamp, so tagging a
+ * note never conflicts with editing it.
+ */
+export function mergeServerTags(
+	local: { tagsUpdatedAt?: Date } | undefined,
+	server: { tagsUpdatedAt: Date | null }
+): TagsMergeAction {
+	if (!server.tagsUpdatedAt) return 'keep-local';
+	if (!local?.tagsUpdatedAt) return 'take-server';
+	return server.tagsUpdatedAt > local.tagsUpdatedAt ? 'take-server' : 'keep-local';
+}

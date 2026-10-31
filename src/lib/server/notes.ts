@@ -20,6 +20,8 @@ export function selectUserNotes(
 			content: notes.content,
 			noteKey: userNotes.noteKey,
 			permissions: userNotes.permissions,
+			tags: userNotes.tags,
+			tagsUpdatedAt: userNotes.tagsUpdatedAt,
 			createdAt: notes.createdAt,
 			updatedAt: notes.updatedAt,
 			deletedAt: notes.deletedAt
@@ -36,11 +38,12 @@ export function selectUserNotes(
 
 export type UserNoteRow = Awaited<ReturnType<typeof selectUserNotes>>[number];
 
-/** Converts a note row to JSON, with the encrypted content base64 encoded. */
+/** Converts a note row to JSON, with the encrypted content and tags base64 encoded. */
 export function toNoteJson(row: UserNoteRow) {
 	return {
 		...row,
-		content: row.content ? (row.content as Buffer).toString('base64') : null
+		content: row.content ? (row.content as Buffer).toString('base64') : null,
+		tags: row.tags ? (row.tags as Buffer).toString('base64') : null
 	};
 }
 
