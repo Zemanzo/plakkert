@@ -32,6 +32,7 @@ A true end-to-end encrypted notes web app, built for offline-first.
   - Code block
   - Checkbox list block
 - Authentication server
+- Invite-only registration (see below)
 
 ## How encryption works
 
@@ -50,6 +51,19 @@ A true end-to-end encrypted notes web app, built for offline-first.
   The recipient's public key is fetched from the server and not verified, so this relies on the
   server handing out the right key. Stopping sharing does not change the note key, so someone who
   had access could still decrypt the note if they got hold of its ciphertext later.
+
+## Registration
+
+Who can create an account is set with the `REGISTRATION` environment variable, read when the
+server starts:
+
+- `invite` (the default): only people with the invite code in `INVITE_CODE`. Without an invite
+  code, nobody can register. Share an invite as a link: `https://<your domain>/register?invite=<code>`.
+- `open`: anyone.
+- `closed`: nobody.
+
+The server enforces this on the sign-up endpoint itself, and rate limits sign-up attempts. Changing
+the invite code stops old invites from working; existing accounts are not affected.
 
 ## Development
 

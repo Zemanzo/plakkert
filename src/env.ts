@@ -11,6 +11,15 @@ export const variables = defineEnvVars({
 		schema: optional,
 		description: 'Secret used by Better Auth to sign sessions. Required in production.'
 	},
+	REGISTRATION: {
+		schema: optional,
+		description:
+			'Who can create an account: "invite" (default; needs INVITE_CODE), "open" or "closed"'
+	},
+	INVITE_CODE: {
+		schema: optional,
+		description: 'Code needed to create an account when REGISTRATION is "invite"'
+	},
 	DATABASE_URL: {
 		schema: (value) => {
 			if (!value) throw new Error('DATABASE_URL is not set');

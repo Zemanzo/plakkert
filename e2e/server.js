@@ -15,6 +15,9 @@ Object.assign(process.env, {
 	ORIGIN: `http://localhost:${port}`,
 	DATABASE_URL: `${dataDir}/test.db`,
 	BETTER_AUTH_SECRET: 'e2e-test-secret-0123456789abcdefghij',
+	// Like production: only people with the invite code can register. Keep in sync with helpers.ts.
+	REGISTRATION: 'invite',
+	INVITE_CODE: 'e2e-invite-code',
 	PORT: port,
 	HOST: '127.0.0.1'
 });

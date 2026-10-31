@@ -169,8 +169,12 @@ export async function login(rawUsername: string, password: string) {
 	return user;
 }
 
-/** Creates a new account. This requires a connection to the server. */
-export async function register(rawUsername: string, password: string) {
+/**
+ * Creates a new account. This requires a connection to the server.
+ *
+ * @param inviteCode Needed when registration is invite only.
+ */
+export async function register(rawUsername: string, password: string, inviteCode?: string) {
 	const username = normalizeUsername(rawUsername);
 	const keys = await generateUserKeys();
 	const [{ encryptedKey, salt, nonce, iterations }, authKey] = await Promise.all([
@@ -181,17 +185,20 @@ export async function register(rawUsername: string, password: string) {
 	// Accounts are identified by username, but Better Auth requires a unique email address.
 	const email = `${crypto.randomUUID()}@example.com`;
 
-	const response = await signUpEmail({
-		email,
-		name: '',
-		username,
-		password: authKey,
-		publicKey,
-		privateKey: encodeKey(encryptedKey),
-		salt: encodeKey(salt),
-		nonce: encodeKey(nonce),
-		kdfIterations: iterations
-	});
+	const response = await signUpEmail(
+		{
+			email,
+			name: '',
+			username,
+			password: authKey,
+			publicKey,
+			privateKey: encodeKey(encryptedKey),
+			salt: encodeKey(salt),
+			nonce: encodeKey(nonce),
+			kdfIterations: iterations
+		},
+		inviteCode
+	);
 
 	const user: User = {
 		id: response.user.id,

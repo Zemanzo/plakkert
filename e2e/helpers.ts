@@ -11,6 +11,8 @@ export { expect };
 
 export const BASE_URL = 'http://localhost:4173';
 export const PASSWORD = 'correct horse battery staple';
+/** The invite code the test server is started with, in server.js. */
+export const INVITE_CODE = 'e2e-invite-code';
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const url = (path: string) => new URL(path, BASE_URL).href;
@@ -21,7 +23,13 @@ export function uniqueName(prefix: string) {
 }
 
 /** Errors that are expected, e.g. while a device is offline. */
-const EXPECTED_ERRORS = [/Failed to load resource/, /ERR_INTERNET_DISCONNECTED/, /Login failed/];
+const EXPECTED_ERRORS = [
+	/Failed to load resource/,
+	/ERR_INTERNET_DISCONNECTED/,
+	// Logged by the login and register pages, which show the error themselves; tests check that.
+	/Login failed/,
+	/Registration failed/
+];
 
 export interface Device {
 	context: BrowserContext;
@@ -58,9 +66,7 @@ class Devices {
 	async register(username: string, options?: BrowserContextOptions) {
 		const device = await this.open(username, options);
 		await device.page.goto(url('/register'));
-		await device.page.fill('#username', username);
-		await device.page.fill('#password', PASSWORD);
-		await device.page.click('button[type=submit]');
+		await signUp(device.page, username);
 		await device.page.waitForURL(url('/'));
 		return device;
 	}
@@ -91,6 +97,14 @@ export const test = base.extend<{ app: Devices }>({
 		expect(devices.errors, 'errors in the browser').toEqual([]);
 	}
 });
+
+/** Fills in and submits the register form. */
+export async function signUp(page: Page, username: string, inviteCode = INVITE_CODE) {
+	await page.fill('#username', username);
+	await page.fill('#password', PASSWORD);
+	await page.fill('#inviteCode', inviteCode);
+	await page.click('button[type=submit]');
+}
 
 /** Fills in and submits the login form. */
 export async function logIn(page: Page, username: string, password = PASSWORD) {
