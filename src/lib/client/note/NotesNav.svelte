@@ -74,8 +74,7 @@
 		gap: var(--spacing-xs);
 		flex: 0 0 15rem;
 		overflow-y: auto;
-		padding: var(--spacing-lg) var(--spacing-md);
-		border-right: 1px solid #8883;
+		padding: var(--spacing-lg) var(--spacing-md) var(--spacing-lg) 0;
 	}
 
 	a,
@@ -84,7 +83,7 @@
 		align-items: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-lg);
+		border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 		color: var(--color-text-primary);
 		text-decoration: none;
 		cursor: pointer;
@@ -96,7 +95,7 @@
 		}
 
 		&[aria-current='page'] {
-			background-color: color-mix(in srgb, var(--color-yellow) 35%, transparent);
+			background-color: color-mix(in srgb, var(--color-white) 15%, transparent);
 			opacity: 1;
 		}
 
