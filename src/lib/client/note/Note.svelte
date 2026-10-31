@@ -223,14 +223,14 @@
 	}
 
 	.placeholder {
-		min-width: 350px;
+		min-width: min(350px, 100%);
 		max-width: 500px;
 		background: #0003;
 		border-radius: var(--radius-sm);
 	}
 
 	.container {
-		min-width: 350px;
+		min-width: min(350px, 100%);
 		max-width: 500px;
 		height: 250px;
 		display: flex;
@@ -243,7 +243,7 @@
 			height var(--transition-duration) ease;
 
 		&.isFloating {
-			position: absolute;
+			position: fixed;
 			left: var(--float-left);
 			top: var(--float-top);
 			min-width: var(--float-width, 100vw);
@@ -294,5 +294,16 @@
 
 	.container.isFloating div[role='button'] {
 		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+	}
+
+	@media (max-width: 600px) {
+		div[role='button'] {
+			padding-inline: var(--spacing-lg);
+
+			&.isFocused {
+				width: calc(100% - 2 * var(--spacing-md));
+				height: calc(100% - 2 * var(--spacing-xl));
+			}
+		}
 	}
 </style>

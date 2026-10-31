@@ -8,6 +8,7 @@
 	import type { RuntimeUser } from '#lib/types.js';
 	import Button from '../components/Button.svelte';
 	import { createNote } from './NotesCRUD';
+	import SyncStatus from '../sync/SyncStatus.svelte';
 
 	interface DecryptedNote {
 		note: NoteType;
@@ -119,6 +120,7 @@
 
 <div class="controls">
 	<Button onclick={addNote}>+ New note</Button>
+	<SyncStatus />
 </div>
 {#if hasFocusedNote}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -157,6 +159,7 @@
 		padding: var(--spacing-lg);
 		gap: var(--spacing-md);
 		justify-content: center;
+		align-items: center;
 	}
 
 	.scroll-container {
@@ -169,7 +172,7 @@
 		flex: 1;
 
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
 		grid-auto-rows: minmax(40px, auto);
 		align-items: start;
 
@@ -190,7 +193,7 @@
 
 	.modal-background {
 		background: rgba(0, 0, 0, 0.5);
-		position: absolute;
+		position: fixed;
 		top: 0;
 		left: 0;
 		width: 100vw;
