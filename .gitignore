@@ -25,5 +25,10 @@ vite.config.ts.timestamp-*
 # SQLite
 *.db
 
+# End-to-end tests
+/e2e/.data
+/test-results
+/playwright-report
+
 
 /deploy

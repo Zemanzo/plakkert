@@ -62,6 +62,10 @@ pnpm dev
 - `pnpm check` type-checks the app and the service worker
 - `pnpm lint` checks formatting and lints
 - `pnpm test` runs the unit tests
+- `pnpm test:e2e` runs the end-to-end tests in `e2e/` with Playwright. It builds the app and serves
+  it on port 4173 with a throwaway database. If a server is already running on that port, it is
+  used instead, so stop it after changing the code (or set `E2E_SKIP_BUILD=1` to serve the
+  existing build). The first time, install the browser with `pnpm exec playwright install chromium`.
 - `pnpm db:generate` creates a migration after changing `src/lib/server/db/schema.ts`. Migrations are
   applied automatically when the server starts.
 

@@ -15,6 +15,7 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
+		"test:e2e": "playwright test",
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
@@ -24,6 +25,7 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.1.1",
 		"@eslint/js": "^10.0.1",
+		"@playwright/test": "1.64.1",
 		"@sveltejs/adapter-node": "6.0.0",
 		"@sveltejs/kit": "^3.1.0",
 		"@sveltejs/load-config": "^0.2.2",
