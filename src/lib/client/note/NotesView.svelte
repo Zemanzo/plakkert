@@ -2,10 +2,7 @@
 	import { fade } from 'svelte/transition';
 	import { getContext } from 'svelte';
 	import { resolve } from '$app/paths';
-	import ArchiveIcon from '@iconify-svelte/lucide/archive';
 	import SearchIcon from '@iconify-svelte/lucide/search';
-	import TagIcon from '@iconify-svelte/lucide/tag';
-	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import CloseIcon from '@iconify-svelte/lucide/x';
 	import Button from '../components/Button.svelte';
 	import { parseSearchQuery } from '../search/Search';
@@ -111,59 +108,59 @@
 
 <svelte:window {onkeydown} />
 
-<div class="toolbar">
-	<div class="search">
-		<SearchIcon width="18px" aria-hidden="true" />
-		<input
-			bind:this={searchInput}
-			bind:value={store.searchQuery}
-			type="search"
-			placeholder={searchPlaceholder}
-			aria-label={searchPlaceholder}
-			aria-keyshortcuts="/"
-		/>
-		{#if store.searchQuery}
-			<button
-				class="clear"
-				aria-label="Clear search"
-				onclick={() => {
-					store.searchQuery = '';
-					searchInput?.focus();
-				}}
-			>
-				<CloseIcon width="18px" />
-			</button>
-		{/if}
-	</div>
-	{#if canCreate}
-		<Button onclick={addNote}>+ New note</Button>
-	{/if}
-	<SyncStatus />
-</div>
-
-{#if hasFocusedNote}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="modal-background"
-		transition:fade={{ duration: 200 }}
-		onclick={() => (focusedNoteId = null)}
-	></div>
-{/if}
-
-<div class="scroll-container">
-	{#if view.kind !== 'notes'}
-		<div class="viewHeader">
-			<h2>
-				{#if view.kind === 'tag'}
-					<TagIcon width="20px" aria-hidden="true" />{view.tag}
-				{:else if view.kind === 'archive'}
-					<ArchiveIcon width="20px" aria-hidden="true" />Archive
-				{:else}
-					<TrashIcon width="20px" aria-hidden="true" />Trash
+<div class="notesView" data-view={view.kind}>
+	<div class="toolbar">
+		<SyncStatus />
+		<div class="actions">
+			<div class="search">
+				<SearchIcon width="18px" aria-hidden="true" />
+				<input
+					bind:this={searchInput}
+					bind:value={store.searchQuery}
+					type="search"
+					placeholder={searchPlaceholder}
+					aria-label={searchPlaceholder}
+					aria-keyshortcuts="/"
+				/>
+				{#if store.searchQuery}
+					<button
+						class="clear"
+						aria-label="Clear search"
+						onclick={() => {
+							store.searchQuery = '';
+							searchInput?.focus();
+						}}
+					>
+						<CloseIcon width="18px" />
+					</button>
 				{/if}
-			</h2>
-			{#if view.kind === 'trash'}
+			</div>
+			{#if canCreate}
+				<Button onclick={addNote}>+ New note</Button>
+			{/if}
+		</div>
+	</div>
+
+	{#if hasFocusedNote}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="modal-background"
+			transition:fade={{ duration: 200 }}
+			onclick={() => (focusedNoteId = null)}
+		></div>
+	{/if}
+
+	<div class="scroll-container">
+		{#if view.kind === 'archive'}
+			<div class="explainer">
+				<p>
+					Archived notes stay out of the way of your other notes, but still show up when you search
+					them.
+				</p>
+			</div>
+		{:else if view.kind === 'trash'}
+			<div class="explainer">
 				<p>
 					Notes in the trash are deleted forever after {TRASH_RETENTION_DAYS} days. Notes you shared stay
 					available to others until then.
@@ -177,59 +174,94 @@
 						Empty trash
 					</Button>
 				{/if}
+			</div>
+		{/if}
+
+		{#if store.loadError}
+			<p class="message">Error loading notes: {store.loadError.message}</p>
+		{:else if !selection}
+			<p class="message">Loading...</p>
+		{:else}
+			{#if isEmpty}
+				<p class="message">
+					{#if terms.length > 0}
+						No notes match “{store.searchQuery.trim()}”.
+					{:else if view.kind === 'tag'}
+						No notes with this tag.
+					{:else if view.kind === 'archive'}
+						No archived notes.
+					{:else if view.kind === 'trash'}
+						The trash is empty.
+					{:else}
+						No notes yet. Click “New note” to create your first note!
+					{/if}
+				</p>
 			{/if}
-		</div>
-	{/if}
 
-	{#if store.loadError}
-		<p class="message">Error loading notes: {store.loadError.message}</p>
-	{:else if !selection}
-		<p class="message">Loading...</p>
-	{:else}
-		{#if isEmpty}
-			<p class="message">
-				{#if terms.length > 0}
-					No notes match “{store.searchQuery.trim()}”.
-				{:else if view.kind === 'tag'}
-					No notes with this tag.
-				{:else if view.kind === 'archive'}
-					No archived notes. Archive notes to keep them without having them in the way.
-				{:else if view.kind === 'trash'}
-					The trash is empty.
-				{:else}
-					No notes yet. Click “New note” to create your first note!
-				{/if}
-			</p>
+			<NotesGrid entries={selection.main} bind:focusedNoteId />
+
+			{#if selection.archived.length > 0}
+				<h3 class="sectionHeading">Archived</h3>
+				<NotesGrid entries={selection.archived} bind:focusedNoteId />
+			{/if}
+
+			{#if selection.trashedMatches > 0}
+				<p class="hint">
+					{selection.trashedMatches === 1
+						? '1 matching note'
+						: `${selection.trashedMatches} matching notes`} in the
+					<a href={resolve('/(notes)/trash')}>trash</a>.
+				</p>
+			{/if}
+
+			{#if store.failedCount > 0}
+				<p class="hint">
+					{store.failedCount === 1 ? '1 note' : `${store.failedCount} notes`} could not be decrypted.
+				</p>
+			{/if}
 		{/if}
-
-		<NotesGrid entries={selection.main} bind:focusedNoteId />
-
-		{#if selection.archived.length > 0}
-			<h3 class="sectionHeading">Archived</h3>
-			<NotesGrid entries={selection.archived} bind:focusedNoteId />
-		{/if}
-
-		{#if selection.trashedMatches > 0}
-			<p class="hint">
-				{selection.trashedMatches === 1
-					? '1 matching note'
-					: `${selection.trashedMatches} matching notes`} in the
-				<a href={resolve('/(notes)/trash')}>trash</a>.
-			</p>
-		{/if}
-
-		{#if store.failedCount > 0}
-			<p class="hint">
-				{store.failedCount === 1 ? '1 note' : `${store.failedCount} notes`} could not be decrypted.
-			</p>
-		{/if}
-	{/if}
+	</div>
 </div>
 
 <style>
+	.notesView {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+
+		/* Comic book style patterns, to tell the archive and the trash apart from the other notes at a
+		   glance: halftone dots for the archive, hatching for the trash. */
+		&[data-view='archive'] {
+			background-image:
+				radial-gradient(var(--color-pattern) 2px, transparent 2.5px),
+				radial-gradient(var(--color-pattern) 2px, transparent 2.5px);
+			background-size: 16px 16px;
+			background-position:
+				0 0,
+				8px 8px;
+		}
+
+		&[data-view='trash'] {
+			background-image: repeating-linear-gradient(
+				-45deg,
+				var(--color-pattern) 0 2px,
+				transparent 2px 10px
+			);
+		}
+	}
+
 	.toolbar {
 		display: flex;
 		padding: var(--spacing-lg);
+		gap: var(--spacing-md);
+		align-items: center;
+	}
+
+	.actions {
+		display: flex;
+		flex: 1;
+		min-width: 0;
 		gap: var(--spacing-md);
 		justify-content: center;
 		align-items: center;
@@ -285,26 +317,18 @@
 		padding: 0 var(--spacing-lg) var(--spacing-lg);
 	}
 
-	.viewHeader {
+	.explainer {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--spacing-sm) var(--spacing-lg);
 		margin-bottom: var(--spacing-lg);
 
-		h2 {
-			display: flex;
-			align-items: center;
-			gap: var(--spacing-sm);
-			margin: 0;
-			overflow-wrap: anywhere;
-		}
-
 		p {
 			flex: 1 1 20rem;
 			margin: 0;
-			font-size: 0.9rem;
-			opacity: 0.8;
+			font-size: 0.8rem;
+			opacity: 0.6;
 		}
 	}
 
@@ -342,9 +366,13 @@
 	}
 
 	@media (max-width: 600px) {
+		.toolbar,
+		.actions {
+			gap: var(--spacing-sm);
+		}
+
 		.toolbar {
 			padding: var(--spacing-md);
-			gap: var(--spacing-sm);
 		}
 
 		.scroll-container {

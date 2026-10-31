@@ -51,6 +51,10 @@
 
 <style>
 	.syncStatus {
+		/* A fixed width, so a changing label doesn't move what's next to it. Longer labels are cut
+		   off, and shown in full in the tooltip. */
+		flex: none;
+		width: 11rem;
 		display: inline-flex;
 		align-items: center;
 		gap: var(--spacing-sm);
@@ -73,6 +77,15 @@
 		}
 	}
 
+	.syncStatus :global(svg) {
+		flex-shrink: 0;
+	}
+
+	.label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
 	.syncStatus :global(.spinning) {
 		animation: spin 1s linear infinite;
 	}
@@ -84,6 +97,10 @@
 	}
 
 	@media (max-width: 600px) {
+		.syncStatus {
+			width: auto;
+		}
+
 		.label {
 			position: absolute;
 			width: 1px;
