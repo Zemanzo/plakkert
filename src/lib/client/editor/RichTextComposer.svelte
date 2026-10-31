@@ -12,7 +12,7 @@
 		onUpdateData
 	}: {
 		initialContent: string;
-		/** Not interactive at all, e.g. while the note isn't opened. */
+		/** Not interactive, e.g. while the note isn't opened. It can still be scrolled. */
 		disabled: boolean;
 		/** Can be read and selected, but not edited. */
 		readonly?: boolean;
@@ -63,7 +63,7 @@
 			if (value !== editor) untrack(() => (editor = value));
 		}
 	}
-	class={`${disabled ? 'pointer-events-none' : ''} w-full flex-1`}
+	class={`${disabled ? 'isDisabled' : ''} w-full flex-1`}
 	controlComponent={null}
 	autofocus={false}
 	onupdate={() => onUpdateData?.(editor?.getHTML() ?? '')}

@@ -4,6 +4,14 @@
 .tipex-editor {
 	@apply bg-transparent;
 	border: none;
+	/* Rounded corners would cut off the scrollbar. */
+	border-radius: 0;
+
+	/* Only the content ignores the mouse, so the scroll area around it can still be scrolled, and
+	   clicks fall through to the note to open it. */
+	&.isDisabled .ProseMirror {
+		pointer-events: none;
+	}
 	/* font-family: serif; */
 
 	ul[data-type='taskList'] {
