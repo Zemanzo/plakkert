@@ -1,5 +1,7 @@
 allowBuilds:
-  better-sqlite3: true
+  # better-sqlite3 comes with prebuilt binaries for every platform, and only falls back to
+  # compiling them, which needs Python and a C++ compiler (not in the Docker image).
+  better-sqlite3: false
   esbuild: true
   '@tailwindcss/oxide': true
   '@prisma/client': true
