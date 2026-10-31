@@ -1,8 +1,13 @@
 <script lang="ts">
-	import MenuKebabIcon from '@iconify-svelte/charm/menu-kebab';
+	import ArchiveIcon from '@iconify-svelte/lucide/archive';
+	import ArchiveRestoreIcon from '@iconify-svelte/lucide/archive-restore';
 	import PaletteIcon from '@iconify-svelte/lucide/palette';
 	import ShareIcon from '@iconify-svelte/lucide/share-2';
+	import TagIcon from '@iconify-svelte/lucide/tag';
+	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import Button from '../components/Button.svelte';
+	import TagPicker from '../tags/TagPicker.svelte';
+	import type { NoteTags } from '../tags/Tags';
 	import ShareOptions from './ShareOptions.svelte';
 	import { isNoteColor, NOTE_COLORS } from './NoteColors';
 
@@ -11,32 +16,38 @@
 		noteKey,
 		isOwner,
 		canEdit,
-		onDelete,
+		isArchived,
+		isTrashed,
+		tags,
+		allTags,
 		color,
-		onColorChange
+		onColorChange,
+		onTagsChange,
+		onToggleArchived,
+		onTrash,
+		onRestore,
+		onDeleteForever
 	}: {
 		noteId: string;
 		noteKey: Uint8Array;
 		isOwner: boolean;
 		canEdit: boolean;
-		/** Deletes the note, or for notes shared with the user, removes it from their notes. */
-		onDelete: () => Promise<void>;
+		isArchived: boolean;
+		isTrashed: boolean;
+		tags: NoteTags;
+		/** All tags the user has, to pick from. */
+		allTags: string[];
 		color: string;
 		onColorChange: (color: string) => void;
+		onTagsChange: (update: (tags: NoteTags) => NoteTags) => void;
+		onToggleArchived: () => void;
+		onTrash: () => void;
+		onRestore: () => void;
+		/** Deletes the note, or for notes shared with the user, removes it from their notes. */
+		onDeleteForever: () => void;
 	} = $props();
 
 	let shareOptions = $state<ShareOptions>();
-	let deleteError = $state<string | null>(null);
-
-	async function handleDelete(event: MouseEvent) {
-		event.stopPropagation();
-		deleteError = null;
-		try {
-			await onDelete();
-		} catch (error) {
-			deleteError = error instanceof Error ? error.message : 'Unexpected error';
-		}
-	}
 
 	function handleColorChange(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -51,59 +62,82 @@
 </script>
 
 <div class="optionsContainer">
-	{#if isOwner}
-		<button popovertarget="shareOptions" aria-label="Share">
-			<ShareIcon width="24px" />
-		</button>
-	{/if}
-	{#if canEdit}
-		<button popovertarget="colorSelection" aria-label="Pick color">
-			<PaletteIcon width="24px" />
-		</button>
-	{/if}
-	<button popovertarget="moreOptions" aria-label="More options">
-		<MenuKebabIcon width="24px" />
-	</button>
-
-	{#if isOwner}
-		<div
-			popover
-			id="shareOptions"
-			ontoggle={(event) => {
-				if (event.newState === 'open') shareOptions?.load();
-			}}
+	{#if isTrashed}
+		<Button
+			class="sm"
+			--bg="var(--color-background-body)"
+			--text="var(--color-text-primary)"
+			onclick={onRestore}
 		>
-			<ShareOptions bind:this={shareOptions} {noteId} {noteKey} />
+			Restore
+		</Button>
+		<Button class="sm" --bg="var(--color-red)" onclick={onDeleteForever}>
+			{isOwner ? 'Delete forever' : 'Remove from my notes'}
+		</Button>
+	{:else}
+		{#if isOwner}
+			<button popovertarget="shareOptions" aria-label="Share" title="Share">
+				<ShareIcon width="24px" />
+			</button>
+		{/if}
+		{#if canEdit}
+			<button popovertarget="colorSelection" aria-label="Pick color" title="Color">
+				<PaletteIcon width="24px" />
+			</button>
+		{/if}
+		<button popovertarget="tagOptions" aria-label="Tags" title="Tags">
+			<TagIcon width="24px" />
+		</button>
+		<button
+			aria-label={isArchived ? 'Unarchive' : 'Archive'}
+			title={isArchived ? 'Unarchive' : 'Archive'}
+			onclick={onToggleArchived}
+		>
+			{#if isArchived}
+				<ArchiveRestoreIcon width="24px" />
+			{:else}
+				<ArchiveIcon width="24px" />
+			{/if}
+		</button>
+		<button aria-label="Move to trash" title="Move to trash" onclick={onTrash}>
+			<TrashIcon width="24px" />
+		</button>
+
+		{#if isOwner}
+			<div
+				popover
+				id="shareOptions"
+				ontoggle={(event) => {
+					if (event.newState === 'open') shareOptions?.load();
+				}}
+			>
+				<ShareOptions bind:this={shareOptions} {noteId} {noteKey} />
+			</div>
+		{/if}
+
+		<div popover id="colorSelection">
+			{#each NOTE_COLORS as option (option.id)}
+				<input
+					type="radio"
+					id={`colorSelector-${option.id}`}
+					name="colorSelector"
+					value={option.id}
+					checked={option.id === color}
+					onchange={handleColorChange}
+				/>
+				<label
+					for={`colorSelector-${option.id}`}
+					style:--swatch={`var(--color-${option.id})`}
+					aria-label={option.label}
+					title={option.label}
+				></label>
+			{/each}
+		</div>
+
+		<div popover id="tagOptions">
+			<TagPicker {tags} {allTags} onChange={onTagsChange} />
 		</div>
 	{/if}
-
-	<div popover id="colorSelection">
-		{#each NOTE_COLORS as option (option.id)}
-			<input
-				type="radio"
-				id={`colorSelector-${option.id}`}
-				name="colorSelector"
-				value={option.id}
-				checked={option.id === color}
-				onchange={handleColorChange}
-			/>
-			<label
-				for={`colorSelector-${option.id}`}
-				style:--swatch={`var(--color-${option.id})`}
-				aria-label={option.label}
-				title={option.label}
-			></label>
-		{/each}
-	</div>
-
-	<div popover id="moreOptions">
-		<Button --bg="var(--color-red)" onclick={handleDelete}>
-			{isOwner ? 'Delete' : 'Remove from my notes'}
-		</Button>
-		{#if deleteError}
-			<p class="error">{deleteError}</p>
-		{/if}
-	</div>
 </div>
 
 <style>
@@ -111,10 +145,13 @@
 		position: relative;
 		display: flex;
 		justify-content: flex-end;
-		height: var(--spacing-xxl);
+		align-items: center;
+		flex-wrap: wrap;
+		min-height: var(--spacing-xxl);
 		gap: var(--spacing-md);
 
-		button {
+		> button {
+			height: var(--spacing-xxl);
 			padding: 0 var(--spacing-sm);
 			color: #1119;
 			cursor: pointer;
@@ -137,18 +174,6 @@
 
 		&:popover-open {
 			display: flex;
-		}
-	}
-
-	#moreOptions {
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		max-width: 20rem;
-
-		.error {
-			margin: 0;
-			font-size: 0.9rem;
-			color: var(--color-red);
 		}
 	}
 

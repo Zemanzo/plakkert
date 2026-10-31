@@ -1,6 +1,8 @@
 <script lang="ts">
 	import './layout.css';
 	import Header from '#lib/client/Header.svelte';
+	import ConfirmDialog from '#lib/client/components/ConfirmDialog.svelte';
+	import Toasts from '#lib/client/components/Toasts.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -25,7 +27,7 @@
 		if (!session && !PUBLIC_ROUTES.includes(routeId)) {
 			goto(resolve('/login'), { replace: true });
 		} else if (session && routeId === '/login') {
-			goto(resolve('/'), { replace: true });
+			goto(resolve('/(notes)'), { replace: true });
 		}
 	});
 
@@ -48,3 +50,5 @@
 
 <Header />
 {@render children()}
+<Toasts />
+<ConfirmDialog />

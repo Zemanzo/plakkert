@@ -24,7 +24,7 @@
 	</div>
 	{#if user}
 		<nav>
-			<a href={resolve('/')} aria-current={page.url.pathname !== '/settings'}>Notes</a>
+			<a href={resolve('/(notes)')} aria-current={page.url.pathname !== '/settings'}>Notes</a>
 
 			<a href={resolve('/settings')} aria-current={page.url.pathname === '/settings'}>Settings</a>
 		</nav>

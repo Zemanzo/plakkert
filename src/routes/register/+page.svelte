@@ -16,7 +16,7 @@
 		errorMessage = null;
 		try {
 			await register(username, password);
-			await goto(resolve('/'));
+			await goto(resolve('/(notes)'));
 		} catch (error) {
 			console.error('Registration failed', error);
 			if (error instanceof OfflineError) {
