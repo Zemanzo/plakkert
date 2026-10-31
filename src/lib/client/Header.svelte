@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { logout } from '#lib/client/auth/Account.js';
 	import { localUser } from '#lib/client/User.svelte.js';
-	import Button from './components/Button.svelte';
+	import LogOutIcon from '@iconify-svelte/lucide/log-out';
 
 	const user = $derived(localUser.data);
 
@@ -28,7 +28,10 @@
 
 			<a href={resolve('/settings')} aria-current={page.url.pathname === '/settings'}>Settings</a>
 		</nav>
-		<Button class="sm" --bg="var(--color-red)" onclick={signOut}>Sign out</Button>
+		<!-- Quiet rather than red: signing out loses nothing, and red is kept for deleting notes. -->
+		<button class="signOut" onclick={signOut}>
+			<LogOutIcon width="18px" aria-hidden="true" />Sign out
+		</button>
 	{/if}
 </header>
 
@@ -81,6 +84,29 @@
 					background-color: #fff1;
 					opacity: 1;
 				}
+			}
+		}
+
+		.signOut {
+			display: flex;
+			align-items: center;
+			gap: var(--spacing-sm);
+			padding: var(--spacing-sm) var(--spacing-md);
+			border-radius: var(--radius-lg);
+			font-family: var(--font-family-display);
+			font-size: 1.05rem;
+			white-space: nowrap;
+			color: var(--color-text-primary);
+			opacity: 0.7;
+			cursor: pointer;
+			transition:
+				opacity var(--transition-duration) ease,
+				color var(--transition-duration) ease;
+
+			&:hover {
+				opacity: 1;
+				color: var(--color-red);
+				background-color: #8882;
 			}
 		}
 	}

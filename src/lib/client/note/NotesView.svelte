@@ -3,6 +3,7 @@
 	import { getContext } from 'svelte';
 	import { resolve } from '$app/paths';
 	import SearchIcon from '@iconify-svelte/lucide/search';
+	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import CloseIcon from '@iconify-svelte/lucide/x';
 	import Button from '../components/Button.svelte';
 	import { parseSearchQuery } from '../search/Search';
@@ -141,16 +142,18 @@
 			</div>
 			{#if canCreate}
 				<Button onclick={addNote}>+ New note</Button>
-			{:else if view.kind === 'trash'}
-				<Button
-					--bg="var(--color-red)"
-					disabled={trashedEntries.length === 0}
-					onclick={() => confirmEmptyTrash(trashedEntries, user.id)}
-				>
-					Empty trash
-				</Button>
 			{/if}
 		</div>
+		{#if view.kind === 'trash'}
+			<!-- At the far end, away from the search field, so it isn't clicked by accident. -->
+			<Button
+				--bg="var(--color-red)"
+				disabled={trashedEntries.length === 0}
+				onclick={() => confirmEmptyTrash(trashedEntries, user.id)}
+			>
+				<TrashIcon width="20px" aria-hidden="true" />Empty trash
+			</Button>
+		{/if}
 	</div>
 
 	{#if hasFocusedNote}
