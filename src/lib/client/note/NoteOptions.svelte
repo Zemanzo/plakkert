@@ -4,8 +4,7 @@
 	import ShareIcon from '@iconify-svelte/lucide/share-2';
 	import Button from '../components/Button.svelte';
 	import ShareOptions from './ShareOptions.svelte';
-
-	const COLORS = ['red', 'yellow', 'green', 'blue'];
+	import { isNoteColor, NOTE_COLORS } from './NoteColors';
 
 	let {
 		noteId,
@@ -43,7 +42,7 @@
 		const target = event.target as HTMLInputElement;
 		const selectedColor = target.value;
 
-		if (COLORS.includes(selectedColor)) {
+		if (isNoteColor(selectedColor)) {
 			onColorChange(selectedColor);
 		} else {
 			console.warn(`Selected color "${selectedColor}" is not in the allowed colors.`);
@@ -79,16 +78,20 @@
 	{/if}
 
 	<div popover id="colorSelection">
-		{#each COLORS as option (option)}
+		{#each NOTE_COLORS as option (option.id)}
 			<input
 				type="radio"
-				id={`colorSelector-${option}`}
+				id={`colorSelector-${option.id}`}
 				name="colorSelector"
-				value={option}
-				checked={option === color}
+				value={option.id}
+				checked={option.id === color}
 				onchange={handleColorChange}
 			/>
-			<label for={`colorSelector-${option}`} data-color={`--color-${option}`} aria-label={option}
+			<label
+				for={`colorSelector-${option.id}`}
+				style:--swatch={`var(--color-${option.id})`}
+				aria-label={option.label}
+				title={option.label}
 			></label>
 		{/each}
 	</div>
@@ -153,6 +156,11 @@
 		padding: var(--spacing-md);
 		gap: var(--spacing-md);
 
+		&:popover-open {
+			display: grid;
+			grid-template-columns: repeat(5, 32px);
+		}
+
 		input {
 			display: none;
 		}
@@ -163,17 +171,7 @@
 			height: 32px;
 			border-radius: 50%;
 			cursor: pointer;
-			background-color: var(--color-red);
-
-			&[data-color='--color-yellow'] {
-				background-color: var(--color-yellow);
-			}
-			&[data-color='--color-green'] {
-				background-color: var(--color-green);
-			}
-			&[data-color='--color-blue'] {
-				background-color: var(--color-blue);
-			}
+			background-color: var(--swatch);
 		}
 
 		input:checked + label {

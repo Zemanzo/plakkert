@@ -1,6 +1,7 @@
 import { db, type NoteData, type NoteKey, type Note as NoteType } from '../Database';
 import { encryptNote, getNoteKey } from '../serialization/Serialize';
 import { syncEngine } from '../sync/Sync.svelte';
+import { DEFAULT_NOTE_COLOR } from './NoteColors';
 import type { RuntimeUser } from '#lib/types.js';
 
 // Notes are only written to IndexedDB here, and marked dirty. The sync engine sends them to the
@@ -17,7 +18,7 @@ export const createNote = async (user: RuntimeUser) => {
 	const defaultNoteData = {
 		content: '',
 		meta: {
-			color: 'yellow'
+			color: DEFAULT_NOTE_COLOR
 		}
 	} satisfies NoteData;
 	const { encryptedData } = await encryptNote(defaultNoteData, noteKey);
