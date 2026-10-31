@@ -177,6 +177,34 @@
 		}
 	}
 
+	/* Not every browser anchors a popover to the button that opened it, so name the anchors. */
+	[popovertarget='shareOptions'] {
+		anchor-name: --share-options;
+	}
+	#shareOptions {
+		position-anchor: --share-options;
+	}
+	[popovertarget='colorSelection'] {
+		anchor-name: --color-selection;
+	}
+	#colorSelection {
+		position-anchor: --color-selection;
+	}
+	[popovertarget='tagOptions'] {
+		anchor-name: --tag-options;
+	}
+	#tagOptions {
+		position-anchor: --tag-options;
+	}
+
+	/* Without anchor positioning, show popovers in the middle of the screen instead of the corner. */
+	@supports not (position-area: top) {
+		div[popover] {
+			position: fixed;
+			margin: auto;
+		}
+	}
+
 	#colorSelection {
 		padding: var(--spacing-md);
 		gap: var(--spacing-md);
