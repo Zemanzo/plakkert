@@ -16,6 +16,14 @@ A true end-to-end encrypted notes web app, built for offline-first.
   - Only the owner can share, change permissions or stop sharing; recipients can remove a shared
     note from their own notes
   - Changing who a note is shared with needs a connection; editing shared notes works offline
+- Organising notes
+  - Tags, to find notes back quickly; tags can be renamed and deleted for all notes at once
+  - Archive, for notes you want to keep but not see
+  - Trash: notes in the trash are deleted forever after 30 days, or earlier by hand
+  - Tags, archive and trash are per user: on a shared note, everyone organises it their own way,
+    and only deleting it forever from the trash deletes it for everyone
+- Search through the text and tags of notes (`/` jumps to the search field)
+- Ten note colours
 - Basic input
   - Plain text
   - Bold
@@ -33,6 +41,11 @@ A true end-to-end encrypted notes web app, built for offline-first.
   from it (PBKDF2 with the username as salt), which the server uses as the account password.
 - Every note has its own key, which is encrypted with the owner's public key. Note contents are
   encrypted with that note key, so the server only ever stores ciphertext.
+- Tags are encrypted with the note key as well, and stored per user. Archiving and trashing a note
+  are special tags, so the server can't tell either. Because of that, the server can't empty the
+  trash itself: the app deletes notes that have been in the trash for 30 days, once it has synced,
+  so a note that was restored on another device isn't deleted by mistake.
+- Searching happens in the browser, on the decrypted notes, so it also works offline.
 - Sharing a note encrypts its note key with the recipient's public key, so the server never sees it.
   The recipient's public key is fetched from the server and not verified, so this relies on the
   server handing out the right key. Stopping sharing does not change the note key, so someone who
