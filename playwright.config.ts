@@ -13,10 +13,14 @@ export default defineConfig({
 	retries: process.env.CI ? 1 : 0,
 	reporter: process.env.CI ? 'github' : 'list',
 	use: {
-		...devices['Desktop Chrome'],
 		baseURL: BASE_URL,
 		trace: 'retain-on-failure'
 	},
+	projects: [
+		{ name: 'chromium', use: devices['Desktop Chrome'] },
+		// Only for layout that browsers are known to disagree on.
+		{ name: 'firefox', use: devices['Desktop Firefox'], testMatch: 'popovers.test.ts' }
+	],
 	webServer: {
 		command: 'node e2e/server.js',
 		url: `${BASE_URL}/login`,

@@ -165,7 +165,9 @@
 	}
 
 	div[popover] {
-		position: absolute;
+		/* Fixed like the open note itself: Firefox won't anchor an absolutely positioned popover to
+		   a button inside a fixed element. */
+		position: fixed;
 		position-area: top span-left;
 		margin-bottom: var(--spacing-sm);
 		background: var(--color-background-body);
@@ -175,32 +177,9 @@
 		&:popover-open {
 			display: flex;
 		}
-	}
 
-	/* Not every browser anchors a popover to the button that opened it, so name the anchors. */
-	[popovertarget='shareOptions'] {
-		anchor-name: --share-options;
-	}
-	#shareOptions {
-		position-anchor: --share-options;
-	}
-	[popovertarget='colorSelection'] {
-		anchor-name: --color-selection;
-	}
-	#colorSelection {
-		position-anchor: --color-selection;
-	}
-	[popovertarget='tagOptions'] {
-		anchor-name: --tag-options;
-	}
-	#tagOptions {
-		position-anchor: --tag-options;
-	}
-
-	/* Without anchor positioning, show popovers in the middle of the screen instead of the corner. */
-	@supports not (position-area: top) {
-		div[popover] {
-			position: fixed;
+		/* Without anchor positioning, show it in the middle of the screen instead of the corner. */
+		@supports not (position-area: top) {
 			margin: auto;
 		}
 	}
