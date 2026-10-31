@@ -16,7 +16,9 @@
 	let shares = $state<NoteShare[] | null>(null);
 	let username = $state('');
 	let permission = $state<NotePermission>('edit');
+	/** Set while a change is being made, which blocks making another one. */
 	let busy = $state(false);
+	let loading = $state(false);
 	let errorMessage = $state<string | null>(null);
 
 	/** Runs a sharing action, showing its error if it fails, and refreshes the list. */
@@ -35,9 +37,21 @@
 		}
 	}
 
-	/** Loads the list when the popover opens, so it isn't fetched for every focused note. */
-	export function load() {
-		return run(async () => {});
+	/**
+	 * Loads the list when the popover opens, so it isn't fetched for every
+	 * focused note. The form stays usable meanwhile, so typing a username right
+	 * away works.
+	 */
+	export async function load() {
+		loading = true;
+		errorMessage = null;
+		try {
+			shares = await listShares(noteId);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Unexpected error';
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function onsubmit(event: SubmitEvent) {
@@ -56,7 +70,7 @@
 			placeholder="Username"
 			autocomplete="off"
 			bind:value={username}
-			disabled={busy}
+			readonly={busy}
 			required
 		/>
 		<select aria-label="Permission" bind:value={permission} disabled={busy}>
@@ -71,7 +85,7 @@
 	{/if}
 
 	{#if shares === null}
-		{#if busy}
+		{#if loading}
 			<p>Loading…</p>
 		{/if}
 	{:else if shares.length === 0}
