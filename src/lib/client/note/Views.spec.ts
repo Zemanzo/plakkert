@@ -6,7 +6,7 @@ import { selectNotes, type NotesViewKind } from './Views';
 function entry(id: string, createdAt: number, tags: NoteTags = {}) {
 	return {
 		id,
-		note: { createdAt: new Date(createdAt) },
+		note: { id, createdAt: new Date(createdAt) },
 		tags,
 		searchText: buildSearchText(normalizeForSearch(`note ${id}`), userTags(tags))
 	};
@@ -23,12 +23,8 @@ const entries = [
 ];
 
 const ids = (list: { id: string }[]) => list.map((item) => item.id);
-const select = (view: NotesViewKind, query = '') =>
-	selectNotes(entries as never[], view, parseSearchQuery(query)) as unknown as {
-		main: { id: string }[];
-		archived: { id: string }[];
-		trashedMatches: number;
-	};
+const select = (view: NotesViewKind, query = '', keepId: string | null = null) =>
+	selectNotes(entries, view, parseSearchQuery(query), keepId);
 
 describe('selectNotes', () => {
 	it('shows current notes, newest first, without archived or trashed ones', () => {
@@ -61,5 +57,21 @@ describe('selectNotes', () => {
 
 	it('searches the trash', () => {
 		expect(ids(select({ kind: 'trash' }, 'later').main)).toEqual(['trashed-later']);
+	});
+});
+
+describe('selectNotes with an open note', () => {
+	it('keeps the open note even if it no longer matches the search or tag', () => {
+		expect(ids(select({ kind: 'notes' }, 'work', 'plain').main)).toEqual(['work', 'plain']);
+		expect(ids(select({ kind: 'tag', tag: 'work' }, '', 'plain').main)).toEqual(['work', 'plain']);
+	});
+
+	it('still drops the open note once it is archived or trashed', () => {
+		expect(ids(select({ kind: 'notes' }, '', 'archived-later').main)).not.toContain(
+			'archived-later'
+		);
+		expect(ids(select({ kind: 'archive' }, '', 'trashed-later').main)).not.toContain(
+			'trashed-later'
+		);
 	});
 });

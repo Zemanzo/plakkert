@@ -29,7 +29,10 @@
 
 	const viewKey = $derived(view.kind === 'tag' ? `tag:${view.tag}` : view.kind);
 	const terms = $derived(parseSearchQuery(store.searchQuery));
-	const selection = $derived(store.entries && selectNotes(store.entries, view, terms));
+	// The open note stays, even if an edit makes it stop matching the search.
+	const selection = $derived(
+		store.entries && selectNotes(store.entries, view, terms, focusedNoteId)
+	);
 	const isEmpty = $derived(selection?.main.length === 0 && selection.archived.length === 0);
 	// New notes are neither archived nor trashed, so they'd be hidden right away in those views.
 	const canCreate = $derived(view.kind === 'notes' || view.kind === 'tag');
@@ -53,6 +56,24 @@
 		focusedNoteId = null;
 	});
 
+	// Whether the open note has been shown. A new note is opened before it shows up in the list.
+	let focusedNoteShown = false;
+	$effect(() => {
+		if (focusedNoteId === null || !selection) {
+			focusedNoteShown = false;
+			return;
+		}
+		const shown = [...selection.main, ...selection.archived].some(
+			(entry) => entry.note.id === focusedNoteId
+		);
+		if (shown) {
+			focusedNoteShown = true;
+		} else if (focusedNoteShown) {
+			// It left this view while open, e.g. it was archived or deleted on another device.
+			focusedNoteId = null;
+		}
+	});
+
 	async function addNote() {
 		// A new, empty note wouldn't match the search, and so wouldn't show up.
 		store.searchQuery = '';
@@ -69,6 +90,10 @@
 		(target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 
 	function onkeydown(event: KeyboardEvent) {
+		// Escape closes an open popover or dialog first, e.g. cancelling "Delete forever?" shouldn't
+		// close the note as well. Nothing behind a dialog can be focused either.
+		if (document.querySelector(':popover-open, dialog[open]')) return;
+
 		if (event.key === 'Escape') {
 			if (focusedNoteId !== null) {
 				focusedNoteId = null;

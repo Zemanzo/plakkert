@@ -18,7 +18,9 @@ export interface ViewSelection<T = NoteEntry> {
 	trashedMatches: number;
 }
 
-type Entry = Pick<NoteEntry, 'note' | 'tags' | 'searchText'>;
+type Entry = Pick<NoteEntry, 'tags' | 'searchText'> & {
+	note: Pick<NoteEntry['note'], 'id' | 'createdAt'>;
+};
 
 const byNewest = (a: Entry, b: Entry) => b.note.createdAt.getTime() - a.note.createdAt.getTime();
 /** Sorts by when a tag was added, e.g. most recently archived first. */
@@ -28,15 +30,22 @@ const byTagAddedAt = (tag: string) => (a: Entry, b: Entry) =>
 /**
  * Picks the notes to show for a view and search. Search terms must already be
  * parsed with `parseSearchQuery`.
+ *
+ * @param keepId A note to keep regardless of the tag and search, i.e. the open
+ *   note, so it doesn't vanish while being edited. It still leaves the view
+ *   when it is archived or trashed.
  */
 export function selectNotes<T extends Entry>(
 	entries: T[],
 	view: NotesViewKind,
-	terms: string[]
+	terms: string[],
+	keepId: string | null = null
 ): ViewSelection<T> {
 	const searching = terms.length > 0;
 	const inView = (entry: T) =>
-		(view.kind !== 'tag' || hasTag(entry.tags, view.tag)) && matchesSearch(entry.searchText, terms);
+		entry.note.id === keepId ||
+		((view.kind !== 'tag' || hasTag(entry.tags, view.tag)) &&
+			matchesSearch(entry.searchText, terms));
 	const trashed = entries.filter((entry) => isTrashed(entry.tags) && inView(entry));
 
 	if (view.kind === 'trash') {
