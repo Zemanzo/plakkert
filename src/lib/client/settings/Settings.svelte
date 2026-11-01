@@ -34,7 +34,7 @@
 	{:else if !localUser.data}
 		<p>Please log in to view and edit your settings.</p>
 	{:else}
-		<div>
+		<div class="saveState">
 			{#if hasChanges}
 				<Button onclick={saveChanges}>Save Changes</Button>
 			{:else}
@@ -86,6 +86,13 @@
 		flex: 1;
 		overflow: hidden;
 
+		/* As high as the button, so the page doesn't shift when it shows up. */
+		.saveState {
+			display: flex;
+			align-items: center;
+			height: 2.75rem;
+		}
+
 		.preferencesList {
 			display: flex;
 			flex-direction: column;
@@ -126,9 +133,28 @@
 					line-height: 1.2;
 				}
 
+				/* The global checkbox style is meant for the notes' light colours, and would be hard to see
+				   here in the dark theme. These match the dropdown instead. */
 				input[type='checkbox'] {
+					flex-shrink: 0;
 					width: 1.25em;
 					height: 1.25em;
+					background: var(--color-input-background);
+					border: 2px solid rgba(from var(--color-text-primary) r g b / 0.5);
+					opacity: 1;
+
+					&:hover {
+						border-color: var(--color-text-primary);
+					}
+
+					&:checked {
+						background: var(--color-text-primary);
+						border-color: var(--color-text-primary);
+
+						&::before {
+							color: var(--color-input-background);
+						}
+					}
 				}
 			}
 		}
