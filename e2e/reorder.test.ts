@@ -63,6 +63,9 @@ test('on a touch screen, holding a note picks it up, and swiping scrolls', async
 		await swipe('Fourth', (box) => box.y - 200, 0);
 		await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
 		await expect(notes(page)).toHaveText([/Third/, /Fourth/, /Second/, /First/]);
+		// Only the notes scroll, not the page around them.
+		const pageHeight = await page.evaluate(() => document.scrollingElement!.scrollHeight);
+		expect(pageHeight).toBeLessThanOrEqual(page.viewportSize()!.height);
 	});
 });
 

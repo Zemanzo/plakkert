@@ -330,6 +330,9 @@
 	}
 
 	.scroll-container {
+		/* Also contains what is positioned absolutely, e.g. text for screen readers, which would
+		   otherwise make the whole page scroll. */
+		position: relative;
 		overflow: auto;
 		flex: 1;
 		padding: 0 var(--spacing-lg) var(--spacing-lg);
