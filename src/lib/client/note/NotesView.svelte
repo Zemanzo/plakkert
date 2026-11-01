@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { getContext } from 'svelte';
+	import { getContext, untrack } from 'svelte';
+	import { pushState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import SearchIcon from '@iconify-svelte/lucide/search';
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import CloseIcon from '@iconify-svelte/lucide/x';
@@ -68,6 +70,27 @@
 		// Close the open note when switching to another view.
 		void viewKey;
 		focusedNoteId = null;
+	});
+
+	// An open note has its own history entry, so the back button or gesture closes it, rather than
+	// leaving the page. Closing it any other way removes the entry again.
+	$effect(() => {
+		const id = focusedNoteId;
+		untrack(() => {
+			const openNoteId = page.state.openNoteId;
+			if (id !== null && openNoteId !== id) {
+				pushState('', { openNoteId: id });
+			} else if (id === null && openNoteId) {
+				history.back();
+			}
+		});
+	});
+	$effect(() => {
+		// Going back. Going forward again doesn't reopen the note, which may have left the view.
+		const openNoteId = page.state.openNoteId;
+		untrack(() => {
+			if (!openNoteId) focusedNoteId = null;
+		});
 	});
 
 	// Whether the open note has been shown. A new note is opened before it shows up in the list.

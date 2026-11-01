@@ -10,7 +10,8 @@ import {
 	openNote,
 	syncNow,
 	test,
-	uniqueName
+	uniqueName,
+	url
 } from './helpers';
 
 test('a closed note can be scrolled, and still opens when clicked', async ({ app }) => {
@@ -51,6 +52,24 @@ test('on a phone, an open note fills the screen and has a back button', async ({
 		await back.click();
 		await expect(openedNote(page)).toHaveCount(0);
 	});
+});
+
+test('going back closes the open note, rather than leaving the page', async ({ app }) => {
+	const { page } = await app.register(uniqueName('back'));
+	await newNote(page, 'Some note');
+	await page.goto(url('/archive'));
+	await page.goto(url('/'));
+
+	await openNote(page, 'Some note');
+	await page.goBack();
+	await expect(openedNote(page)).toHaveCount(0);
+	await expect(page).toHaveURL(url('/'));
+
+	// Closing it otherwise takes its history entry away again, so going back leaves the page.
+	await openNote(page, 'Some note');
+	await closeNote(page);
+	await page.goBack();
+	await expect(page).toHaveURL(url('/archive'));
 });
 
 test('Escape closes a popover or dialog before the note', async ({ app }) => {

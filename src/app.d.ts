@@ -11,7 +11,10 @@ declare global {
 
 		// interface Error {}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			/** The note that is open. Opening one adds a history entry, so going back closes it. */
+			openNoteId?: string;
+		}
 		// interface Platform {}
 	}
 }
