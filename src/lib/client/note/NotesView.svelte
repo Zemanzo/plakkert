@@ -9,6 +9,7 @@
 	import CloseIcon from '@iconify-svelte/lucide/x';
 	import Button from '../components/Button.svelte';
 	import { parseSearchQuery } from '../search/Search';
+	import { preferencesOf } from '../settings/Preferences';
 	import SyncStatus from '../sync/SyncStatus.svelte';
 	import { isTrashed, TRASH_RETENTION_DAYS } from '../tags/Tags';
 	import type { RuntimeUser } from '#lib/types.js';
@@ -39,6 +40,7 @@
 	const canCreate = $derived(view.kind === 'notes' || view.kind === 'tag');
 	// The archive and the trash are in the order notes ended up there.
 	const canReorder = $derived(view.kind === 'notes' || view.kind === 'tag');
+	const twoColumns = preferencesOf(user).twoColumnsOnNarrowScreens;
 
 	async function move(entries: NoteEntry[], from: number, to: number) {
 		try {
@@ -238,12 +240,13 @@
 			<NotesGrid
 				entries={selection.main}
 				bind:focusedNoteId
+				{twoColumns}
 				onMove={canReorder ? (from, to) => move(selection.main, from, to) : undefined}
 			/>
 
 			{#if selection.archived.length > 0}
 				<h3 class="sectionHeading">Archived</h3>
-				<NotesGrid entries={selection.archived} bind:focusedNoteId />
+				<NotesGrid entries={selection.archived} bind:focusedNoteId {twoColumns} />
 			{/if}
 
 			{#if selection.trashedMatches > 0}

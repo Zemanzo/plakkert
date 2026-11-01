@@ -35,6 +35,9 @@ A true end-to-end encrypted notes web app, built for offline-first.
   - Code block
   - Checkbox list block
 - Authentication server
+  - Notes are locked again when the app is closed, unless "Stay logged in" is turned on in the
+    settings. It then stays unlocked on that device until it hasn't been used for 30 days.
+- Two notes side by side on phones, if you prefer (in the settings)
 - Invite-only registration (see below)
 
 ## How encryption works

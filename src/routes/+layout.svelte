@@ -7,8 +7,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { localUser } from '#lib/client/User.svelte.js';
-	import { getUnlockedSession } from '#lib/client/auth/Session.js';
-	import { applyTheme } from '#lib/client/settings/Preferences.js';
+	import { getUnlockedSession, keepUnlockedSession } from '#lib/client/auth/Session.js';
+	import { applyTheme, preferencesOf } from '#lib/client/settings/Preferences.js';
 	import { syncEngine } from '#lib/client/sync/Sync.svelte.js';
 
 	let { children } = $props();
@@ -36,6 +36,17 @@
 		// Sync in the background for as long as the user is unlocked; logout() stops it.
 		if (user && getUnlockedSession()?.userId === user.id) {
 			syncEngine.start({ id: user.id, username: user.username });
+		}
+	});
+
+	$effect(() => {
+		const user = localUser.data;
+		// Runs again on every page, so a remembered session lasts for a while after the app was last
+		// used, rather than since logging in. Turning "Stay logged in" off forgets it right away.
+		void page.route.id;
+		const session = getUnlockedSession();
+		if (user && session?.userId === user.id) {
+			keepUnlockedSession(session, preferencesOf(user).stayLoggedIn);
 		}
 	});
 

@@ -8,10 +8,13 @@
 	let {
 		entries,
 		focusedNoteId = $bindable(),
+		twoColumns = false,
 		onMove
 	}: {
 		entries: NoteEntry[];
 		focusedNoteId: string | null;
+		/** Shows at least two notes side by side, even when they have to be narrower for that. */
+		twoColumns?: boolean;
 		/**
 		 * Moves a note to another place in `entries`. Only when given can notes be
 		 * reordered, by dragging them or with Shift and the arrow keys.
@@ -89,6 +92,7 @@
 <div
 	bind:this={grid}
 	class="notesGrid"
+	class:twoColumns
 	class:dragging={reorder.draggedId !== null}
 	{@attach reorder.attach}
 	{onkeydown}
@@ -122,9 +126,26 @@
 		justify-content: center;
 		max-width: 100%;
 
+		&.twoColumns {
+			/* Half of the width, minus the gap, so that there are never fewer than two columns. */
+			grid-template-columns: repeat(auto-fill, minmax(min(350px, calc(50% - 4px)), 1fr));
+		}
+
 		&.dragging,
 		&.dragging :global(*) {
 			cursor: grabbing;
+		}
+	}
+
+	/* Smaller notes, when that's what it takes to fit two of them side by side. */
+	@media (max-width: 600px) {
+		/* Not while it's still moving back into place after closing. */
+		.twoColumns .slot.closed :global(.container:not(.isFloating)) {
+			height: 200px;
+		}
+
+		.twoColumns .slot.closed :global([data-note-id]) {
+			padding-inline: var(--spacing-md);
 		}
 	}
 

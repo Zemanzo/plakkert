@@ -2,25 +2,24 @@
 	import Button from '../components/Button.svelte';
 	import { localUser } from '../User.svelte';
 	import { db } from '../Database';
-	import { defaultPreferences, type Preferences } from './Preferences';
+	import { REMEMBERED_SESSION_DAYS } from '../auth/Session';
+	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
 	let settings = $state<Preferences>(
-		localUser.data?.preferences ? { ...localUser.data.preferences } : defaultPreferences
+		localUser.data ? preferencesOf(localUser.data) : { ...defaultPreferences }
 	);
 	let hasLoadedInitialSettings = $state(false);
 
 	$effect(() => {
 		if (!localUser.isLoading && localUser.data && !hasLoadedInitialSettings) {
-			if (localUser.data.preferences) {
-				settings = { ...localUser.data.preferences };
-			}
+			settings = preferencesOf(localUser.data);
 			hasLoadedInitialSettings = true;
 		}
 	});
 
 	let hasChanges = $derived.by(() => {
 		if (!localUser.data) return false;
-		return JSON.stringify(settings) !== JSON.stringify(localUser.data.preferences);
+		return JSON.stringify(settings) !== JSON.stringify(preferencesOf(localUser.data));
 	});
 
 	async function saveChanges() {
@@ -52,21 +51,31 @@
 					<option value="dark">Dark</option>
 				</select>
 			</div>
+			<div class="preferenceItem">
+				<div>
+					<label for="pref-twoColumns">Two notes side by side</label>
+					<p>On narrow screens such as phones, show two smaller notes per row instead of one.</p>
+				</div>
+				<input
+					id="pref-twoColumns"
+					type="checkbox"
+					bind:checked={settings.twoColumnsOnNarrowScreens}
+				/>
+			</div>
 		</div>
-		<!-- <div class="preferencesList">
+		<div class="preferencesList">
 			<h2>Security</h2>
 			<div class="preferenceItem">
 				<div>
-					<label for="security-privateKeyProtection">Keep notes unlocked</label>
-					<p>Choose how long your private key is kept in memory after you unlock your notes.</p>
+					<label for="security-stayLoggedIn">Stay logged in</label>
+					<p>
+						Stay logged in on this device after closing the app, until you haven't used it for {REMEMBERED_SESSION_DAYS}
+						days. Anyone who can use this device can then read your notes, without your password.
+					</p>
 				</div>
-				<select id="security-privateKeyProtection">
-					<option value="session" selected>Session storage</option>
-					<option value="light">Local storage</option>
-					<option value="dark"></option>
-				</select>
+				<input id="security-stayLoggedIn" type="checkbox" bind:checked={settings.stayLoggedIn} />
 			</div>
-		</div> -->
+		</div>
 	{/if}
 </section>
 
