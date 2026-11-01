@@ -11,6 +11,7 @@
 		userTags
 	} from '../tags/Tags';
 	import { updateTags } from '../tags/TagsCRUD';
+	import { htmlToText } from '../search/Search';
 	import type { RuntimeUser } from '#lib/types.js';
 	import {
 		archiveNote,
@@ -47,6 +48,8 @@
 	const daysLeft = $derived(daysUntilDeleted(entry.tags));
 	const allTags = $derived(store.tags.map((tag) => tag.name));
 
+	const isTouchScreen = matchMedia('(pointer: coarse)').matches;
+
 	/** Matches --transition-duration, which the note uses to move back into the grid. */
 	const CLOSE_ANIMATION_MS = 200;
 
@@ -60,6 +63,9 @@
 	let editorContent = $state(untrack(() => note.data.content));
 	// Bumped to recreate the editor when the content changed elsewhere.
 	let editorRevision = $state(0);
+	// On a touch screen, focusing the editor brings up the keyboard, which is in the way when
+	// reading a note. Only new, empty notes are focused right away there.
+	const autofocus = $derived(!isTouchScreen || htmlToText(note.data.content) === '');
 
 	function save(data: NoteData) {
 		currentData = data;
@@ -245,6 +251,7 @@
 				disabled={!isFocused}
 				readonly={!canEdit}
 				focused={isFocused}
+				{autofocus}
 				initialContent={editorContent}
 				onUpdateData={(htmlContent) => save({ ...currentData, content: htmlContent })}
 			/>

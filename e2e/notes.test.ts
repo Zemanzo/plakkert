@@ -72,6 +72,26 @@ test('going back closes the open note, rather than leaving the page', async ({ a
 	await expect(page).toHaveURL(url('/archive'));
 });
 
+test('on a touch screen, only new notes are focused when opened', async ({ app }) => {
+	const { page } = await app.register(uniqueName('touch'), {
+		hasTouch: true,
+		isMobile: true,
+		viewport: { width: 390, height: 760 }
+	});
+	const editor = openedNote(page).locator('.ProseMirror');
+
+	await page.getByRole('button', { name: /new note/i }).tap();
+	await expect(editor).toBeFocused();
+	await page.keyboard.type('Read me');
+	await page.getByRole('button', { name: 'Back to notes', exact: true }).tap();
+	await expect(openedNote(page)).toHaveCount(0);
+
+	await note(page, 'Read me').tap();
+	await expect(editor).toBeVisible();
+	await page.waitForTimeout(500);
+	await expect(editor).not.toBeFocused();
+});
+
 test('Escape closes a popover or dialog before the note', async ({ app }) => {
 	const { page } = await app.register(uniqueName('escape'));
 	await newNote(page, 'Buy milk');

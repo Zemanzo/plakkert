@@ -7,11 +7,14 @@
 		disabled,
 		readonly = false,
 		focused = $bindable(false),
+		autofocus = true,
 		initialContent = `<h1></h1>
 	<p></p>`,
 		onUpdateData
 	}: {
 		initialContent: string;
+		/** Whether to focus the editor once it can be edited, if `focused` is set. */
+		autofocus?: boolean;
 		/** Not interactive, e.g. while the note isn't opened. It can still be scrolled. */
 		disabled: boolean;
 		/** Can be read and selected, but not edited. */
@@ -38,7 +41,7 @@
 				// Only focus the editor when it becomes editable (i.e. the note was opened). Tipex
 				// updates `focused` on every focus change in the document, so reacting to it would
 				// pull focus back from other inputs in the note, like the share dialog.
-				if (!wasEditable && untrack(() => focused)) {
+				if (!wasEditable && autofocus && untrack(() => focused)) {
 					editor.$doc.element.focus();
 				}
 			} else {
