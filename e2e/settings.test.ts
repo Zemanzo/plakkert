@@ -79,8 +79,9 @@ test('"Stay logged in" keeps the notes unlocked after closing the app', async ({
 	});
 
 	await test.step('signing out forgets it', async () => {
+		// Using the app remembers it again, once the user has loaded.
 		await page.goto(url('/'));
-		expect(await remembered(page)).not.toBeNull();
+		await expect.poll(() => remembered(page)).not.toBeNull();
 		await page.getByRole('button', { name: 'Sign out' }).click();
 		await page.waitForURL(url('/login'));
 		expect(await remembered(page)).toBeNull();
