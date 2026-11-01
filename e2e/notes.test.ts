@@ -28,6 +28,31 @@ test('a closed note can be scrolled, and still opens when clicked', async ({ app
 	await expect(openedNote(page)).toHaveCount(1);
 });
 
+test('on a phone, an open note fills the screen and has a back button', async ({ app }) => {
+	const { page } = await app.register(uniqueName('phone'));
+	await newNote(page, 'Full screen');
+	const back = page.getByRole('button', { name: 'Back to notes', exact: true });
+
+	await test.step('on a wide screen, there is room around it to close it instead', async () => {
+		await openNote(page, 'Full screen');
+		await expect(back).toBeHidden();
+		await closeNote(page);
+	});
+
+	await test.step('on a phone, it fills the screen', async () => {
+		await page.setViewportSize({ width: 390, height: 760 });
+		await openNote(page, 'Full screen');
+		await expect
+			.poll(async () => {
+				const box = await openedNote(page).boundingBox();
+				return box && [box.x, box.y, box.width, box.height].map(Math.round);
+			})
+			.toEqual([0, 0, 390, 760]);
+		await back.click();
+		await expect(openedNote(page)).toHaveCount(0);
+	});
+});
+
 test('Escape closes a popover or dialog before the note', async ({ app }) => {
 	const { page } = await app.register(uniqueName('escape'));
 	await newNote(page, 'Buy milk');

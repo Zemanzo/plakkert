@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext, untrack } from 'svelte';
+	import ArrowLeftIcon from '@iconify-svelte/lucide/arrow-left';
 	import type { NoteData } from '../Database';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
 	import { toasts } from '../components/ToastStore.svelte';
@@ -130,7 +131,8 @@
 				floatLeft = '0';
 				floatTop = '0';
 				floatWidth = '100vw';
-				floatHeight = '100vh';
+				// The visible height, which on phones leaves out the browser's toolbars.
+				floatHeight = '100dvh';
 			});
 		});
 	};
@@ -178,10 +180,10 @@
 		}
 	};
 
+	const closeNote = () => (focusedNoteId = null);
+
 	const onContainerClick = (e: MouseEvent) => {
-		if (e.target === containerElement) {
-			focusedNoteId = null;
-		}
+		if (e.target === containerElement) closeNote();
 	};
 
 	/** Shows what went wrong, e.g. that removing a shared note needs a connection. */
@@ -233,6 +235,11 @@
 		class:isFocused
 		class:isInBackground
 	>
+		{#if isFocused}
+			<button class="back" aria-label="Back to notes" title="Back" onclick={closeNote}>
+				<ArrowLeftIcon width="24px" />
+			</button>
+		{/if}
 		{#key editorRevision}
 			<RichTextComposer
 				disabled={!isFocused}
@@ -343,7 +350,7 @@
 			left: var(--float-left);
 			top: var(--float-top);
 			min-width: var(--float-width, 100vw);
-			height: var(--float-height, 100vh);
+			height: var(--float-height, 100dvh);
 			z-index: 1000;
 		}
 	}
@@ -370,7 +377,8 @@
 		transition:
 			width var(--transition-duration) linear,
 			max-width var(--transition-duration) linear,
-			height var(--transition-duration) linear;
+			height var(--transition-duration) linear,
+			border-radius var(--transition-duration) linear;
 
 		&:focus {
 			outline-color: var(--color-blue-light);
@@ -392,14 +400,41 @@
 		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 	}
 
+	/* Only on narrow screens; elsewhere, clicking next to the note closes it. */
+	.back {
+		display: none;
+		align-self: flex-start;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 40px;
+		height: 40px;
+		margin-left: calc(-1 * var(--spacing-md));
+		color: #1119;
+		border-radius: 50%;
+		cursor: pointer;
+
+		&:hover {
+			color: #161616;
+			background-color: #00000016;
+		}
+	}
+
 	@media (max-width: 600px) {
 		div[role='button'] {
 			padding-inline: var(--spacing-lg);
 
+			/* There's no room around the open note to tap to close it, so it takes the whole screen,
+			   with a back button instead. */
 			&.isFocused {
-				width: calc(100% - 2 * var(--spacing-md));
-				height: calc(100% - 2 * var(--spacing-xl));
+				width: 100%;
+				height: 100%;
+				border-radius: 0;
 			}
+		}
+
+		.back {
+			display: flex;
 		}
 	}
 </style>
