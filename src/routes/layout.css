@@ -17,6 +17,7 @@
 	ul[data-type='taskList'] {
 		background: transparent;
 		border: none;
+		margin-left: 0.6em;
 
 		&.is-empty::before {
 			margin-left: 1.7em;
@@ -26,6 +27,7 @@
 			display: flex;
 			align-items: flex-end;
 			gap: 0.5em;
+			position: relative;
 
 			&[data-checked='true'] > div {
 				color: inherit;

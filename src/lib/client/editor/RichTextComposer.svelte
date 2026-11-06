@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { Tipex, type TipexEditor } from '@friendofsvelte/tipex';
+	import { Tipex, type TipexEditor, defaultExtensions } from '@friendofsvelte/tipex';
+	import { TaskItemDragHandle } from './TaskItemDragHandle';
+
+	// If Tipex doesn't already ship task lists, add TaskList / TaskItem here too
+	// (@tiptap/extension-task-list, @tiptap/extension-task-item with { nested: true }).
+	const extensions = [...defaultExtensions, TaskItemDragHandle];
 	import { onMount, untrack } from 'svelte';
 
 	let editor = $state<TipexEditor>();
@@ -66,8 +71,54 @@
 			if (value !== editor) untrack(() => (editor = value));
 		}
 	}
+	{extensions}
 	class={`${disabled ? 'isDisabled' : ''} w-full flex-1`}
 	controlComponent={null}
 	autofocus={false}
 	onupdate={() => onUpdateData?.(editor?.getHTML() ?? '')}
 />
+
+<style>
+	:global(.task-drag-handle) {
+		position: absolute;
+		left: -1.6rem;
+		top: 0.2em;
+		display: flex;
+		align-items: center;
+		padding: 2px;
+		border-radius: 4px;
+		opacity: 0.7;
+		cursor: grab;
+		user-select: none;
+		touch-action: none; /* required so touch drags aren't hijacked by scrolling */
+		transition: opacity 120ms;
+	}
+	:global(li[data-type='taskItem']:hover > .task-drag-handle),
+	:global(li[data-type='taskItem']:hover > div > .task-drag-handle),
+	:global(.task-dragging .task-drag-handle) {
+		opacity: 0.7;
+	}
+	@media (hover: none) {
+		:global(.task-drag-handle) {
+			opacity: 0.5;
+		}
+	}
+
+	/* Hide handles when the note is disabled/readonly (you toggle contentEditable yourself) */
+	:global(.ProseMirror[contenteditable='false'] .task-drag-handle) {
+		display: none;
+	}
+
+	:global(.task-sorting:not(.task-dragging)) {
+		transition: transform 150ms ease;
+	}
+	:global(.task-dragging) {
+		position: relative;
+		z-index: 10;
+		outline: 2px solid #000;
+		padding-left: 4px;
+		border-radius: 6px;
+		box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+		cursor: grabbing;
+	}
+</style>
