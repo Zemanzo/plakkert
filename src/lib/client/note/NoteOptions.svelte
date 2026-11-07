@@ -5,6 +5,7 @@
 	import ShareIcon from '@iconify-svelte/lucide/share-2';
 	import TagIcon from '@iconify-svelte/lucide/tag';
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
+	import CopyIcon from '@iconify-svelte/lucide/copy';
 	import Button from '../components/Button.svelte';
 	import TagPicker from '../tags/TagPicker.svelte';
 	import type { NoteTags } from '../tags/Tags';
@@ -26,7 +27,8 @@
 		onToggleArchived,
 		onTrash,
 		onRestore,
-		onDeleteForever
+		onDeleteForever,
+		onClone
 	}: {
 		noteId: string;
 		noteKey: Uint8Array;
@@ -45,6 +47,7 @@
 		onRestore: () => void;
 		/** Deletes the note, or for notes shared with the user, removes it from their notes. */
 		onDeleteForever: () => void;
+		onClone: () => void;
 	} = $props();
 
 	let shareOptions = $state<ShareOptions>();
@@ -87,6 +90,9 @@
 		{/if}
 		<button popovertarget="tagOptions" aria-label="Tags" title="Tags">
 			<TagIcon width="24px" />
+		</button>
+		<button aria-label="Clone" title="Clone" onclick={onClone}>
+			<CopyIcon width="24px" />
 		</button>
 		<button
 			aria-label={isArchived ? 'Unarchive' : 'Archive'}

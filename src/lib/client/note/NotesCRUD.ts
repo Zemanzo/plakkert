@@ -15,13 +15,16 @@ import type { RuntimeUser } from '#lib/types.js';
  * @param tags Tags to give the note right away, e.g. the tag that is being viewed.
  * @returns The ID of the new note.
  */
-export const createNote = async (user: RuntimeUser, tags?: NoteTags) => {
+export const createNote = async (
+	user: RuntimeUser,
+	tags?: NoteTags,
+	content = '',
+	meta: NoteData['meta'] = { color: DEFAULT_NOTE_COLOR }
+) => {
 	const { noteKey, encryptedKey } = await getNoteKey(user.publicKeyUint8);
 	const defaultNoteData = {
-		content: '',
-		meta: {
-			color: DEFAULT_NOTE_COLOR
-		}
+		content,
+		meta
 	} satisfies NoteData;
 	const { encryptedData } = await encryptNote(defaultNoteData, noteKey);
 	const now = new Date();

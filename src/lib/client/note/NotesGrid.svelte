@@ -9,7 +9,8 @@
 		entries,
 		focusedNoteId = $bindable(),
 		twoColumns = false,
-		onMove
+		onMove,
+		onCloneNote
 	}: {
 		entries: NoteEntry[];
 		focusedNoteId: string | null;
@@ -20,6 +21,7 @@
 		 * reordered, by dragging them or with Shift and the arrow keys.
 		 */
 		onMove?: (from: number, to: number) => Promise<unknown>;
+		onCloneNote: (id: string) => void;
 	} = $props();
 
 	let grid = $state<HTMLDivElement>();
@@ -107,7 +109,13 @@
 			style:translate={isDragged ? `${reorder.offset.x}px ${reorder.offset.y}px` : null}
 			animate:flip={{ duration: flipDuration(entry.note.id) }}
 		>
-			<Note {entry} bind:focusedNoteId />
+			<Note
+				{entry}
+				bind:focusedNoteId
+				onClone={() => {
+					onCloneNote(entry.note.id);
+				}}
+			/>
 		</div>
 	{/each}
 </div>

@@ -124,6 +124,25 @@
 		);
 	}
 
+	async function onCloneNote(id: string) {
+		const originalData = store.entries?.find((entry) => entry.note.id === id)?.note.data;
+		if (!originalData) {
+			return;
+		}
+		const newId = await createNote(
+			user,
+			view.kind === 'tag' ? { [view.tag]: Date.now() } : undefined,
+			originalData.content,
+			originalData.meta
+		);
+		toasts.show('A copy of the note has been created.', {
+			label: 'Open',
+			run: () => {
+				focusedNoteId = newId;
+			}
+		});
+	}
+
 	const isTyping = (target: EventTarget | null) =>
 		target instanceof HTMLElement &&
 		(target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
@@ -242,11 +261,12 @@
 				bind:focusedNoteId
 				{twoColumns}
 				onMove={canReorder ? (from, to) => move(selection.main, from, to) : undefined}
+				{onCloneNote}
 			/>
 
 			{#if selection.archived.length > 0}
 				<h3 class="sectionHeading">Archived</h3>
-				<NotesGrid entries={selection.archived} bind:focusedNoteId {twoColumns} />
+				<NotesGrid entries={selection.archived} bind:focusedNoteId {twoColumns} {onCloneNote} />
 			{/if}
 
 			{#if selection.trashedMatches > 0}

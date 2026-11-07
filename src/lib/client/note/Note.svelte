@@ -26,10 +26,12 @@
 
 	let {
 		entry,
-		focusedNoteId = $bindable()
+		focusedNoteId = $bindable(),
+		onClone
 	}: {
 		entry: NoteEntry;
 		focusedNoteId: string | null;
+		onClone: () => void;
 	} = $props();
 	const user = getContext<() => RuntimeUser>('user')();
 	const store = getContext<() => NoteStore>('notes')();
@@ -295,6 +297,7 @@
 				onTrash={() => closeAndRun(() => trashNote(entry, user.id))}
 				onRestore={() => closeAndRun(() => restoreNote(entry, user.id))}
 				onDeleteForever={deleteForever}
+				{onClone}
 			/>
 		{/if}
 	</div>
