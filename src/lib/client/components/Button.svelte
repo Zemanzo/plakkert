@@ -40,6 +40,11 @@
 			font-size: 1rem;
 		}
 
+		&.md {
+			padding: var(--spacing-md);
+			font-size: 1.2rem;
+		}
+
 		&:hover {
 			@include light(background, --background-color);
 		}

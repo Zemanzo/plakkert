@@ -1,11 +1,7 @@
 <script lang="ts">
-	import { Tipex, type TipexEditor, defaultExtensions } from '@friendofsvelte/tipex';
-	import { TaskItemDragHandle } from './TaskItemDragHandle';
-
-	// If Tipex doesn't already ship task lists, add TaskList / TaskItem here too
-	// (@tiptap/extension-task-list, @tiptap/extension-task-item with { nested: true }).
-	const extensions = [...defaultExtensions, TaskItemDragHandle];
+	import { Tipex, type TipexEditor } from '@friendofsvelte/tipex';
 	import { onMount, untrack } from 'svelte';
+	import { extensions } from './Extensions';
 
 	let editor = $state<TipexEditor>();
 	let {

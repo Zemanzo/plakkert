@@ -290,6 +290,7 @@
 				tags={entry.tags}
 				{allTags}
 				{color}
+				htmlContent={editorContent}
 				onColorChange={changeColor}
 				onTagsChange={(update) => report(updateTags(id, user.id, noteKey, update))}
 				onToggleArchived={() =>

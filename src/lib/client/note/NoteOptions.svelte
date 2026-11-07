@@ -6,10 +6,12 @@
 	import TagIcon from '@iconify-svelte/lucide/tag';
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import CopyIcon from '@iconify-svelte/lucide/copy';
+	import DownloadIcon from '@iconify-svelte/lucide/download';
 	import Button from '../components/Button.svelte';
 	import TagPicker from '../tags/TagPicker.svelte';
 	import type { NoteTags } from '../tags/Tags';
 	import ShareOptions from './ShareOptions.svelte';
+	import ExportOptions from './ExportOptions.svelte';
 	import { isNoteColor, NOTE_COLORS } from './NoteColors';
 
 	let {
@@ -22,6 +24,7 @@
 		tags,
 		allTags,
 		color,
+		htmlContent,
 		onColorChange,
 		onTagsChange,
 		onToggleArchived,
@@ -40,6 +43,8 @@
 		/** All tags the user has, to pick from. */
 		allTags: string[];
 		color: string;
+		/** The HTML content of the note, used for exporting */
+		htmlContent: string;
 		onColorChange: (color: string) => void;
 		onTagsChange: (update: (tags: NoteTags) => NoteTags) => void;
 		onToggleArchived: () => void;
@@ -90,6 +95,9 @@
 		{/if}
 		<button popovertarget="tagOptions" aria-label="Tags" title="Tags">
 			<TagIcon width="24px" />
+		</button>
+		<button aria-label="Export" title="Export" popovertarget="exportOptions">
+			<DownloadIcon width="24px" />
 		</button>
 		<button aria-label="Clone" title="Clone" onclick={onClone}>
 			<CopyIcon width="24px" />
@@ -142,6 +150,10 @@
 
 		<div popover id="tagOptions">
 			<TagPicker {tags} {allTags} onChange={onTagsChange} />
+		</div>
+
+		<div popover id="exportOptions">
+			<ExportOptions {noteId} htmlContent={htmlContent} />
 		</div>
 	{/if}
 </div>
