@@ -1,8 +1,10 @@
-# Plakkert
-
 ![Plakkert logo](static/icon.svg)
 
-A true end-to-end encrypted notes web app, built for offline-first.
+# Plakkert
+
+A true end-to-end encrypted notes web app, built to work both offline & online.
+
+![Image of the main app screen](example.png)
 
 ## Current features
 
@@ -91,7 +93,3 @@ pnpm dev
 
 Pages are prerendered as a client-rendered shell, so the service worker only caches real pages in a
 production build (`pnpm build`, then `node build`).
-
-## Planned features
-
-Check the [issues](https://github.com/Zemanzo/plakkert/issues) tab!
