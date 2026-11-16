@@ -4,9 +4,11 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import GripIcon from '@iconify-svelte/lucide/grip-vertical';
+	import ArrowLeftIcon from '@iconify-svelte/lucide/arrow-left';
 	import MergeIcon from '@iconify-svelte/lucide/merge';
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import UndoIcon from '@iconify-svelte/lucide/undo-2';
+	import CloseIcon from '@iconify-svelte/lucide/x';
 	import Button from '../components/Button.svelte';
 	import type { NoteStore } from '../note/NoteStore.svelte';
 	import { updateSyncedSettings } from '../settings/SyncedSettings';
@@ -45,6 +47,7 @@
 		}));
 		counts = Object.fromEntries(store.tags.map((tag) => [tag.name, tag.count]));
 		reordered = false;
+		merging = null;
 		showErrors = false;
 		errorMessage = null;
 		announcement = '';
@@ -56,16 +59,37 @@
 			? 'Removed from 1 note, which is kept.'
 			: `Removed from ${count} notes, which are kept.`;
 
-	/** The tags a tag can be merged into: the others that are kept, by their name as typed. */
-	const mergeTargets = (row: TagRow) =>
-		rows.filter((other) => other !== row && !other.deleted && !other.mergeInto);
+	// Merging: the merge button of a tag starts choosing the tag to merge it into, among the others.
 
-	function mergeInto(row: TagRow, event: Event & { currentTarget: HTMLSelectElement }) {
-		const target = event.currentTarget.value;
-		event.currentTarget.value = '';
-		if (!target) return;
-		row.mergeInto = target;
+	/** The tag being merged, while choosing the tag to merge it into. */
+	let merging = $state<TagRow | null>(null);
+
+	const isKept = (row: TagRow) => !row.deleted && !row.mergeInto;
+	const canMerge = $derived(rows.filter(isKept).length > 1);
+
+	function startMerging(row: TagRow) {
+		merging = row;
+		announcement = `Choose the tag to merge ${row.original} into`;
+	}
+
+	function stopMerging() {
+		merging = null;
+		announcement = 'Merging cancelled';
+	}
+
+	function mergeInto(target: TagRow) {
+		if (!merging) return;
+		const row = merging;
+		row.mergeInto = target.original;
+		merging = null;
 		announcement = `${row.original} will be merged into ${plan.outcomes[rows.indexOf(row)].name}`;
+	}
+
+	/** Escape stops merging, rather than closing the dialog. */
+	function onCancel(event: Event) {
+		if (!merging) return;
+		event.preventDefault();
+		stopMerging();
 	}
 
 	// Reordering, by dragging the handle, or with the arrow keys while it's focused.
@@ -146,6 +170,7 @@
 
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
+		if (merging) return;
 		if (!hasChanges) {
 			dialog?.close();
 			return;
@@ -184,31 +209,42 @@
 	}
 </script>
 
-<dialog bind:this={dialog} aria-labelledby="tagsDialogTitle">
-	<form onsubmit={save}>
+<dialog bind:this={dialog} aria-labelledby="tagsDialogTitle" oncancel={onCancel}>
+	<form onsubmit={save} class:isMerging={merging !== null}>
 		<h2 id="tagsDialogTitle">Edit tags</h2>
 		{#if rows.length === 0}
 			<p>You don’t have any tags. Add them to a note from its tag menu.</p>
 		{:else}
 			<p class="hint">
-				Drag <GripIcon width="14px" aria-label="the handle" /> to reorder. Giving a tag the name of another
-				one merges them.
+				{#if merging}
+					Choose the tag to merge “{merging.original}” into, with <ArrowLeftIcon
+						width="14px"
+						aria-label="the arrow"
+					/>.
+				{:else}
+					Drag <GripIcon width="14px" aria-label="the handle" /> to reorder. Giving a tag the name of
+					another one merges them.
+				{/if}
 			</p>
 			<ul bind:this={list}>
 				{#each rows as row, index (row.original)}
 					{@const outcome = plan.outcomes[index]}
+					<!-- While merging, everything but choosing the tag to merge into is hidden or disabled,
+					     keeping every row in its place. -->
 					<li
 						animate:flip={{ duration: draggedRow ? 100 : 200 }}
 						class:dragged={draggedRow === row}
+						class:merging={merging === row}
 					>
 						<div class="row">
 							<button
 								type="button"
 								class="handle"
+								class:hidden={merging}
 								data-handle={row.original}
 								aria-label={`Move ${row.original}`}
 								title="Drag, or use the arrow keys, to move"
-								disabled={busy}
+								disabled={busy || merging !== null}
 								onkeydown={(event) => onHandleKeydown(row, event)}
 								onpointerdown={(event) => onHandlePointerdown(row, event)}
 							>
@@ -218,9 +254,10 @@
 								<span class="name removed">{row.original}</span>
 								<button
 									type="button"
+									class:hidden={merging}
 									aria-label={`Undo ${row.deleted ? 'deleting' : 'merging'} ${row.original}`}
 									title="Undo"
-									disabled={busy}
+									disabled={busy || merging !== null}
 									onclick={() => {
 										row.deleted = false;
 										row.mergeInto = null;
@@ -235,28 +272,48 @@
 									maxlength={MAX_TAG_LENGTH + 10}
 									bind:value={row.name}
 									readonly={busy}
+									disabled={merging !== null}
 								/>
 								<span class="count" title="Notes with this tag">{counts[row.original]}</span>
-								{#if mergeTargets(row).length > 0}
-									<label class="merge" title="Merge into another tag">
-										<MergeIcon width="18px" />
-										<select
-											aria-label={`Merge ${row.original} into`}
-											disabled={busy}
-											onchange={(event) => mergeInto(row, event)}
-										>
-											<option value="">Merge into…</option>
-											{#each mergeTargets(row) as target (target.original)}
-												<option value={target.original}>{target.name}</option>
-											{/each}
-										</select>
-									</label>
+								{#if merging || canMerge}
+									<!-- One button that changes, so it keeps the focus when merging starts or stops. -->
+									<button
+										type="button"
+										class="mergeButton"
+										class:target={merging && merging !== row}
+										aria-label={merging === row
+											? `Stop merging ${row.original}`
+											: merging
+												? `Merge ${merging.original} into ${row.name}`
+												: `Merge ${row.original} into another tag`}
+										title={merging === row
+											? 'Stop merging'
+											: merging
+												? `Merge “${merging.original}” into this tag`
+												: 'Merge into another tag'}
+										disabled={busy}
+										onclick={() =>
+											merging === row
+												? stopMerging()
+												: merging
+													? mergeInto(row)
+													: startMerging(row)}
+									>
+										{#if merging === row}
+											<CloseIcon width="18px" />
+										{:else if merging}
+											<ArrowLeftIcon width="18px" />
+										{:else}
+											<MergeIcon width="18px" />
+										{/if}
+									</button>
 								{/if}
 								<button
 									type="button"
+									class:hidden={merging}
 									aria-label={`Delete ${row.original}`}
 									title="Delete"
-									disabled={busy}
+									disabled={busy || merging !== null}
 									onclick={() => (row.deleted = true)}
 								>
 									<TrashIcon width="18px" />
@@ -292,7 +349,7 @@
 				>
 					Cancel
 				</Button>
-				<Button class="sm" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
+				<Button class="sm" disabled={busy || merging !== null}>{busy ? 'Saving…' : 'Save'}</Button>
 			{:else}
 				<Button type="button" class="sm" onclick={() => dialog?.close()}>Close</Button>
 			{/if}
@@ -343,8 +400,8 @@
 	}
 
 	.hint {
-		font-size: 0.9rem;
-		opacity: 0.8;
+		font-size: 0.8rem;
+		color: var(--color-text-secondary);
 
 		:global(svg) {
 			display: inline;
@@ -368,6 +425,11 @@
 
 		&.dragged {
 			background-color: #8882;
+		}
+
+		/* The tag being merged into another one. */
+		&.merging {
+			background-color: color-mix(in srgb, var(--color-yellow) 35%, transparent);
 		}
 	}
 
@@ -414,28 +476,41 @@
 		}
 	}
 
-	.row button,
-	.merge {
-		position: relative;
+	.row button {
 		display: flex;
 		flex-shrink: 0;
 		padding: var(--spacing-sm);
 		border-radius: 50%;
 		cursor: pointer;
 
-		&:hover:not(:disabled):not(:has(:disabled)) {
+		&:hover:not(:disabled) {
 			background-color: #8883;
 		}
 
-		&:disabled,
-		&:has(:disabled) {
+		&:disabled {
 			opacity: 0.5;
 			cursor: default;
 		}
 
-		&:has(:focus-visible) {
-			outline: 2px solid var(--color-yellow);
+		/* Hidden while merging, but still taking up their space, so nothing moves. */
+		&.hidden {
+			visibility: hidden;
 		}
+	}
+
+	/* The tags that can be merged into. */
+	.mergeButton.target {
+		background-color: color-mix(in srgb, var(--color-yellow) 35%, transparent);
+	}
+
+	.isMerging input:disabled {
+		opacity: 0.7;
+	}
+
+	/* The tag being merged reads normally, as it's highlighted. */
+	.merging input:disabled {
+		opacity: 1;
+		color: var(--color-text-primary);
 	}
 
 	.handle {
@@ -448,21 +523,14 @@
 		}
 	}
 
-	/* The select covers the icon, so the browser's own list opens, which also works well on phones
-	   and with screen readers. */
-	.merge select {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		opacity: 0;
-		cursor: pointer;
-	}
-
 	.buttons {
 		display: flex;
 		justify-content: flex-end;
 		gap: var(--spacing-md);
+
+		:global(button.sm) {
+			padding: 6px var(--spacing-lg);
+		}
 	}
 
 	.visuallyHidden {

@@ -47,7 +47,21 @@ test('tags can be renamed, merged, deleted and reordered, on saving', async ({ a
 
 	await test.step('a tag can be merged into another one', async () => {
 		await openTagsDialog(page);
-		await dialog(page).getByRole('combobox', { name: 'Merge recipe into' }).selectOption('recipes');
+		// Starting to merge, and stopping with the same button or with Escape, changes nothing.
+		const mergeRecipe = dialog(page).getByRole('button', { name: 'Merge recipe into another tag' });
+		await mergeRecipe.click();
+		await expect(dialog(page).getByRole('textbox', { name: 'Name of work' })).toBeDisabled();
+		await expect(dialog(page).getByRole('button', { name: 'Delete work' })).toBeHidden();
+		await dialog(page).getByRole('button', { name: 'Stop merging recipe' }).click();
+		await expect(dialog(page).getByRole('textbox', { name: 'Name of work' })).toBeEnabled();
+		await expect(mergeRecipe).toBeFocused();
+		await mergeRecipe.click();
+		await page.keyboard.press('Escape');
+		await expect(dialog(page)).toBeVisible();
+		await expect(dialog(page).getByRole('button', { name: 'Delete work' })).toBeVisible();
+
+		await mergeRecipe.click();
+		await dialog(page).getByRole('button', { name: 'Merge recipe into recipes' }).click();
 		await expect(dialog(page)).toContainText('Merges with “recipes”.');
 		await save(page);
 		await expect(tagsOf(page, 'Pasta')).toHaveText(['recipes']);
