@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '#lib/server/db/index.js';
 import { notes, user, userNotes } from '#lib/server/db/schema.js';
-import { findOwnedNote } from '#lib/server/notes.js';
+import { changeStamp, findOwnedNote } from '#lib/server/notes.js';
 import { and, eq } from 'drizzle-orm';
 
 const PERMISSIONS = ['view', 'edit'] as const;
@@ -41,11 +41,16 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 			userId: recipient.id,
 			noteId: params.id,
 			noteKey,
-			permissions: permissions as (typeof PERMISSIONS)[number]
+			permissions: permissions as (typeof PERMISSIONS)[number],
+			changedAt: changeStamp()
 		})
 		.onConflictDoUpdate({
 			target: [userNotes.userId, userNotes.noteId],
-			set: { noteKey, permissions: permissions as (typeof PERMISSIONS)[number] }
+			set: {
+				noteKey,
+				permissions: permissions as (typeof PERMISSIONS)[number],
+				changedAt: changeStamp()
+			}
 		});
 
 	return new Response(null, { status: 204 });

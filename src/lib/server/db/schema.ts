@@ -18,7 +18,10 @@ export const notes = sqliteTable('notes', {
 		.notNull()
 		.$defaultFn(() => new Date()),
 	// Non-null value acts as a tombstone marker so deletions can propagate via sync.
-	deletedAt: integer('deleted_at', { mode: 'timestamp_ms' })
+	deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+	/** When the server last stored a change to the note, by its own clock (see `changeStamp`), so
+	 * clients can ask for only what changed. `updatedAt` is the client's clock, for last-write-wins. */
+	changedAt: integer('changed_at').notNull().default(0)
 });
 
 export const userNotes = sqliteTable(
@@ -46,6 +49,8 @@ export const userNotes = sqliteTable(
 		tags: blob('tags'),
 		// Tags sync separately from the note content, with their own last-write-wins timestamp.
 		tagsUpdatedAt: integer('tags_updated_at', { mode: 'timestamp_ms' }),
+		/** Like `notes.changedAt`, for changes to this user's access and tags. */
+		changedAt: integer('changed_at').notNull().default(0),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
 			.$defaultFn(() => new Date())

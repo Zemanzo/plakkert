@@ -13,7 +13,9 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   - The app is cached by a service worker, and notes are stored in IndexedDB
   - Notes can be created, edited and deleted offline, and sync once back online
   - Accounts that have been used on a device before can be unlocked offline
-- Sync across devices (last write wins; deletions win over edits)
+- Sync across devices (last write wins; deletions win over edits). Only what changed is fetched,
+  and changes are sent in batches, so it stays quick with thousands of notes. Long lists of notes
+  are shown a page at a time while scrolling.
 - Sharing notes with other users, who can view or edit them
   - Only the owner can share, change permissions or stop sharing; recipients can remove a shared
     note from their own notes

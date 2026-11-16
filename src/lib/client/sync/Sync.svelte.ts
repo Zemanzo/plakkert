@@ -143,44 +143,47 @@ async function markSynced(note: Note<Uint8Array>) {
 	});
 }
 
-async function pushNote(note: Note<Uint8Array>, userId: string) {
-	const noteKey = await db.noteKeys.where({ noteId: note.id, userId }).first();
-	const response = await fetchOrOffline(`/api/notes/${note.id}`, {
-		method: 'PUT',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			content: note.data.toBase64(),
-			// Only used when the note doesn't exist on the server yet.
-			noteKey: noteKey?.encryptedKey.toBase64(),
-			createdAt: note.createdAt.getTime(),
-			updatedAt: note.updatedAt.getTime()
-		})
-	});
+/** What the server responded to an update of a note or its tags: the status, and the body. */
+interface PushOutcome {
+	status: number;
+	body: unknown;
+}
 
-	if (response.ok) {
+const errorMessage = (body: unknown) =>
+	(body as { message?: string } | null)?.message ?? 'Something went wrong';
+
+/** Handles what the server responded to an update of a note. */
+async function applyNoteOutcome(
+	note: Note<Uint8Array>,
+	userId: string,
+	{ status, body }: PushOutcome
+) {
+	if (status === 200) {
 		await markSynced(note);
-	} else if (response.status === 409) {
+	} else if (status === 409) {
 		// The server has a version that is at least as new; take it, unless the note was edited
 		// again in the meantime, in which case that newer edit is pushed next time.
-		const serverNote = (await response.json()) as ServerNote;
 		await db.transaction('rw', db.notes, db.noteKeys, () =>
-			applyServerNote(serverNote, userId, (local, server) =>
+			applyServerNote(body as ServerNote, userId, (local, server) =>
 				local && local.updatedAt > server.updatedAt ? 'keep-local' : 'take-server'
 			)
 		);
-	} else if (response.status === 410) {
+	} else if (status === 410) {
 		// Deleted on another device.
-		const serverNote = (await response.json()) as ServerNote;
-		await db.transaction('rw', db.notes, db.noteKeys, () => applyServerNote(serverNote, userId));
-	} else if (response.status === 403) {
-		// The owner made the note view-only. Drop the local edit; marking it as older than any
-		// server version makes the next pull restore the server version.
-		await db.notes.update(note.id, { dirty: 0, updatedAt: new Date(0) });
-	} else if (response.status === 404 && note.ownerId !== userId) {
+		await db.transaction('rw', db.notes, db.noteKeys, () =>
+			applyServerNote(body as ServerNote, userId)
+		);
+	} else if (status === 403) {
+		// The owner made the note view-only. Drop the local edit, and take the server version.
+		const serverNote = (await (await request(`/api/notes/${note.id}`)).json()) as ServerNote;
+		await db.transaction('rw', db.notes, db.noteKeys, () =>
+			applyServerNote(serverNote, userId, () => 'take-server')
+		);
+	} else if (status === 404 && note.ownerId !== userId) {
 		// The note is no longer shared with this user.
 		await forgetNote(note.id, userId);
 	} else {
-		throw await toApiError(response);
+		throw new ApiError(errorMessage(body), status);
 	}
 }
 
@@ -208,40 +211,32 @@ async function markTagsSynced(noteKey: NoteKey) {
 	});
 }
 
-async function pushTags(noteKey: NoteKey, userId: string) {
-	const response = await fetchOrOffline(`/api/notes/${noteKey.noteId}/tags`, {
-		method: 'PUT',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			tags: (noteKey.tags ?? new Uint8Array()).toBase64(),
-			updatedAt: noteKey.tagsUpdatedAt?.getTime() ?? Date.now()
-		})
-	});
-
-	if (response.ok) {
+/** Handles what the server responded to an update of the user's tags for a note. */
+async function applyTagsOutcome(noteKey: NoteKey, userId: string, { status, body }: PushOutcome) {
+	if (status === 200) {
 		await markTagsSynced(noteKey);
-	} else if (response.status === 409) {
+	} else if (status === 409) {
 		// The server has tags that are at least as new; take them, unless they were changed again
 		// in the meantime, in which case those are pushed next time.
-		const serverNote = (await response.json()) as ServerNote;
 		await db.transaction('rw', db.notes, db.noteKeys, () =>
-			updateAccess(serverNote, userId, (local, server) =>
+			updateAccess(body as ServerNote, userId, (local, server) =>
 				local?.tagsUpdatedAt && server.tagsUpdatedAt && local.tagsUpdatedAt > server.tagsUpdatedAt
 					? 'keep-local'
 					: 'take-server'
 			)
 		);
-	} else if (response.status === 410) {
+	} else if (status === 410) {
 		// The note was deleted, so its tags don't matter anymore.
-		const serverNote = (await response.json()) as ServerNote;
-		await db.transaction('rw', db.notes, db.noteKeys, () => applyServerNote(serverNote, userId));
-	} else if (response.status === 404) {
+		await db.transaction('rw', db.notes, db.noteKeys, () =>
+			applyServerNote(body as ServerNote, userId)
+		);
+	} else if (status === 404) {
 		const note = await db.notes.get(noteKey.noteId);
 		// An own note that hasn't reached the server yet; its tags are sent once it has.
 		if (note?.ownerId === userId) return;
 		await forgetNote(noteKey.noteId, userId);
 	} else {
-		throw await toApiError(response);
+		throw new ApiError(errorMessage(body), status);
 	}
 }
 
@@ -271,15 +266,130 @@ async function getPushableNotes(userId: string) {
 	);
 }
 
+/** At most this many notes are sent in one request, as the server allows. */
+const BATCH_MAX_NOTES = 100;
+/** And at most about this much, well below the server's limit on the size of a request. */
+const BATCH_MAX_BYTES = 256 * 1024;
+
+/** A note and/or its tags to send, and what was sent, to handle the outcome with. */
+interface PushItem {
+	id: string;
+	note?: { local: Note<Uint8Array>; body: Record<string, unknown> };
+	tags?: { local: NoteKey; body: Record<string, unknown> };
+	/** Roughly how many bytes it adds to the request. */
+	size: number;
+}
+
+/** What to send for the given changes to notes (other than deletions) and tags. */
+async function getPushItems(userId: string, notes: Note<Uint8Array>[], noteKeys: NoteKey[]) {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local, never rendered
+	const items = new Map<string, PushItem>();
+	const itemFor = (id: string) => {
+		let item = items.get(id);
+		if (!item) items.set(id, (item = { id, size: 0 }));
+		return item;
+	};
+
+	const ownKeys = new Map(
+		(await db.noteKeys.where({ userId }).toArray()).map((noteKey) => [noteKey.noteId, noteKey])
+	);
+	for (const note of notes) {
+		const content = note.data.toBase64();
+		const item = itemFor(note.id);
+		item.note = {
+			local: note,
+			body: {
+				content,
+				// Only used when the note doesn't exist on the server yet.
+				noteKey: ownKeys.get(note.id)?.encryptedKey.toBase64(),
+				createdAt: note.createdAt.getTime(),
+				updatedAt: note.updatedAt.getTime()
+			}
+		};
+		item.size += content.length + 200;
+	}
+	// Sent along with the note if that changed too. The server stores the note first, so a new
+	// note exists by the time its tags are stored.
+	for (const noteKey of noteKeys) {
+		const tags = (noteKey.tags ?? new Uint8Array()).toBase64();
+		const item = itemFor(noteKey.noteId);
+		item.tags = {
+			local: noteKey,
+			body: { tags, updatedAt: noteKey.tagsUpdatedAt?.getTime() ?? Date.now() }
+		};
+		item.size += tags.length + 100;
+	}
+	return [...items.values()];
+}
+
+/** Splits the items into requests that aren't too big. A big note is sent on its own. */
+function inBatches(items: PushItem[]) {
+	const batches: PushItem[][] = [];
+	let batch: PushItem[] = [];
+	let size = 0;
+	for (const item of items) {
+		if (
+			batch.length >= BATCH_MAX_NOTES ||
+			(batch.length > 0 && size + item.size > BATCH_MAX_BYTES)
+		) {
+			batches.push(batch);
+			batch = [];
+			size = 0;
+		}
+		batch.push(item);
+		size += item.size;
+	}
+	if (batch.length > 0) batches.push(batch);
+	return batches;
+}
+
+/** Runs one push. On failure, keeps going, so one problematic note doesn't block the others. */
+type Attempt = (noteId: string, push: () => Promise<void>) => Promise<void>;
+
+/** Sends a batch of notes and tags, and handles what the server responded for each. */
+async function pushBatch(batch: PushItem[], userId: string, attempt: Attempt) {
+	const response = await fetchOrOffline('/api/notes/batch', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			notes: batch.map(({ id, note, tags }) => ({ id, note: note?.body, tags: tags?.body }))
+		})
+	});
+	if (!response.ok) throw await toApiError(response);
+	const { results } = (await response.json()) as {
+		results: { id: string; note?: PushOutcome; tags?: PushOutcome }[];
+	};
+
+	// What was stored is marked as synced all at once. Every transaction updates the notes that
+	// are shown, which would take long for hundreds of them one by one.
+	await db.transaction('rw', db.notes, db.noteKeys, async () => {
+		for (const [i, { note, tags }] of batch.entries()) {
+			if (note && results[i]?.note?.status === 200) await markSynced(note.local);
+			if (tags && results[i]?.tags?.status === 200) await markTagsSynced(tags.local);
+		}
+	});
+	for (const [i, { id, note, tags }] of batch.entries()) {
+		const result = results[i];
+		if (note && result?.note && result.note.status !== 200) {
+			const outcome = result.note;
+			await attempt(id, () => applyNoteOutcome(note.local, userId, outcome));
+		}
+		if (tags && result?.tags && result.tags.status !== 200) {
+			const outcome = result.tags;
+			await attempt(id, () => applyTagsOutcome(tags.local, userId, outcome));
+		}
+	}
+}
+
 /**
- * Sends all local changes to the server.
+ * Sends all local changes to the server: deletions one by one, and the rest in
+ * batches, which is much faster when there are many, e.g. after an import.
  *
  * @returns Whether every change was sent.
  */
 async function pushChanges(userId: string) {
 	let succeeded = true;
-	/** Runs one push. On failure, keeps going, so one problematic note doesn't block the others. */
-	async function attempt(noteId: string, push: () => Promise<void>) {
+	const attempt: Attempt = async (noteId, push) => {
 		try {
 			await push();
 		} catch (error) {
@@ -288,14 +398,19 @@ async function pushChanges(userId: string) {
 			console.error(`Failed to sync note ${noteId}`, error);
 			succeeded = false;
 		}
-	}
+	};
 
-	for (const note of await getPushableNotes(userId)) {
-		await attempt(note.id, () => (note.deletedAt ? pushDeletion(note) : pushNote(note, userId)));
+	const [notes, noteKeys] = await Promise.all([getPushableNotes(userId), getPushableTags(userId)]);
+	for (const note of notes.filter((note) => note.deletedAt)) {
+		await attempt(note.id, () => pushDeletion(note));
 	}
-	// After the notes, so new notes exist on the server by the time their tags are sent.
-	for (const noteKey of await getPushableTags(userId)) {
-		await attempt(noteKey.noteId, () => pushTags(noteKey, userId));
+	const items = await getPushItems(
+		userId,
+		notes.filter((note) => !note.deletedAt),
+		noteKeys
+	);
+	for (const batch of inBatches(items)) {
+		await attempt(batch[0].id, () => pushBatch(batch, userId, attempt));
 	}
 	return succeeded;
 }
@@ -306,25 +421,37 @@ async function countPendingChanges(userId: string) {
 	return new Set([...notes.map((note) => note.id), ...noteKeys.map((key) => key.noteId)]).size;
 }
 
-/** Applies all changes made on the server, e.g. from other devices. */
+/**
+ * Applies the changes made on the server since the last pull, e.g. from other
+ * devices. The first time on a device, that's all notes.
+ */
 async function pullChanges(userId: string) {
-	const response = await request('/api/notes');
-	const serverNotes = (await response.json()) as ServerNote[];
+	const state = await db.syncState.get(userId);
+	const response = await request(
+		state ? `/api/notes/changes?since=${state.cursor}` : '/api/notes/changes'
+	);
+	const {
+		notes: serverNotes,
+		ids,
+		cursor
+	} = (await response.json()) as { notes: ServerNote[]; ids: string[]; cursor: number };
 
-	await db.transaction('rw', db.notes, db.noteKeys, async () => {
+	// The cursor is only stored along with the changes, so none can be skipped.
+	await db.transaction('rw', db.notes, db.noteKeys, db.syncState, async () => {
 		for (const serverNote of serverNotes) {
 			await applyServerNote(serverNote, userId);
 		}
 
 		// Notes of others that the server no longer lists were unshared, or the user removed them
 		// on another device. (Own notes that haven't been pushed yet aren't listed either.)
-		const serverNoteIds = new Set(serverNotes.map((serverNote) => serverNote.id));
+		const serverNoteIds = new Set(ids);
 		for (const noteKey of await db.noteKeys.where({ userId }).toArray()) {
 			if (serverNoteIds.has(noteKey.noteId)) continue;
 			const note = await db.notes.get(noteKey.noteId);
 			if (note?.ownerId === userId) continue;
 			await forgetNote(noteKey.noteId, userId);
 		}
+		await db.syncState.put({ userId, cursor });
 	});
 }
 

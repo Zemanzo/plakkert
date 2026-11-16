@@ -52,6 +52,13 @@ export interface NoteKey {
 
 export type NotePermission = 'view' | 'edit';
 
+/** How far a user's notes on this device are up to date with the server. */
+export interface SyncState {
+	userId: string;
+	/** From the server: changes from this point on haven't been pulled yet. */
+	cursor: number;
+}
+
 const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 	// primary key "id" (for the typings only)
 	users: EntityTable<User, 'id'>;
@@ -59,6 +66,7 @@ const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 	notes: EntityTable<Note<Uint8Array>, 'id'>;
 	// not the primary key but it doesnt support composite keys in typings, so we use "id" as a placeholder
 	noteKeys: EntityTable<NoteKey, 'id'>;
+	syncState: EntityTable<SyncState, 'userId'>;
 };
 
 // Indexed columns
@@ -107,6 +115,11 @@ db.version(4)
 // Tags (including archived and trashed) are stored per user on their note key, and sync on their own.
 db.version(5).stores({
 	noteKeys: '[noteId+userId], [userId+noteId], tagsDirty'
+});
+
+// Only the changes since the last sync are pulled, rather than all notes every time.
+db.version(6).stores({
+	syncState: 'userId'
 });
 
 export { db };
