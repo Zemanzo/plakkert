@@ -3,6 +3,11 @@
 	import { localUser } from '../User.svelte';
 	import { db } from '../Database';
 	import { REMEMBERED_SESSION_DAYS } from '../auth/Session';
+	import { decodeKey } from '../cryptography/PrivateKey';
+	import { fileDrop } from '../components/FileDrop';
+	import { IMPORT_SOURCES, type ImportSource, type ImportSourceId } from '../import';
+	import { importNotes, type ImportProgress, type ImportSummary } from '../import/ImportNotes';
+	import { tagHref } from '../tags/TagLinks';
 	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
 	let settings = $state<Preferences>(
@@ -26,6 +31,39 @@
 		// The layout applies preferences such as the theme when the user record changes.
 		await db.users.update(localUser.data!.id, { preferences: $state.snapshot(settings) });
 	}
+
+	// One import at a time, whose progress or outcome is shown with its source.
+	let importState = $state<{
+		source: ImportSourceId;
+		progress?: ImportProgress;
+		summary?: ImportSummary;
+		error?: string;
+	} | null>(null);
+	const isImporting = $derived(!!importState && !importState.summary && !importState.error);
+	const fileInputs = $state<Partial<Record<ImportSourceId, HTMLInputElement>>>({});
+
+	async function startImport(source: ImportSource, file: File) {
+		const user = localUser.data!;
+		importState = { source: source.id };
+		try {
+			const summary = await importNotes(
+				source,
+				file,
+				{ id: user.id, publicKeyUint8: decodeKey(user.publicKey) },
+				(progress) => (importState = { source: source.id, progress })
+			);
+			importState = { source: source.id, summary };
+		} catch (error) {
+			console.warn('Import failed', error);
+			importState = {
+				source: source.id,
+				error: error instanceof Error ? error.message : 'The notes couldn’t be imported.'
+			};
+		}
+	}
+
+	const notesCount = (count: number) => (count === 1 ? '1 note' : `${count} notes`);
+	const MAX_FAILED_NAMES = 3;
 </script>
 
 <section>
@@ -76,6 +114,69 @@
 				<input id="security-stayLoggedIn" type="checkbox" bind:checked={settings.stayLoggedIn} />
 			</div>
 		</div>
+		<div class="preferencesList">
+			<h2>Import</h2>
+			{#each IMPORT_SOURCES as source (source.id)}
+				{@const state = importState?.source === source.id ? importState : null}
+				<div
+					class="preferenceItem"
+					{@attach fileDrop((file) => startImport(source, file), !isImporting)}
+				>
+					<div>
+						<label for="import-{source.id}">{source.name}</label>
+						<p>{source.description} Imported notes get the tag “{source.tag}”.</p>
+						{#if state}
+							<p class="importStatus" role="status">
+								{#if state.error}
+									<span class="error">{state.error}</span>
+								{:else if state.summary}
+									{@const { imported, archived, trashed, failed } = state.summary}
+									Imported {notesCount(imported)}{archived > 0
+										? `, of which ${archived} to the archive`
+										: ''}.
+									{#if imported > 0}
+										<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it -->
+										<a href={tagHref(source.tag)}>View them</a>
+									{/if}
+									{#if trashed > 0}
+										Left out {notesCount(trashed)} that {trashed === 1 ? 'was' : 'were'} in the trash.
+									{/if}
+									{#if failed.length > 0}
+										<span class="error">
+											{failed.length === 1 ? '1 file' : `${failed.length} files`} couldn’t be read: {failed
+												.slice(0, MAX_FAILED_NAMES)
+												.join(', ')}{failed.length > MAX_FAILED_NAMES
+												? ` and ${failed.length - MAX_FAILED_NAMES} more`
+												: ''}.
+										</span>
+									{/if}
+								{:else if state.progress}
+									{state.progress.step === 'reading' ? 'Reading' : 'Saving'} notes… {state.progress
+										.done} of {state.progress.total}
+								{:else}
+									Reading the file…
+								{/if}
+							</p>
+						{/if}
+					</div>
+					<input
+						bind:this={fileInputs[source.id]}
+						id="import-{source.id}"
+						type="file"
+						accept={source.accept}
+						hidden
+						onchange={(event) => {
+							const file = event.currentTarget.files?.[0];
+							event.currentTarget.value = '';
+							if (file) startImport(source, file);
+						}}
+					/>
+					<Button class="sm" disabled={isImporting} onclick={() => fileInputs[source.id]?.click()}>
+						Choose file
+					</Button>
+				</div>
+			{/each}
+		</div>
 	{/if}
 </section>
 
@@ -84,7 +185,7 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		overflow: hidden;
+		overflow: auto;
 
 		/* As high as the button, so the page doesn't shift when it shows up. */
 		.saveState {
@@ -131,6 +232,25 @@
 					font-size: 0.8rem;
 					color: var(--color-text-muted);
 					line-height: 1.2;
+				}
+
+				.importStatus {
+					margin-top: var(--spacing-sm);
+					color: var(--color-text-primary);
+
+					a {
+						text-decoration: underline;
+					}
+
+					.error {
+						color: var(--color-red);
+					}
+				}
+
+				/* Set by the fileDrop attachment. */
+				&:global([data-dropping]) {
+					outline: 2px dashed var(--color-yellow);
+					outline-offset: -2px;
 				}
 
 				/* The global checkbox style is meant for the notes' light colours, and would be hard to see

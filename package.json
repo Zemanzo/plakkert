@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
-	"packageManager": "pnpm@11.2.2",
+	"packageManager": "pnpm@12.18.0",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -71,6 +71,7 @@
 		"@tiptap/starter-kit": "~3.31.4",
 		"better-sqlite3": "^13.0.3",
 		"dexie": "^4.4.7",
+		"fflate": "^0.8.3",
 		"libsodium-wrappers": "^0.8.4"
 	},
 	"imports": {
