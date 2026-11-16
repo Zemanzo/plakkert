@@ -2,9 +2,6 @@ import { getSchema } from '@tiptap/core';
 import { DOMParser as SchemaParser, DOMSerializer, type Schema } from '@tiptap/pm/model';
 import { extensions } from './Extensions';
 
-/** Tiptap's default placeholder, which the editor shows in an empty first line. */
-const PLACEHOLDER = 'Write something …';
-
 let schema: Schema | undefined;
 
 /**
@@ -21,12 +18,13 @@ export function renderNotePreview(html: string): DocumentFragment | HTMLElement 
 	const doc = SchemaParser.fromSchema(schema).parse(inert.body);
 	const fragment = DOMSerializer.fromSchema(schema).serializeFragment(doc.content, { document });
 
-	// Like in the editor, where the cursor starts in the first line.
-	const first = fragment.firstElementChild;
-	if (first && doc.firstChild && !doc.firstChild.isLeaf && doc.firstChild.content.size === 0) {
-		first.classList.add('is-empty');
-		if (doc.childCount === 1) first.classList.add('is-editor-empty');
-		first.setAttribute('data-placeholder', PLACEHOLDER);
+	// An empty line would have no height, so blank lines would disappear. The editor puts a line
+	// break in them, so do the same. There's no placeholder: that's only shown while editing.
+	for (const line of fragment.querySelectorAll('p, h1, h2, h3, h4, h5, h6, pre > code')) {
+		if (line.hasChildNodes()) continue;
+		const lineBreak = document.createElement('br');
+		lineBreak.className = 'ProseMirror-trailingBreak';
+		line.append(lineBreak);
 	}
 	// Checkboxes are only for show until the note is opened, and shouldn't be tabbed through.
 	for (const input of fragment.querySelectorAll('input')) input.tabIndex = -1;

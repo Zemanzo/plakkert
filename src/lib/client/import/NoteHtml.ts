@@ -31,8 +31,8 @@ function checklist(items: ChecklistItem[]) {
 }
 
 /**
- * Like notes made in the app, it starts with the title as a heading, which is
- * left empty when there's no title.
+ * Like notes made in the app, it starts with the title as a heading. Notes
+ * without a title start with the text straight away.
  */
 export function noteHtml({
 	title = '',
@@ -44,5 +44,6 @@ export function noteHtml({
 	items?: ChecklistItem[];
 }) {
 	const body = paragraphs(text) + checklist(items);
-	return `<h1>${escapeHtml(title.trim())}</h1>${body || '<p></p>'}`;
+	const heading = title.trim() ? `<h1>${escapeHtml(title.trim())}</h1>` : '';
+	return heading + (body || '<p></p>');
 }

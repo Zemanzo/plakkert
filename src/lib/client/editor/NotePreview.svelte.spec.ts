@@ -38,11 +38,19 @@ describe('renderNotePreview', () => {
 		expect((window as { ran?: boolean }).ran).toBeUndefined();
 	});
 
-	it('shows the placeholder in an empty first line, like the editor does', () => {
-		const first = render('<h1></h1><p></p>').firstElementChild!;
-		expect(first.classList.contains('is-empty')).toBe(true);
-		expect(first.getAttribute('data-placeholder')).toBe('Write something …');
-
-		expect(render('<h1>Title</h1>').querySelector('.is-empty')).toBeNull();
+	it('keeps blank lines as high as in the editor, without a placeholder', () => {
+		const element = render('<h1></h1><p>One</p><p></p><p>Two</p><pre><code></code></pre>');
+		document.body.append(element);
+		try {
+			const [heading, one, blank] = element.querySelectorAll('h1, p');
+			expect(heading.getBoundingClientRect().height).toBeGreaterThan(0);
+			expect(blank.getBoundingClientRect().height).toBe(one.getBoundingClientRect().height);
+			expect(element.querySelector('pre')!.getBoundingClientRect().height).toBeGreaterThan(0);
+			// Lines with text are left as they are.
+			expect(one.innerHTML).toBe('One');
+			expect(element.querySelector('[data-placeholder], .is-empty')).toBeNull();
+		} finally {
+			element.remove();
+		}
 	});
 });

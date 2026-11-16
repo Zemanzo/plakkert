@@ -8,13 +8,13 @@ describe('noteHtml', () => {
 		);
 	});
 
-	it('leaves the title empty when there is none, like new notes', () => {
-		expect(noteHtml({ text: 'Just text' })).toBe('<h1></h1><p>Just text</p>');
-		expect(noteHtml({})).toBe('<h1></h1><p></p>');
+	it('leaves out the heading when there is no title', () => {
+		expect(noteHtml({ text: 'Just text' })).toBe('<p>Just text</p>');
+		expect(noteHtml({})).toBe('<p></p>');
 	});
 
 	it('leaves out blank lines at the start and end', () => {
-		expect(noteHtml({ text: '\n \nText\r\n\n' })).toBe('<h1></h1><p>Text</p>');
+		expect(noteHtml({ text: '\n \nText\r\n\n' })).toBe('<p>Text</p>');
 	});
 
 	it('makes a checklist of the items, without empty ones', () => {
