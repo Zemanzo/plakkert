@@ -61,4 +61,17 @@ export const userNotes = sqliteTable(
 	]
 );
 
+/** Settings that sync across a user's devices, such as the order of their tags. */
+export const userSettings = sqliteTable('user_settings', {
+	userId: text('user_id')
+		.primaryKey()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	/** Encrypted with the user's public key, as JSON, so the server can't read the tag names in it. */
+	content: blob('content').notNull(),
+	/** The client's clock, for last-write-wins, like `notes.updatedAt`. */
+	updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+	/** Like `notes.changedAt`. */
+	changedAt: integer('changed_at').notNull().default(0)
+});
+
 export * from './auth.schema';

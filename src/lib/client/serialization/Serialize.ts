@@ -94,3 +94,27 @@ export async function encryptTags(tags: NoteTags, noteKey: Uint8Array) {
 export async function decryptTags(encryptedTags: Uint8Array, noteKey: Uint8Array) {
 	return parseTags(await decryptJson(encryptedTags, noteKey));
 }
+
+/**
+ * Encrypts a value as JSON with the user's public key, for data that belongs
+ * to the user rather than to a note, such as their synced settings.
+ */
+export async function encryptForUser(value: unknown, publicKey: Uint8Array) {
+	const sodium = await initCrypto();
+	return sodium.crypto_box_seal(JSON.stringify(value), publicKey);
+}
+
+/** Decrypts a value that was encrypted with {@link encryptForUser}. */
+export async function decryptForUser(
+	encrypted: Uint8Array,
+	publicKey: Uint8Array,
+	privateKey: Uint8Array
+): Promise<unknown> {
+	const sodium = await initCrypto();
+	const data = sodium.to_string(sodium.crypto_box_seal_open(encrypted, publicKey, privateKey));
+	try {
+		return JSON.parse(data);
+	} catch (error) {
+		throw new Error('Failed to parse decrypted data', { cause: error });
+	}
+}

@@ -59,6 +59,17 @@ export interface SyncState {
 	cursor: number;
 }
 
+/** The user's settings that sync across devices, such as the order of their tags. */
+export interface SyncedSettingsRecord {
+	userId: string;
+	/** Encrypted with the user's public key. See `settings/SyncedSettings.ts`. */
+	content: Uint8Array;
+	/** When the settings last changed, for last-write-wins sync. */
+	updatedAt: Date;
+	/** 1 when the settings changed locally and haven't been sent to the server yet. */
+	dirty: 0 | 1;
+}
+
 const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 	// primary key "id" (for the typings only)
 	users: EntityTable<User, 'id'>;
@@ -67,6 +78,7 @@ const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 	// not the primary key but it doesnt support composite keys in typings, so we use "id" as a placeholder
 	noteKeys: EntityTable<NoteKey, 'id'>;
 	syncState: EntityTable<SyncState, 'userId'>;
+	syncedSettings: EntityTable<SyncedSettingsRecord, 'userId'>;
 };
 
 // Indexed columns
@@ -120,6 +132,11 @@ db.version(5).stores({
 // Only the changes since the last sync are pulled, rather than all notes every time.
 db.version(6).stores({
 	syncState: 'userId'
+});
+
+// Settings that sync across devices, such as the order of the tags.
+db.version(7).stores({
+	syncedSettings: 'userId'
 });
 
 export { db };

@@ -28,6 +28,12 @@ interface ServerNote {
 	deletedAt: string | null;
 }
 
+/** The user's synced settings, as returned by the server. The content is base64 encoded. */
+interface ServerSettings {
+	content: string;
+	updatedAt: string;
+}
+
 type ChooseTags = (
 	local: NoteKey | undefined,
 	server: { tagsUpdatedAt: Date | null }
@@ -415,10 +421,64 @@ async function pushChanges(userId: string) {
 	return succeeded;
 }
 
-/** Number of notes with changes (to their content or tags) that haven't been sent yet. */
+/** Stores the settings from the server, unless the local ones are newer (and still to be sent). */
+async function applyServerSettings(userId: string, server: ServerSettings) {
+	const updatedAt = new Date(server.updatedAt);
+	const local = await db.syncedSettings.get(userId);
+	if (local && local.updatedAt >= updatedAt) return;
+	await db.syncedSettings.put({
+		userId,
+		content: Uint8Array.fromBase64(server.content),
+		updatedAt,
+		dirty: 0
+	});
+}
+
+/** Sends the user's settings, if they changed. */
+async function pushSettings(userId: string) {
+	const local = await db.syncedSettings.get(userId);
+	if (!local?.dirty) return;
+	const response = await fetchOrOffline('/api/user/settings', {
+		method: 'PUT',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			content: local.content.toBase64(),
+			updatedAt: local.updatedAt.getTime()
+		})
+	});
+	if (response.ok || response.status === 409) {
+		const body = response.ok ? null : ((await response.json()) as ServerSettings);
+		await db.transaction('rw', db.syncedSettings, async () => {
+			// Unless they were changed again while being sent; then those changes are sent next time.
+			const current = await db.syncedSettings.get(userId);
+			if (current?.updatedAt.getTime() !== local.updatedAt.getTime()) return;
+			if (!body) {
+				await db.syncedSettings.update(userId, { dirty: 0 });
+				return;
+			}
+			// 409: the server has settings that are at least as new, so take them.
+			await db.syncedSettings.put({
+				userId,
+				content: Uint8Array.fromBase64(body.content),
+				updatedAt: new Date(body.updatedAt),
+				dirty: 0
+			});
+		});
+	} else {
+		throw await toApiError(response);
+	}
+}
+
+/** Number of notes with changes (to their content or tags) that haven't been sent yet, plus one
+ * if the settings changed. */
 async function countPendingChanges(userId: string) {
-	const [notes, noteKeys] = await Promise.all([getPushableNotes(userId), getPushableTags(userId)]);
-	return new Set([...notes.map((note) => note.id), ...noteKeys.map((key) => key.noteId)]).size;
+	const [notes, noteKeys, settings] = await Promise.all([
+		getPushableNotes(userId),
+		getPushableTags(userId),
+		db.syncedSettings.get(userId)
+	]);
+	const noteIds = new Set([...notes.map((note) => note.id), ...noteKeys.map((key) => key.noteId)]);
+	return noteIds.size + (settings?.dirty ? 1 : 0);
 }
 
 /**
@@ -433,11 +493,21 @@ async function pullChanges(userId: string) {
 	const {
 		notes: serverNotes,
 		ids,
-		cursor
-	} = (await response.json()) as { notes: ServerNote[]; ids: string[]; cursor: number };
+		cursor,
+		settings
+	} = (await response.json()) as {
+		notes: ServerNote[];
+		ids: string[];
+		cursor: number;
+		/** Only when they changed. */
+		settings?: ServerSettings | null;
+	};
 
 	// The cursor is only stored along with the changes, so none can be skipped.
-	await db.transaction('rw', db.notes, db.noteKeys, db.syncState, async () => {
+	const tables = [db.notes, db.noteKeys, db.syncState, db.syncedSettings];
+	await db.transaction('rw', tables, async () => {
+		if (settings) await applyServerSettings(userId, settings);
+
 		for (const serverNote of serverNotes) {
 			await applyServerNote(serverNote, userId);
 		}
@@ -550,7 +620,15 @@ class SyncEngine {
 		let status: SyncStatus;
 		try {
 			await this.#ensureServerSession(user);
-			const pushed = await pushChanges(user.id);
+			let pushed = await pushChanges(user.id);
+			try {
+				await pushSettings(user.id);
+			} catch (error) {
+				if (error instanceof OfflineError || isUnauthorized(error)) throw error;
+				// They stay dirty, and are sent on the next sync.
+				console.error('Failed to sync the settings', error);
+				pushed = false;
+			}
 			await pullChanges(user.id);
 			if (this.#user?.id === user.id) this.lastPulledAt = new Date();
 			status = pushed ? 'idle' : 'error';

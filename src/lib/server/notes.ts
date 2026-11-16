@@ -1,6 +1,6 @@
 import { and, eq, gte, max, or } from 'drizzle-orm';
 import { db } from './db/index';
-import { notes, user, userNotes } from './db/schema';
+import { notes, user, userNotes, userSettings } from './db/schema';
 
 let lastStamp: number | undefined;
 
@@ -19,6 +19,10 @@ export function changeStamp() {
 		db
 			.select({ value: max(userNotes.changedAt) })
 			.from(userNotes)
+			.get()?.value ?? 0,
+		db
+			.select({ value: max(userSettings.changedAt) })
+			.from(userSettings)
 			.get()?.value ?? 0
 	);
 	lastStamp = Math.max(Date.now(), lastStamp);

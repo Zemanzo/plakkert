@@ -2,12 +2,14 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '#lib/server/db/index.js';
 import { changeStamp, selectUserNoteIds, selectUserNotes, toNoteJson } from '#lib/server/notes.js';
+import { selectSettings } from '#lib/server/settings.js';
 
 /**
  * Lists what changed in the user's notes since `since`, a `cursor` from an
  * earlier response, or all notes without it. Deleted notes are listed as
  * tombstones. Since notes that were unshared can't be listed, it also returns
- * the ids of all notes the user still has.
+ * the ids of all notes the user still has. The user's settings come along
+ * when they changed (or are null).
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.user) throw error(401, 'Unauthorized');
@@ -27,7 +29,12 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 			since === null ? undefined : { changedSince: since },
 			tx
 		).all();
-		return { cursor, notes: rows.map(toNoteJson), ids: selectUserNoteIds(userId, tx) };
+		return {
+			cursor,
+			notes: rows.map(toNoteJson),
+			ids: selectUserNoteIds(userId, tx),
+			settings: selectSettings(userId, since, tx)
+		};
 	});
 
 	return Response.json(result);
