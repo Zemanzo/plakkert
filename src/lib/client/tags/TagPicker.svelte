@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		compareTags,
 		findExistingTag,
 		MAX_TAG_LENGTH,
 		normalizeTagName,
@@ -18,7 +17,7 @@
 	}: {
 		/** The note's current tags. */
 		tags: NoteTags;
-		/** All tags the user has, to pick from. */
+		/** All tags the user has, in their order, to pick from. */
 		allTags: string[];
 		onChange: (update: (tags: NoteTags) => NoteTags) => void;
 	} = $props();
@@ -28,7 +27,7 @@
 	const noteTags = $derived(userTags(tags));
 	const name = $derived(normalizeTagName(query));
 	// A tag can be on this note without being in allTags yet, e.g. right after adding it.
-	const knownTags = $derived([...new Set([...allTags, ...noteTags])].sort(compareTags));
+	const knownTags = $derived([...new Set([...allTags, ...noteTags])]);
 	const existing = $derived(name ? findExistingTag(knownTags, name) : undefined);
 	const error = $derived(name && !existing ? validateTagName(name) : null);
 	const options = $derived(

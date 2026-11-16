@@ -50,6 +50,19 @@ export function compareTags(a: string, b: string) {
 	return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
 }
 
+/**
+ * Compares tag names by the user's own order (from their synced settings):
+ * the tags in `order` first, in that order, then any others by name.
+ */
+export function tagOrderComparator(order: readonly string[]) {
+	const positions = new Map(order.map((tag, index) => [tag, index]));
+	return (a: string, b: string) => {
+		const positionA = positions.get(a) ?? order.length;
+		const positionB = positions.get(b) ?? order.length;
+		return positionA - positionB || compareTags(a, b);
+	};
+}
+
 /** The tags the user added themselves, sorted by name. */
 export function userTags(tags: NoteTags) {
 	return Object.keys(tags)
@@ -73,11 +86,24 @@ export function withoutTag(tags: NoteTags, tag: string): NoteTags {
 	return rest;
 }
 
-/** Renames a tag, merging it into the new name if the note already has that tag. */
-export function withRenamedTag(tags: NoteTags, from: string, to: string): NoteTags {
-	if (!hasTag(tags, from) || from === to) return tags;
-	const addedAt = Math.min(tags[from], tags[to] ?? Infinity);
-	return { ...withoutTag(tags, from), [to]: addedAt };
+/**
+ * Renames and removes several tags at once: each tag in `changes` gets the
+ * new name, or is removed when that is null. Unlike renaming them one by one,
+ * this can swap two names. Tags that end up with the same name are merged,
+ * keeping the earliest time they were added.
+ */
+export function withChangedTags(
+	tags: NoteTags,
+	changes: ReadonlyMap<string, string | null>
+): NoteTags {
+	if (!Object.keys(tags).some((tag) => changes.has(tag))) return tags;
+	const result: NoteTags = {};
+	for (const [tag, addedAt] of Object.entries(tags)) {
+		const name = changes.has(tag) ? changes.get(tag)! : tag;
+		if (name === null) continue;
+		result[name] = Math.min(addedAt, result[name] ?? Infinity);
+	}
+	return result;
 }
 
 export const isArchived = (tags: NoteTags) => hasTag(tags, ARCHIVED_TAG);

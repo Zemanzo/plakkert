@@ -99,11 +99,10 @@ test('tags, the archive, the trash and search', async ({ app }) => {
 
 	await test.step('renaming a tag renames it everywhere, and follows it in the URL', async () => {
 		await page.getByRole('button', { name: 'Edit tags' }).click();
-		await page.getByRole('button', { name: 'Rename Work' }).click();
-		await page.fill('input[aria-label="New name for Work"]', 'Job');
+		await page.getByRole('textbox', { name: 'Name of Work' }).fill('Job');
 		await page.keyboard.press('Enter');
 		await page.waitForURL(/\?tag=Job$/);
-		await page.getByRole('button', { name: 'Done' }).click();
+		await expect(page.locator('dialog[open]')).toHaveCount(0);
 		await expect(note(page, 'Work plan').locator('.tag')).toHaveText(['Job']);
 		await expect(note(page, 'Meeting notes').locator('.tag')).toHaveText(['Job']);
 	});
@@ -122,9 +121,9 @@ test('tags, the archive, the trash and search', async ({ app }) => {
 		await goTo(page, 'Notes');
 		await page.getByRole('button', { name: 'Edit tags' }).click();
 		await page.getByRole('button', { name: 'Delete Job' }).click();
-		await page.locator('dialog[open]').getByRole('button', { name: 'Delete tag' }).click();
-		await expect(page.locator('dialog[open]')).toContainText('You don’t have any tags');
-		await page.getByRole('button', { name: 'Done' }).click();
+		await expect(page.locator('dialog[open]')).toContainText('Removed from 1 note');
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect(page.locator('dialog[open]')).toHaveCount(0);
 		await expect(note(page, 'Work plan').locator('.tag')).toHaveCount(0);
 	});
 
@@ -132,6 +131,8 @@ test('tags, the archive, the trash and search', async ({ app }) => {
 		await noteAction(page, 'Groceries list', 'Move to trash');
 		await noteAction(page, 'Work plan', 'Move to trash');
 		await goTo(page, 'Trash');
+		// Otherwise it may type into the search field of the page that's being left.
+		await page.waitForURL(url('/trash'));
 		await page.locator('input[type=search]').fill('groceries');
 		await expect(page.locator('[data-note-id]')).toHaveText([/Groceries list/]);
 

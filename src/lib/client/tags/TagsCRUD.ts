@@ -52,6 +52,57 @@ export async function saveTags(
 	syncEngine.requestSync();
 }
 
+/**
+ * Changes the user's tags on many notes at once, e.g. renaming a tag on every
+ * note that has it. Like `updateTags`, it builds on the tags as stored. They
+ * are all written in one transaction, as every write updates the notes that
+ * are shown, which would take long for hundreds of notes one by one.
+ *
+ * @param noteKeys The decrypted key of every note to change, by note id.
+ */
+export async function updateTagsOfNotes(
+	userId: string,
+	noteKeys: ReadonlyMap<string, Uint8Array>,
+	update: (tags: NoteTags) => NoteTags
+) {
+	const rows = await db.noteKeys
+		.where('[noteId+userId]')
+		.anyOf([...noteKeys.keys()].map((noteId) => [noteId, userId]))
+		.toArray();
+	const updatedAt = new Date();
+	const changed = (
+		await Promise.all(
+			rows.map(async (row) => {
+				const noteKey = noteKeys.get(row.noteId)!;
+				const before = row.tags ? await decryptTags(row.tags, noteKey) : {};
+				const after = update(before);
+				if (after === before) return [];
+				return [{ row, noteKey, encryptedTags: await encryptTags(after, noteKey) }];
+			})
+		)
+	).flat();
+
+	const conflicts: typeof changed = [];
+	await db.transaction('rw', db.noteKeys, async () => {
+		for (const change of changed) {
+			const { noteId } = change.row;
+			const current = await db.noteKeys.where({ noteId, userId }).first();
+			// Changed in the meantime, e.g. by sync: done again below, on the tags as they are now.
+			if (current?.tagsUpdatedAt?.getTime() !== change.row.tagsUpdatedAt?.getTime()) {
+				conflicts.push(change);
+				continue;
+			}
+			await db.noteKeys
+				.where({ noteId, userId })
+				.modify({ tags: change.encryptedTags, tagsUpdatedAt: updatedAt, tagsDirty: 1 });
+		}
+	});
+	for (const { row, noteKey } of conflicts) {
+		await updateTags(row.noteId, userId, noteKey, update);
+	}
+	syncEngine.requestSync();
+}
+
 /** Reads the user's current tags for a note from IndexedDB. */
 export async function loadTags(noteId: string, userId: string, noteKey: Uint8Array) {
 	const row = await db.noteKeys.where({ noteId, userId }).first();

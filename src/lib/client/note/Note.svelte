@@ -47,7 +47,7 @@
 	const isTrashed = $derived(trashed(entry.tags));
 	// Notes in the trash can't be edited, only restored or deleted.
 	const canEdit = $derived(entry.permission === 'edit' && !isTrashed);
-	const tagNames = $derived(userTags(entry.tags));
+	const tagNames = $derived(userTags(entry.tags).sort(store.compareTags));
 	const daysLeft = $derived(daysUntilDeleted(entry.tags));
 	const allTags = $derived(store.tags.map((tag) => tag.name));
 

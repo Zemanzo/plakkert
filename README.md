@@ -21,7 +21,9 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
     note from their own notes
   - Changing who a note is shared with needs a connection; editing shared notes works offline
 - Organising notes
-  - Tags, to find notes back quickly; tags can be renamed and deleted for all notes at once
+  - Tags, to find notes back quickly. In "Edit tags", tags can be renamed, merged (e.g. "recipe"
+    into "recipes"), deleted and put in your own order, for all notes at once. Nothing changes
+    until you save. The order syncs across your devices.
   - Archive, for notes you want to keep but not see
   - Trash: notes in the trash are deleted forever after 30 days, or earlier by hand
   - Your own order: drag notes around, or on a touch screen hold a note and then drag it. With the
@@ -61,6 +63,8 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   are special tags, so the server can't tell either, and so is a note's place in the user's order. Because of that, the server can't empty the
   trash itself: the app deletes notes that have been in the trash for 30 days, once it has synced,
   so a note that was restored on another device isn't deleted by mistake.
+- Settings that sync across devices, such as the order of your tags, are encrypted with your own
+  public key, so only you can read them.
 - Searching happens in the browser, on the decrypted notes, so it also works offline.
 - Sharing a note encrypts its note key with the recipient's public key, so the server never sees it.
   The recipient's public key is fetched from the server and not verified, so this relies on the

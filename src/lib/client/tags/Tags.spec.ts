@@ -12,7 +12,8 @@ import {
 	userTags,
 	validateTagName,
 	withoutTag,
-	withRenamedTag,
+	tagOrderComparator,
+	withChangedTags,
 	withTag
 } from './Tags';
 
@@ -59,9 +60,38 @@ describe('note tags', () => {
 	});
 
 	it('renames tags, merging into a tag the note already has', () => {
-		expect(withRenamedTag({ wrok: 3 }, 'wrok', 'work')).toEqual({ work: 3 });
-		expect(withRenamedTag({ wrok: 3, work: 5 }, 'wrok', 'work')).toEqual({ work: 3 });
-		expect(withRenamedTag({ home: 1 }, 'wrok', 'work')).toEqual({ home: 1 });
+		const rename = new Map([['wrok', 'work']]);
+		expect(withChangedTags({ wrok: 3 }, rename)).toEqual({ work: 3 });
+		expect(withChangedTags({ wrok: 3, work: 5 }, rename)).toEqual({ work: 3 });
+		const tags = { home: 1 };
+		expect(withChangedTags(tags, rename)).toBe(tags);
+	});
+
+	it('changes several tags at once, which can swap names', () => {
+		const changes = new Map([
+			['a', 'b'],
+			['b', 'a'],
+			['old', null],
+			['recipe', 'recipes']
+		]);
+		expect(
+			withChangedTags(
+				{ a: 1, b: 2, old: 3, recipe: 4, recipes: 6, keep: 7, [ARCHIVED_TAG]: 8 },
+				changes
+			)
+		).toEqual({ b: 1, a: 2, recipes: 4, keep: 7, [ARCHIVED_TAG]: 8 });
+	});
+
+	it('orders tags by the user’s own order, then the others by name', () => {
+		const tags = ['b', 'item10', 'Work', 'a', 'item9'];
+		expect(tags.sort(tagOrderComparator(['Work', 'b', 'gone']))).toEqual([
+			'Work',
+			'b',
+			'a',
+			'item9',
+			'item10'
+		]);
+		expect(['b', 'a'].sort(tagOrderComparator([]))).toEqual(['a', 'b']);
 	});
 
 	it('tells whether a note is archived or trashed', () => {

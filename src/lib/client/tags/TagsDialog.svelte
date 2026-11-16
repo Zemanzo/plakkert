@@ -1,56 +1,180 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, tick } from 'svelte';
+	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import CheckIcon from '@iconify-svelte/lucide/check';
-	import PencilIcon from '@iconify-svelte/lucide/pencil';
+	import GripIcon from '@iconify-svelte/lucide/grip-vertical';
+	import MergeIcon from '@iconify-svelte/lucide/merge';
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
-	import CloseIcon from '@iconify-svelte/lucide/x';
+	import UndoIcon from '@iconify-svelte/lucide/undo-2';
 	import Button from '../components/Button.svelte';
-	import { confirmation } from '../components/Confirmation.svelte';
 	import type { NoteStore } from '../note/NoteStore.svelte';
+	import { updateSyncedSettings } from '../settings/SyncedSettings';
 	import type { RuntimeUser } from '#lib/types.js';
-	import {
-		findExistingTag,
-		hasTag,
-		MAX_TAG_LENGTH,
-		normalizeTagName,
-		validateTagName,
-		withoutTag,
-		withRenamedTag,
-		type NoteTags
-	} from './Tags';
-	import { updateTags } from './TagsCRUD';
+	import { planTagEdits, type TagRow } from './TagEdits';
+	import { hasTag, MAX_TAG_LENGTH, withChangedTags } from './Tags';
+	import { updateTagsOfNotes } from './TagsCRUD';
 	import { tagHref } from './TagLinks';
 
 	const user = getContext<() => RuntimeUser>('user')();
 	const store = getContext<() => NoteStore>('notes')();
 
 	let dialog = $state<HTMLDialogElement>();
-	let editing = $state<string | null>(null);
-	let draft = $state('');
+	let rows = $state<TagRow[]>([]);
+	let counts = $state<Record<string, number>>({});
+	/** Whether the tags were moved, so their order is saved. */
+	let reordered = $state(false);
+	/** Whether to show the errors, which waits until trying to save. */
+	let showErrors = $state(false);
 	let busy = $state(false);
 	let errorMessage = $state<string | null>(null);
+	/** Read by screen readers, e.g. where a tag was moved to. */
+	let announcement = $state('');
+
+	const plan = $derived(planTagEdits(rows));
+	const hasChanges = $derived(
+		reordered || rows.some((row) => row.deleted || row.mergeInto || row.name !== row.original)
+	);
 
 	export function open() {
-		editing = null;
+		rows = store.tags.map((tag) => ({
+			original: tag.name,
+			name: tag.name,
+			mergeInto: null,
+			deleted: false
+		}));
+		counts = Object.fromEntries(store.tags.map((tag) => [tag.name, tag.count]));
+		reordered = false;
+		showErrors = false;
 		errorMessage = null;
+		announcement = '';
 		dialog?.showModal();
 	}
 
-	/** Changes a tag on every note that has it, including notes in the trash. */
-	async function updateEveryNote(tag: string, update: (tags: NoteTags) => NoteTags) {
-		const entries = (store.entries ?? []).filter((entry) => hasTag(entry.tags, tag));
-		await Promise.all(
-			entries.map((entry) => updateTags(entry.note.id, user.id, entry.noteKey, update))
-		);
+	const removedFrom = (count: number) =>
+		count === 1
+			? 'Removed from 1 note, which is kept.'
+			: `Removed from ${count} notes, which are kept.`;
+
+	/** The tags a tag can be merged into: the others that are kept, by their name as typed. */
+	const mergeTargets = (row: TagRow) =>
+		rows.filter((other) => other !== row && !other.deleted && !other.mergeInto);
+
+	function mergeInto(row: TagRow, event: Event & { currentTarget: HTMLSelectElement }) {
+		const target = event.currentTarget.value;
+		event.currentTarget.value = '';
+		if (!target) return;
+		row.mergeInto = target;
+		announcement = `${row.original} will be merged into ${plan.outcomes[rows.indexOf(row)].name}`;
 	}
 
-	async function run(action: () => Promise<void>) {
+	// Reordering, by dragging the handle, or with the arrow keys while it's focused.
+
+	let list = $state<HTMLUListElement>();
+	let draggedRow = $state<TagRow | null>(null);
+
+	async function move(row: TagRow, to: number, refocus = false) {
+		const from = rows.indexOf(row);
+		to = Math.max(0, Math.min(rows.length - 1, to));
+		if (from === to) return;
+		rows.splice(from, 1);
+		rows.splice(to, 0, row);
+		reordered = true;
+		announcement = `${row.original} moved to position ${to + 1} of ${rows.length}`;
+		if (refocus) {
+			// Moving the row in the page can take the focus away from its handle.
+			await tick();
+			list?.querySelector<HTMLElement>(`[data-handle="${CSS.escape(row.original)}"]`)?.focus();
+		}
+	}
+
+	function onHandleKeydown(row: TagRow, event: KeyboardEvent) {
+		const index = rows.indexOf(row);
+		const to = {
+			ArrowUp: index - 1,
+			ArrowDown: index + 1,
+			Home: 0,
+			End: rows.length - 1
+		}[event.key];
+		if (to === undefined) return;
+		event.preventDefault();
+		void move(row, to, true);
+	}
+
+	/**
+	 * Starts dragging a tag by its handle. The pointer is followed on the window: capturing it on
+	 * the handle would end as soon as its row moves in the page.
+	 */
+	function onHandlePointerdown(row: TagRow, event: PointerEvent) {
+		if (event.button !== 0 || busy) return;
+		event.preventDefault();
+		draggedRow = row;
+		const { pointerId } = event;
+		const onMove = (event: PointerEvent) => {
+			if (event.pointerId === pointerId) dragTo(row, event.clientY);
+		};
+		const onEnd = (event: PointerEvent) => {
+			if (event.pointerId !== pointerId) return;
+			draggedRow = null;
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onEnd);
+			window.removeEventListener('pointercancel', onEnd);
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onEnd);
+		window.addEventListener('pointercancel', onEnd);
+	}
+
+	/** Moves the dragged tag to where the pointer is, among the other tags. */
+	function dragTo(row: TagRow, clientY: number) {
+		if (!list) return;
+		// Positions in the list's layout, which (unlike the rows' boxes) don't change while the
+		// rows animate to their new place.
+		const y = clientY - list.getBoundingClientRect().top + list.scrollTop;
+		const from = rows.indexOf(row);
+		let to = 0;
+		for (const [index, item] of ([...list.children] as HTMLElement[]).entries()) {
+			if (index === from) continue;
+			if (y > item.offsetTop + item.offsetHeight / 2) to = index < from ? index + 1 : index;
+		}
+		void move(row, to);
+	}
+
+	// Saving.
+
+	const viewedTag = () => (page.url.pathname === '/' ? page.url.searchParams.get('tag') : null);
+
+	async function save(event: SubmitEvent) {
+		event.preventDefault();
+		if (!hasChanges) {
+			dialog?.close();
+			return;
+		}
+		showErrors = true;
+		if (plan.hasErrors) return;
+		const { changes, order } = plan;
+
 		busy = true;
 		errorMessage = null;
 		try {
-			await action();
+			if (changes.size > 0) {
+				const noteKeys = new Map(
+					(store.entries ?? [])
+						.filter((entry) => [...changes.keys()].some((tag) => hasTag(entry.tags, tag)))
+						.map((entry) => [entry.note.id, entry.noteKey])
+				);
+				await updateTagsOfNotes(user.id, noteKeys, (tags) => withChangedTags(tags, changes));
+			}
+			// Only once the order was changed: until then, tags are sorted by name, also new ones.
+			if (reordered || store.settings.tagOrder.length > 0) {
+				await updateSyncedSettings(user, (settings) => ({ ...settings, tagOrder: order }));
+			}
+			const viewed = viewedTag();
+			if (viewed !== null && changes.has(viewed)) {
+				// eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it
+				await goto(tagHref(changes.get(viewed)!), { replaceState: true });
+			}
+			dialog?.close();
 		} catch (error) {
 			console.error(error);
 			errorMessage = error instanceof Error ? error.message : 'Something went wrong';
@@ -58,114 +182,121 @@
 			busy = false;
 		}
 	}
-
-	function startEditing(tag: string) {
-		editing = tag;
-		draft = tag;
-		errorMessage = null;
-	}
-
-	const viewedTag = () => (page.url.pathname === '/' ? page.url.searchParams.get('tag') : null);
-
-	function rename(event: SubmitEvent, from: string) {
-		event.preventDefault();
-		const name = normalizeTagName(draft);
-		const error = validateTagName(name);
-		if (error) {
-			errorMessage = error;
-			return;
-		}
-		// Renaming onto another tag (in any case) merges the two.
-		const others = store.tags.map((tag) => tag.name).filter((tag) => tag !== from);
-		const to = findExistingTag(others, name) ?? name;
-
-		return run(async () => {
-			if (to !== from) {
-				await updateEveryNote(from, (tags) => withRenamedTag(tags, from, to));
-				// eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it
-				if (viewedTag() === from) await goto(tagHref(to), { replaceState: true });
-			}
-			editing = null;
-		});
-	}
-
-	async function remove(tag: string) {
-		const count = (store.entries ?? []).filter((entry) => hasTag(entry.tags, tag)).length;
-		const confirmed = await confirmation.ask({
-			title: `Delete “${tag}”?`,
-			message: `The tag is removed from ${count === 1 ? '1 note' : `${count} notes`}. The notes themselves are kept.`,
-			confirmLabel: 'Delete tag',
-			danger: true
-		});
-		if (!confirmed) return;
-		await run(async () => {
-			await updateEveryNote(tag, (tags) => withoutTag(tags, tag));
-			// eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it
-			if (viewedTag() === tag) await goto(tagHref(null), { replaceState: true });
-		});
-	}
 </script>
 
 <dialog bind:this={dialog} aria-labelledby="tagsDialogTitle">
-	<h2 id="tagsDialogTitle">Edit tags</h2>
-	{#if store.tags.length === 0}
-		<p>You don’t have any tags. Add them to a note from its tag menu.</p>
-	{:else}
-		<ul>
-			{#each store.tags as tag (tag.name)}
-				<li>
-					{#if editing === tag.name}
-						<form onsubmit={(event) => rename(event, tag.name)}>
-							<!-- svelte-ignore a11y_autofocus -->
-							<input
-								aria-label={`New name for ${tag.name}`}
-								maxlength={MAX_TAG_LENGTH + 10}
-								bind:value={draft}
-								readonly={busy}
-								autofocus
-							/>
-							<button type="submit" aria-label="Save" title="Save" disabled={busy}>
-								<CheckIcon width="18px" />
-							</button>
+	<form onsubmit={save}>
+		<h2 id="tagsDialogTitle">Edit tags</h2>
+		{#if rows.length === 0}
+			<p>You don’t have any tags. Add them to a note from its tag menu.</p>
+		{:else}
+			<p class="hint">
+				Drag <GripIcon width="14px" aria-label="the handle" /> to reorder. Giving a tag the name of another
+				one merges them.
+			</p>
+			<ul bind:this={list}>
+				{#each rows as row, index (row.original)}
+					{@const outcome = plan.outcomes[index]}
+					<li
+						animate:flip={{ duration: draggedRow ? 100 : 200 }}
+						class:dragged={draggedRow === row}
+					>
+						<div class="row">
 							<button
 								type="button"
-								aria-label="Cancel"
-								title="Cancel"
+								class="handle"
+								data-handle={row.original}
+								aria-label={`Move ${row.original}`}
+								title="Drag, or use the arrow keys, to move"
 								disabled={busy}
-								onclick={() => (editing = null)}
+								onkeydown={(event) => onHandleKeydown(row, event)}
+								onpointerdown={(event) => onHandlePointerdown(row, event)}
 							>
-								<CloseIcon width="18px" />
+								<GripIcon width="18px" />
 							</button>
-						</form>
-					{:else}
-						<span class="name">{tag.name}</span>
-						<span class="count" title="Notes with this tag">{tag.count}</span>
-						<button
-							aria-label={`Rename ${tag.name}`}
-							title="Rename"
-							disabled={busy}
-							onclick={() => startEditing(tag.name)}
-						>
-							<PencilIcon width="18px" />
-						</button>
-						<button
-							aria-label={`Delete ${tag.name}`}
-							title="Delete"
-							disabled={busy}
-							onclick={() => remove(tag.name)}
-						>
-							<TrashIcon width="18px" />
-						</button>
-					{/if}
-				</li>
-			{/each}
-		</ul>
-	{/if}
-	{#if errorMessage}
-		<p class="error">{errorMessage}</p>
-	{/if}
-	<form method="dialog" class="done">
-		<Button class="sm">Done</Button>
+							{#if row.deleted || row.mergeInto}
+								<span class="name removed">{row.original}</span>
+								<button
+									type="button"
+									aria-label={`Undo ${row.deleted ? 'deleting' : 'merging'} ${row.original}`}
+									title="Undo"
+									disabled={busy}
+									onclick={() => {
+										row.deleted = false;
+										row.mergeInto = null;
+									}}
+								>
+									<UndoIcon width="18px" />
+								</button>
+							{:else}
+								<input
+									aria-label={`Name of ${row.original}`}
+									aria-invalid={showErrors && outcome.error !== null}
+									maxlength={MAX_TAG_LENGTH + 10}
+									bind:value={row.name}
+									readonly={busy}
+								/>
+								<span class="count" title="Notes with this tag">{counts[row.original]}</span>
+								{#if mergeTargets(row).length > 0}
+									<label class="merge" title="Merge into another tag">
+										<MergeIcon width="18px" />
+										<select
+											aria-label={`Merge ${row.original} into`}
+											disabled={busy}
+											onchange={(event) => mergeInto(row, event)}
+										>
+											<option value="">Merge into…</option>
+											{#each mergeTargets(row) as target (target.original)}
+												<option value={target.original}>{target.name}</option>
+											{/each}
+										</select>
+									</label>
+								{/if}
+								<button
+									type="button"
+									aria-label={`Delete ${row.original}`}
+									title="Delete"
+									disabled={busy}
+									onclick={() => (row.deleted = true)}
+								>
+									<TrashIcon width="18px" />
+								</button>
+							{/if}
+						</div>
+						{#if row.deleted}
+							<p class="status">{removedFrom(counts[row.original])}</p>
+						{:else if outcome.name === null}
+							<p class="status">Deleted, as the tag it’s merged into is deleted.</p>
+						{:else if outcome.mergesWith}
+							<p class="status">Merges with “{outcome.mergesWith}”.</p>
+						{:else if showErrors && outcome.error}
+							<p class="status error">{outcome.error}</p>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if errorMessage}
+			<p class="error">{errorMessage}</p>
+		{/if}
+		<p class="visuallyHidden" aria-live="polite">{announcement}</p>
+		<div class="buttons">
+			{#if rows.length > 0}
+				<Button
+					type="button"
+					class="sm"
+					--bg="var(--color-input-background)"
+					--text="var(--color-text-primary)"
+					disabled={busy}
+					onclick={() => dialog?.close()}
+				>
+					Cancel
+				</Button>
+				<Button class="sm" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
+			{:else}
+				<Button type="button" class="sm" onclick={() => dialog?.close()}>Close</Button>
+			{/if}
+		</div>
 	</form>
 </dialog>
 
@@ -173,8 +304,8 @@
 	dialog {
 		/* Tailwind's reset removes the margin that centers dialogs. */
 		margin: auto;
-		width: min(24rem, calc(100vw - 2 * var(--spacing-lg)));
-		max-height: min(32rem, calc(100vh - 2 * var(--spacing-xl)));
+		width: min(26rem, calc(100vw - 2 * var(--spacing-lg)));
+		max-height: min(36rem, calc(100vh - 2 * var(--spacing-xl)));
 		padding: var(--spacing-xl);
 		border: none;
 		border-radius: var(--radius-lg);
@@ -184,13 +315,19 @@
 
 		&[open] {
 			display: flex;
-			flex-direction: column;
-			gap: var(--spacing-md);
 		}
 
 		&::backdrop {
 			background: #0008;
 		}
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-md);
+		flex: 1;
+		min-height: 0;
 	}
 
 	h2 {
@@ -205,7 +342,19 @@
 		}
 	}
 
+	.hint {
+		font-size: 0.9rem;
+		opacity: 0.8;
+
+		:global(svg) {
+			display: inline;
+			vertical-align: -2px;
+		}
+	}
+
 	ul {
+		/* So the rows' offsetTop is measured from the list. */
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		margin: 0;
@@ -214,19 +363,21 @@
 		list-style: none;
 	}
 
-	li,
-	li form {
+	li {
+		border-radius: var(--radius-md, 0.5rem);
+
+		&.dragged {
+			background-color: #8882;
+		}
+	}
+
+	.row {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		min-height: 2.5rem;
-	}
-
-	li form {
-		flex: 1;
+		min-height: 2.75rem;
 
 		input {
-			margin: var(--spacing-sm);
 			flex: 1;
 			min-width: 0;
 		}
@@ -234,34 +385,92 @@
 
 	.name {
 		flex: 1;
+		padding-inline: var(--spacing-sm);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+
+		&.removed {
+			text-decoration: line-through;
+			opacity: 0.6;
+		}
 	}
 
 	.count {
+		min-width: 1.5rem;
 		font-size: 0.85rem;
+		text-align: end;
 		opacity: 0.6;
 	}
 
-	li button {
+	.status {
+		/* Lined up with the name, past the handle. */
+		padding: 0 0 var(--spacing-sm) calc(18px + 3 * var(--spacing-sm));
+		font-size: 0.85rem;
+		opacity: 0.8;
+
+		&.error {
+			opacity: 1;
+		}
+	}
+
+	.row button,
+	.merge {
+		position: relative;
 		display: flex;
+		flex-shrink: 0;
 		padding: var(--spacing-sm);
 		border-radius: 50%;
 		cursor: pointer;
 
-		&:hover:not(:disabled) {
+		&:hover:not(:disabled):not(:has(:disabled)) {
 			background-color: #8883;
 		}
 
-		&:disabled {
+		&:disabled,
+		&:has(:disabled) {
 			opacity: 0.5;
 			cursor: default;
 		}
+
+		&:has(:focus-visible) {
+			outline: 2px solid var(--color-yellow);
+		}
 	}
 
-	.done {
+	.handle {
+		cursor: grab;
+		/* So dragging on a touch screen moves the tag rather than scrolling. */
+		touch-action: none;
+
+		.dragged & {
+			cursor: grabbing;
+		}
+	}
+
+	/* The select covers the icon, so the browser's own list opens, which also works well on phones
+	   and with screen readers. */
+	.merge select {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		opacity: 0;
+		cursor: pointer;
+	}
+
+	.buttons {
 		display: flex;
 		justify-content: flex-end;
+		gap: var(--spacing-md);
+	}
+
+	.visuallyHidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>

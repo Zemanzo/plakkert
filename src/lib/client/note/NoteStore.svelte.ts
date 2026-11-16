@@ -2,7 +2,12 @@ import { liveQuery } from 'dexie';
 import { db, type Note, type NotePermission } from '../Database';
 import { decryptNoteData, decryptNoteKey, decryptTags } from '../serialization/Serialize';
 import { buildSearchText, htmlToText, normalizeForSearch } from '../search/Search';
-import { compareTags, isTrashed, userTags, type NoteTags } from '../tags/Tags';
+import {
+	decryptSyncedSettings,
+	defaultSyncedSettings,
+	type SyncedSettings
+} from '../settings/SyncedSettings';
+import { isTrashed, tagOrderComparator, userTags, type NoteTags } from '../tags/Tags';
 import type { RuntimeUser } from '#lib/types.js';
 
 /** A decrypted note, as shown in the app. */
@@ -45,7 +50,12 @@ export class NoteStore {
 	/** What is being searched for. Kept here, so it stays when switching between views. */
 	searchQuery = $state('');
 
-	/** The tags the user has, sorted by name. */
+	/** The user's settings that sync across devices. */
+	settings = $state.raw<SyncedSettings>(defaultSyncedSettings);
+	/** Compares tag names, to sort them in the user's own order. */
+	compareTags = $derived(tagOrderComparator(this.settings.tagOrder));
+
+	/** The tags the user has, in their own order. */
 	tags: TagSummary[] = $derived.by(() => {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this computation
 		const counts = new Map<string, number>();
@@ -57,7 +67,7 @@ export class NoteStore {
 		}
 		return [...counts]
 			.map(([name, count]) => ({ name, count }))
-			.sort((a, b) => compareTags(a.name, b.name));
+			.sort((a, b) => this.compareTags(a.name, b.name));
 	});
 
 	#user: RuntimeUser;
@@ -112,7 +122,29 @@ export class NoteStore {
 				this.loadError = error;
 			}
 		});
-		return () => subscription.unsubscribe();
+		const settings = this.#followSettings();
+		return () => {
+			subscription.unsubscribe();
+			settings.unsubscribe();
+		};
+	}
+
+	#followSettings() {
+		let latestResult = 0;
+		const user = this.#user;
+		return liveQuery(() => db.syncedSettings.get(user.id)).subscribe({
+			next: async (row) => {
+				const result = ++latestResult;
+				try {
+					const settings = await decryptSyncedSettings(row?.content, user);
+					if (result === latestResult) this.settings = settings;
+				} catch (error) {
+					// The defaults are used instead, until they're saved again.
+					console.error('Failed to decrypt the settings', error);
+				}
+			},
+			error: (error) => console.error(error)
+		});
 	}
 
 	async #decrypt(row: EncryptedRow): Promise<NoteEntry | null> {
