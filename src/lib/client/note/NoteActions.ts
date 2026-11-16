@@ -1,6 +1,6 @@
 import { confirmation } from '../components/Confirmation.svelte';
 import { toasts } from '../components/ToastStore.svelte';
-import { loadTags, updateTags } from '../tags/TagsCRUD';
+import { loadTags, updateTags, updateTagsOfNotes } from '../tags/TagsCRUD';
 import {
 	ARCHIVED_TAG,
 	isTrashExpired,
@@ -10,7 +10,7 @@ import {
 	withTag,
 	type NoteTags
 } from '../tags/Tags';
-import { deleteNote } from './NotesCRUD';
+import { deleteNotes, updateNotesColor } from './NotesCRUD';
 import type { NoteEntry } from './NoteStore.svelte';
 import { positionsAfterMove } from './Order';
 import { leaveNote } from './Sharing';
@@ -48,6 +48,67 @@ export const trashNote = (entry: NoteEntry, userId: string) =>
 export const restoreNote = (entry: NoteEntry, userId: string) =>
 	toggleTag(entry, userId, TRASHED_TAG, false, 'Note restored');
 
+const notesCount = (count: number) => (count === 1 ? '1 note' : `${count} notes`);
+
+// Actions on several notes at once, e.g. the selected ones. They're written all at once, as every
+// write updates the notes that are shown, which would take long for hundreds of notes one by one.
+
+/** Changes the user's tags on several notes at once. */
+export const updateTagsOfEntries = (
+	entries: NoteEntry[],
+	userId: string,
+	update: (tags: NoteTags) => NoteTags
+) =>
+	updateTagsOfNotes(
+		userId,
+		new Map(entries.map((entry) => [entry.note.id, entry.noteKey])),
+		update
+	);
+
+/** Adds or removes a tag on several notes, and shows a toast that undoes it. */
+async function toggleTagOfMany(
+	entries: NoteEntry[],
+	userId: string,
+	tag: string,
+	add: boolean,
+	done: string
+) {
+	const apply = (adding: boolean) =>
+		updateTagsOfEntries(entries, userId, (tags) =>
+			adding ? withTag(tags, tag) : withoutTag(tags, tag)
+		);
+	await apply(add);
+	toasts.show(`${notesCount(entries.length)} ${done}`, { label: 'Undo', run: () => apply(!add) });
+}
+
+/** Archives or unarchives several notes at once. */
+export const setArchived = (entries: NoteEntry[], userId: string, archived: boolean) =>
+	toggleTagOfMany(entries, userId, ARCHIVED_TAG, archived, archived ? 'archived' : 'unarchived');
+
+/** Moves several notes to the trash at once, or restores them. */
+export const setTrashed = (entries: NoteEntry[], userId: string, trashed: boolean) =>
+	toggleTagOfMany(
+		entries,
+		userId,
+		TRASHED_TAG,
+		trashed,
+		trashed ? 'moved to the trash' : 'restored'
+	);
+
+/** Changes the colour of several notes at once. Notes the user may only view keep theirs. */
+export async function setColor(entries: NoteEntry[], color: string) {
+	const editable = entries.filter((entry) => entry.permission === 'edit');
+	await updateNotesColor(editable, color);
+	const viewOnly = entries.length - editable.length;
+	if (viewOnly > 0) {
+		toasts.show(
+			viewOnly === 1
+				? '1 note kept its colour, as you can only view it.'
+				: `${viewOnly} notes kept their colour, as you can only view them.`
+		);
+	}
+}
+
 /**
  * Moves a note within a list of notes in the user's order, e.g. after it was
  * dragged elsewhere. Like tags, the order is the user's own.
@@ -72,10 +133,35 @@ export async function moveNote(entries: NoteEntry[], from: number, to: number, u
  */
 async function deleteForever(entry: NoteEntry, userId: string) {
 	if (entry.note.ownerId === userId) {
-		await deleteNote(entry.note.id);
+		await deleteNotes([entry.note.id]);
 	} else {
 		await leaveNote(entry.note.id, userId);
 	}
+}
+
+/**
+ * Deletes several notes for good, like `deleteForever`. Own notes are deleted
+ * all at once; removing shared ones needs a request each.
+ *
+ * @returns How many notes couldn't be removed, e.g. shared notes while offline.
+ */
+async function deleteManyForever(entries: NoteEntry[], userId: string) {
+	const owned = entries.filter((entry) => entry.note.ownerId === userId);
+	const shared = entries.filter((entry) => entry.note.ownerId !== userId);
+	if (owned.length > 0) await deleteNotes(owned.map((entry) => entry.note.id));
+	const results = await Promise.allSettled(shared.map((entry) => leaveNote(entry.note.id, userId)));
+	const failed = results.filter((result) => result.status === 'rejected');
+	if (failed.length > 0) console.error('Failed to remove shared notes', failed);
+	return failed.length;
+}
+
+/** Deletes notes for good, and tells how that went. */
+async function deleteAndReport(entries: NoteEntry[], userId: string, done: string) {
+	const failed = await deleteManyForever(entries, userId);
+	// Removing notes that were shared with the user needs a connection.
+	toasts.show(
+		failed > 0 ? `${notesCount(failed)} could not be deleted. Try again when you’re online.` : done
+	);
 }
 
 /** Asks for confirmation, then deletes a note for good. */
@@ -114,18 +200,32 @@ export async function confirmEmptyTrash(entries: NoteEntry[], userId: string) {
 		danger: true
 	});
 	if (!confirmed) return;
+	await deleteAndReport(entries, userId, 'Trash emptied');
+}
 
-	const results = await Promise.allSettled(entries.map((entry) => deleteForever(entry, userId)));
-	const failed = results.filter((result) => result.status === 'rejected');
-	if (failed.length) {
-		console.error('Failed to empty the trash', failed);
-		// Removing notes that were shared with the user needs a connection.
-		toasts.show(
-			`${failed.length === 1 ? '1 note' : `${failed.length} notes`} could not be deleted. Try again when you’re online.`
-		);
-	} else {
-		toasts.show('Trash emptied');
-	}
+/**
+ * Asks for confirmation, then deletes several notes for good.
+ *
+ * @returns Whether they were deleted.
+ */
+export async function confirmDeleteManyForever(entries: NoteEntry[], userId: string) {
+	if (entries.length === 1) return confirmDeleteForever(entries[0], userId);
+	const shared = entries.filter((entry) => entry.note.ownerId !== userId).length;
+	const sharedMessage =
+		shared === 0
+			? ''
+			: shared === 1
+				? ' 1 note shared with you is only removed from your notes.'
+				: ` ${shared} notes shared with you are only removed from your notes.`;
+	const confirmed = await confirmation.ask({
+		title: `Delete ${entries.length} notes forever?`,
+		message: `They will be deleted on all your devices, and for everyone they are shared with.${sharedMessage} This can’t be undone.`,
+		confirmLabel: 'Delete forever',
+		danger: true
+	});
+	if (!confirmed) return false;
+	await deleteAndReport(entries, userId, `${entries.length} notes deleted forever`);
+	return true;
 }
 
 /** Notes that are being purged, so a note isn't purged twice while the list catches up. */

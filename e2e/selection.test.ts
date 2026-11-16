@@ -1,0 +1,162 @@
+import type { Page } from '@playwright/test';
+import {
+	expect,
+	expectGone,
+	goTo,
+	newNote,
+	note,
+	openedNote,
+	test,
+	uniqueName,
+	url
+} from './helpers';
+
+const bar = (page: Page) => page.locator('.selectionBar');
+const barButton = (page: Page, name: string) => bar(page).getByRole('button', { name });
+const tagsOf = (page: Page, text: string) => note(page, text).locator('.tag');
+
+test('notes can be selected, and changed all at once', async ({ app }) => {
+	const { page } = await app.register(uniqueName('select'));
+	await newNote(page, 'First');
+	await newNote(page, 'Second');
+	await newNote(page, 'Third');
+
+	await test.step('shift-clicking a note selects it without opening it', async () => {
+		await note(page, 'First').click({ modifiers: ['Shift'] });
+		await expect(openedNote(page)).toHaveCount(0);
+		await expect(bar(page)).toContainText('1 selected');
+		await expect(note(page, 'First')).toHaveAttribute('aria-pressed', 'true');
+		// The selection's toolbar takes the place of the search field and the new note button.
+		await expect(page.getByRole('searchbox')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /new note/i })).toHaveCount(0);
+	});
+
+	await test.step('while selecting, clicking and Space select notes too', async () => {
+		await note(page, 'Second').click();
+		await expect(openedNote(page)).toHaveCount(0);
+		await expect(bar(page)).toContainText('2 selected');
+		await note(page, 'Third').focus();
+		await page.keyboard.press('Space');
+		await expect(bar(page)).toContainText('3 selected');
+		await page.keyboard.press('Space');
+		await expect(bar(page)).toContainText('2 selected');
+		await expect(note(page, 'Third')).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	await test.step('Escape stops selecting', async () => {
+		await page.keyboard.press('Escape');
+		await expect(bar(page)).toHaveCount(0);
+		await expect(page.getByRole('searchbox')).toBeVisible();
+		await expect(note(page, 'First')).not.toHaveAttribute('aria-pressed');
+	});
+
+	await test.step('Shift+Space selects the focused note', async () => {
+		await note(page, 'Third').focus();
+		await page.keyboard.press('Shift+Space');
+		await expect(bar(page)).toContainText('1 selected');
+		await note(page, 'First').click({ modifiers: ['Shift'] });
+		await expect(bar(page)).toContainText('2 selected');
+	});
+
+	await test.step('the selected notes can be tagged', async () => {
+		await barButton(page, 'Tags').click();
+		await page.fill('#selectionTags input[aria-label="Tag name"]', 'Batch');
+		await page.keyboard.press('Enter');
+		await expect(tagsOf(page, 'First')).toHaveText(['Batch']);
+		await expect(tagsOf(page, 'Third')).toHaveText(['Batch']);
+		await expect(tagsOf(page, 'Second')).toHaveCount(0);
+		await page.keyboard.press('Escape');
+
+		// A tag only some of the selected notes have is shown as such, and checking it adds it to all.
+		await note(page, 'Second').click();
+		await barButton(page, 'Tags').click();
+		const batch = page.locator('#selectionTags label', { hasText: 'Batch' }).locator('input');
+		await expect(batch).toHaveAttribute('aria-checked', 'mixed');
+		await batch.check();
+		await expect(tagsOf(page, 'Second')).toHaveText(['Batch']);
+		await expect(batch).toBeChecked();
+		await batch.uncheck();
+		await expect(page.locator('.tag')).toHaveCount(0);
+		await page.keyboard.press('Escape');
+		await expect(bar(page)).toContainText('3 selected');
+	});
+
+	await test.step('their colour can be changed', async () => {
+		await barButton(page, 'Pick color').click();
+		await page.locator('#selectionColors label[title=Purple]').click();
+		for (const text of ['First', 'Second', 'Third']) {
+			await expect(note(page, text)).toHaveAttribute('style', /--color-purple/);
+		}
+		await page.keyboard.press('Escape');
+	});
+
+	await test.step('they can be archived, which can be undone', async () => {
+		await note(page, 'Second').click();
+		await expect(bar(page)).toContainText('2 selected');
+		await barButton(page, 'Archive').click();
+		await expectGone(page, 'First');
+		await expectGone(page, 'Third');
+		await expect(bar(page)).toHaveCount(0);
+		await page
+			.locator('.toast', { hasText: '2 notes archived' })
+			.getByRole('button', { name: 'Undo' })
+			.click();
+		await expect(note(page, 'First')).toBeVisible();
+		await expect(note(page, 'Third')).toBeVisible();
+	});
+
+	await test.step('Ctrl+A selects all notes, and they can be moved to the trash', async () => {
+		await page.keyboard.press('ControlOrMeta+A');
+		await expect(bar(page)).toContainText('3 selected');
+		await expect(barButton(page, 'Select all')).toBeDisabled();
+		await barButton(page, 'Move to trash').click();
+		await expect(page.getByText('No notes yet')).toBeVisible();
+	});
+
+	await test.step('in the trash, they can be restored or deleted forever', async () => {
+		await goTo(page, 'Trash');
+		await page.waitForURL(url('/trash'));
+		await note(page, 'First').click({ modifiers: ['Shift'] });
+		await barButton(page, 'Restore').click();
+		await expectGone(page, 'First');
+
+		await page.keyboard.press('ControlOrMeta+A');
+		await expect(bar(page)).toContainText('2 selected');
+		await barButton(page, 'Delete forever').click();
+		await expect(page.locator('dialog[open]')).toContainText('Delete 2 notes forever?');
+		await page.locator('dialog[open]').getByRole('button', { name: 'Delete forever' }).click();
+		await expect(page.getByText('The trash is empty.')).toBeVisible();
+
+		await goTo(page, 'Notes');
+		await expect(page.locator('[data-note-id]')).toHaveText([/First/]);
+	});
+});
+
+test('on a touch screen, notes are selected after turning on selecting', async ({ app }) => {
+	const { page } = await app.register(uniqueName('select'), {
+		viewport: { width: 400, height: 800 },
+		hasTouch: true,
+		isMobile: true
+	});
+	await newNote(page, 'One');
+	await newNote(page, 'Two');
+
+	await page.getByRole('button', { name: 'Select notes' }).tap();
+	await expect(bar(page)).toContainText('0 selected');
+	await expect(barButton(page, 'Archive')).toBeDisabled();
+	await note(page, 'One').tap();
+	await note(page, 'Two').tap();
+	await expect(bar(page)).toContainText('2 selected');
+	await expect(openedNote(page)).toHaveCount(0);
+	await note(page, 'Two').tap();
+	await expect(bar(page)).toContainText('1 selected');
+
+	await barButton(page, 'Select all').tap();
+	await expect(bar(page)).toContainText('2 selected');
+	await barButton(page, 'Stop selecting').tap();
+	await expect(bar(page)).toHaveCount(0);
+
+	// Tapping opens notes again.
+	await note(page, 'One').tap();
+	await expect(openedNote(page)).toHaveCount(1);
+});

@@ -136,4 +136,34 @@ test('many notes', async ({ app }) => {
 		await expect(page.locator('[data-note-id]', { hasText: 'Perf note 999' })).toBeVisible();
 	});
 	results['search (ms)'] = Date.now() - start;
+
+	// Escape also leaves the search field, where Ctrl+A would select its text instead.
+	await page.getByRole('searchbox').press('Escape');
+	await expect(page.locator('[data-note-id]')).toHaveCount(50);
+	const selectionBar = page.locator('.selectionBar');
+	start = Date.now();
+	results['long tasks while selecting all (ms)'] = await longTasks(page, async () => {
+		await page.keyboard.press('ControlOrMeta+A');
+		await expect(selectionBar).toContainText('selected');
+	});
+	results['selecting all (ms)'] = Date.now() - start;
+	results['selected'] = await selectionBar.locator('.count').textContent();
+
+	start = Date.now();
+	results['long tasks while colouring all (ms)'] = await longTasks(page, async () => {
+		await selectionBar.getByRole('button', { name: 'Pick color' }).click();
+		await page.locator('#selectionColors label[title=Purple]').click();
+		await expect(page.locator('[data-note-id]').first()).toHaveAttribute('style', /--color-purple/);
+		await expect(page.locator('[data-note-id]').last()).toHaveAttribute('style', /--color-purple/);
+	});
+	results['colouring all (ms)'] = Date.now() - start;
+	await page.keyboard.press('Escape');
+
+	start = Date.now();
+	results['long tasks while archiving all (ms)'] = await longTasks(page, async () => {
+		await selectionBar.getByRole('button', { name: 'Archive' }).click();
+		await expect(page.locator('[data-note-id]')).toHaveCount(0);
+	});
+	results['archiving all (ms)'] = Date.now() - start;
+	results['sync after archiving all'] = await countRequests(page, () => syncNow(page));
 });

@@ -9,6 +9,9 @@
 		entries,
 		focusedNoteId = $bindable(),
 		twoColumns = false,
+		selectedIds,
+		selecting = false,
+		onToggleSelected,
 		onMove,
 		onCloneNote
 	}: {
@@ -16,6 +19,11 @@
 		focusedNoteId: string | null;
 		/** Shows at least two notes side by side, even when they have to be narrower for that. */
 		twoColumns?: boolean;
+		/** The notes that are selected. */
+		selectedIds?: ReadonlySet<string>;
+		/** While notes are being selected, clicking a note selects it, rather than opening it. */
+		selecting?: boolean;
+		onToggleSelected?: (id: string) => void;
 		/**
 		 * Moves a note to another place in `entries`. Only when given can notes be
 		 * reordered, by dragging them or with Shift and the arrow keys.
@@ -112,6 +120,9 @@
 			<Note
 				{entry}
 				bind:focusedNoteId
+				selected={selectedIds?.has(entry.note.id) ?? false}
+				{selecting}
+				onToggleSelected={onToggleSelected && (() => onToggleSelected(entry.note.id))}
 				onClone={() => {
 					onCloneNote(entry.note.id);
 				}}

@@ -12,11 +12,14 @@
 
 	let {
 		tags,
+		partialTags = [],
 		allTags,
 		onChange
 	}: {
-		/** The note's current tags. */
+		/** The note's current tags, or the tags all of the notes have, when picking for several. */
 		tags: NoteTags;
+		/** When picking for several notes, the tags only some of them have. */
+		partialTags?: string[];
 		/** All tags the user has, in their order, to pick from. */
 		allTags: string[];
 		onChange: (update: (tags: NoteTags) => NoteTags) => void;
@@ -24,7 +27,7 @@
 
 	let query = $state('');
 
-	const noteTags = $derived(userTags(tags));
+	const noteTags = $derived([...userTags(tags), ...partialTags]);
 	const name = $derived(normalizeTagName(query));
 	// A tag can be on this note without being in allTags yet, e.g. right after adding it.
 	const knownTags = $derived([...new Set([...allTags, ...noteTags])]);
@@ -70,11 +73,18 @@
 	{#if options.length > 0}
 		<ul>
 			{#each options as tag (tag)}
+				{@const partial = partialTags.includes(tag)}
 				<li>
 					<label>
+						<!-- A tag only some of the notes have is shown as neither checked nor unchecked;
+						     checking it adds it to all of them. -->
 						<input
 							type="checkbox"
-							checked={noteTags.includes(tag)}
+							checked={!partial && noteTags.includes(tag)}
+							aria-checked={partial ? 'mixed' : undefined}
+							{@attach (input) => {
+								input.indeterminate = partial;
+							}}
 							onchange={(event) => toggle(tag, event.currentTarget.checked)}
 						/>
 						<span>{tag}</span>

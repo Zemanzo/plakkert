@@ -96,16 +96,55 @@ export const updateNoteData = async (
 	syncEngine.requestSync();
 };
 
-export const deleteNote = async (noteId: string) => {
+/**
+ * Changes the colour of several notes at once, all in one transaction: every
+ * write updates the notes that are shown, which would take long for hundreds
+ * of notes one by one. A note that changed in the meantime, e.g. by sync, is
+ * left out.
+ *
+ * @returns How many notes were changed.
+ */
+export async function updateNotesColor(
+	entries: { note: NoteType; noteKey: Uint8Array }[],
+	color: string
+) {
+	const updatedAt = new Date();
+	const changes = await Promise.all(
+		entries
+			.filter(({ note }) => note.data.meta.color !== color)
+			.map(async ({ note, noteKey }) => {
+				const data = { ...note.data, meta: { ...note.data.meta, color } };
+				return { note, encryptedData: (await encryptNote(data, noteKey)).encryptedData };
+			})
+	);
+	let changed = 0;
+	await db.transaction('rw', db.notes, async () => {
+		for (const { note, encryptedData } of changes) {
+			const current = await db.notes.get(note.id);
+			if (current?.updatedAt.getTime() !== note.updatedAt.getTime()) continue;
+			await db.notes.update(note.id, { data: encryptedData, updatedAt, dirty: 1 });
+			changed++;
+		}
+	});
+	syncEngine.requestSync();
+	return changed;
+}
+
+/** Deletes notes the user owns, all in one transaction. They're deleted on the server on sync. */
+export const deleteNotes = async (noteIds: string[]) => {
 	const deletedAt = new Date();
 	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
-		await db.noteKeys.where({ noteId }).delete();
-		await db.notes.update(noteId, {
-			data: new Uint8Array(),
-			deletedAt,
-			updatedAt: deletedAt,
-			dirty: 1
-		});
+		await db.noteKeys.where('noteId').anyOf(noteIds).delete();
+		for (const noteId of noteIds) {
+			await db.notes.update(noteId, {
+				data: new Uint8Array(),
+				deletedAt,
+				updatedAt: deletedAt,
+				dirty: 1
+			});
+		}
 	});
 	syncEngine.requestSync();
 };
+
+export const deleteNote = (noteId: string) => deleteNotes([noteId]);

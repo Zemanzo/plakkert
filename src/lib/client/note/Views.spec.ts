@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildSearchText, normalizeForSearch, parseSearchQuery } from '../search/Search';
 import { ARCHIVED_TAG, POSITION_TAG, TRASHED_TAG, userTags, type NoteTags } from '../tags/Tags';
-import { selectNotes, type NotesViewKind } from './Views';
+import { belongsToView, selectNotes, type NotesViewKind } from './Views';
 
 function entry(id: string, createdAt: number, tags: NoteTags = {}) {
 	return {
@@ -78,5 +78,26 @@ describe('selectNotes with an open note', () => {
 		expect(ids(select({ kind: 'archive' }, '', 'trashed-later').main)).not.toContain(
 			'trashed-later'
 		);
+	});
+});
+
+describe('belongsToView', () => {
+	const belonging = (view: NotesViewKind) =>
+		ids(entries.filter((entry) => belongsToView(entry, view)));
+
+	it('includes archived notes in the notes and tag views, which show them when searching', () => {
+		expect(belonging({ kind: 'notes' })).toEqual([
+			'plain',
+			'newer',
+			'work',
+			'archived-work',
+			'archived-later'
+		]);
+		expect(belonging({ kind: 'tag', tag: 'work' })).toEqual(['work', 'archived-work']);
+	});
+
+	it('includes only archived notes in the archive, and only trashed notes in the trash', () => {
+		expect(belonging({ kind: 'archive' })).toEqual(['archived-work', 'archived-later']);
+		expect(belonging({ kind: 'trash' })).toEqual(['trashed-work', 'trashed-later']);
 	});
 });

@@ -12,7 +12,7 @@
 	import type { NoteTags } from '../tags/Tags';
 	import ShareOptions from './ShareOptions.svelte';
 	import ExportOptions from './ExportOptions.svelte';
-	import { isNoteColor, NOTE_COLORS } from './NoteColors';
+	import ColorPicker from './ColorPicker.svelte';
 
 	let {
 		noteId,
@@ -56,17 +56,6 @@
 	} = $props();
 
 	let shareOptions = $state<ShareOptions>();
-
-	function handleColorChange(event: Event) {
-		const target = event.target as HTMLInputElement;
-		const selectedColor = target.value;
-
-		if (isNoteColor(selectedColor)) {
-			onColorChange(selectedColor);
-		} else {
-			console.warn(`Selected color "${selectedColor}" is not in the allowed colors.`);
-		}
-	}
 </script>
 
 <div class="optionsContainer">
@@ -130,22 +119,7 @@
 		{/if}
 
 		<div popover id="colorSelection">
-			{#each NOTE_COLORS as option (option.id)}
-				<input
-					type="radio"
-					id={`colorSelector-${option.id}`}
-					name="colorSelector"
-					value={option.id}
-					checked={option.id === color}
-					onchange={handleColorChange}
-				/>
-				<label
-					for={`colorSelector-${option.id}`}
-					style:--swatch={`var(--color-${option.id})`}
-					aria-label={option.label}
-					title={option.label}
-				></label>
-			{/each}
+			<ColorPicker name="colorSelector" {color} onChange={onColorChange} />
 		</div>
 
 		<div popover id="tagOptions">
@@ -153,7 +127,7 @@
 		</div>
 
 		<div popover id="exportOptions">
-			<ExportOptions {noteId} htmlContent={htmlContent} />
+			<ExportOptions {noteId} {htmlContent} />
 		</div>
 	{/if}
 </div>
@@ -199,48 +173,6 @@
 		/* Without anchor positioning, show it in the middle of the screen instead of the corner. */
 		@supports not (position-area: top) {
 			margin: auto;
-		}
-	}
-
-	#colorSelection {
-		padding: var(--spacing-md);
-		gap: var(--spacing-md);
-
-		&:popover-open {
-			display: grid;
-			grid-template-columns: repeat(5, 32px);
-		}
-
-		input {
-			display: none;
-		}
-
-		label {
-			position: relative;
-			width: 32px;
-			height: 32px;
-			border-radius: 50%;
-			cursor: pointer;
-			background-color: var(--swatch);
-		}
-
-		input:checked + label {
-			outline: 1px solid var(--color-text-primary);
-
-			&::after {
-				content: '✔';
-				position: absolute;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				font-size: 0.7rem;
-				background: var(--color-background-body);
-				width: 16px;
-				height: 16px;
-				border-radius: 50%;
-				bottom: -6px;
-				right: -2px;
-			}
 		}
 	}
 </style>

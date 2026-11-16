@@ -93,4 +93,50 @@ test('many notes are shown a page at a time, and sync in a few requests', async 
 		await syncNow(page);
 		await expect(note(page, 'Text changed elsewhere')).toBeVisible();
 	});
+
+	await test.step('all of them can be selected, also those not shown yet, and changed at once', async () => {
+		await page.keyboard.press('ControlOrMeta+A');
+		await expect(page.locator('.selectionBar')).toContainText(`${NOTE_COUNT} selected`);
+		await expect(notes(page)).toHaveCount(50);
+
+		const requests: string[] = [];
+		page.on('request', (request) => {
+			if (new URL(request.url()).pathname.startsWith('/api/notes')) {
+				requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+			}
+		});
+		await page.locator('.selectionBar').getByRole('button', { name: 'Archive' }).click();
+		await expect(page.getByText('No notes yet')).toBeVisible();
+		await syncNow(page);
+		// The tags of all of them, in two batches, rather than a request for each.
+		expect(requests.filter((request) => request === 'POST /api/notes/batch')).toHaveLength(2);
+
+		await page.goto(url('/archive'));
+		await expect(notes(page)).toHaveCount(50);
+		await scrollToEnd(page);
+		await expect(notes(page)).toHaveCount(100);
+	});
+
+	await test.step('deleting them forever is sent in a few requests too', async () => {
+		await page.keyboard.press('ControlOrMeta+A');
+		await page.locator('.selectionBar').getByRole('button', { name: 'Move to trash' }).click();
+		await syncNow(page);
+		await page.goto(url('/trash'));
+		await expect(notes(page)).toHaveCount(50);
+		await page.keyboard.press('ControlOrMeta+A');
+		await page.locator('.selectionBar').getByRole('button', { name: 'Delete forever' }).click();
+		await expect(page.locator('dialog[open]')).toContainText(`Delete ${NOTE_COUNT} notes forever?`);
+
+		const requests: string[] = [];
+		page.on('request', (request) => {
+			if (new URL(request.url()).pathname.startsWith('/api/notes')) {
+				requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+			}
+		});
+		await page.locator('dialog[open]').getByRole('button', { name: 'Delete forever' }).click();
+		await expect(page.getByText('The trash is empty.')).toBeVisible();
+		await syncNow(page);
+		expect(requests.filter((request) => request.startsWith('DELETE'))).toEqual([]);
+		expect(requests.filter((request) => request === 'POST /api/notes/batch')).toHaveLength(2);
+	});
 });

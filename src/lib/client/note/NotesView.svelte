@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { getContext, untrack } from 'svelte';
+	import { getContext, tick, untrack } from 'svelte';
 	import { pushState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import SearchIcon from '@iconify-svelte/lucide/search';
+	import SelectIcon from '@iconify-svelte/lucide/square-check-big';
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import CloseIcon from '@iconify-svelte/lucide/x';
 	import Button from '../components/Button.svelte';
@@ -17,8 +18,9 @@
 	import { confirmEmptyTrash, moveNote } from './NoteActions';
 	import { createNote } from './NotesCRUD';
 	import NotesGrid from './NotesGrid.svelte';
+	import SelectionBar from './SelectionBar.svelte';
 	import type { NoteEntry, NoteStore } from './NoteStore.svelte';
-	import { selectNotes, type NotesViewKind } from './Views';
+	import { belongsToView, selectNotes, type NotesViewKind } from './Views';
 
 	let { view }: { view: NotesViewKind } = $props();
 
@@ -74,6 +76,62 @@
 		observer.observe(element);
 		return () => observer.disconnect();
 	}
+	// Selecting notes, to do something with all of them at once: by shift-clicking them (or
+	// Shift+Space), Ctrl+A for all of them, or by turning on selecting with the button for it.
+
+	/** Whether selecting was turned on with its button, which also works without a keyboard. */
+	let selectMode = $state(false);
+	let selectedIds = $state.raw<ReadonlySet<string>>(new Set());
+	let toolbar = $state<HTMLElement>();
+	/**
+	 * The selected notes that are still in this view, which they leave when they're e.g. archived.
+	 * Searching doesn't change which notes are selected.
+	 */
+	const selectedEntries = $derived(
+		selectedIds.size === 0
+			? []
+			: (store.entries ?? []).filter(
+					(entry) => selectedIds.has(entry.note.id) && belongsToView(entry, view)
+				)
+	);
+	const selecting = $derived(selectMode || selectedEntries.length > 0);
+	/** All notes in the view, also those that aren't shown yet, but only those matching the search. */
+	const allInView = $derived(selection ? [...selection.main, ...selection.archived] : []);
+	const canSelectAll = $derived(allInView.some((entry) => !selectedIds.has(entry.note.id)));
+
+	function select(ids: Iterable<string>, add: (id: string) => boolean) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- replaced as a whole, never mutated after
+		const next = new Set(selectedEntries.map((entry) => entry.note.id));
+		for (const id of ids) {
+			if (add(id)) next.add(id);
+			else next.delete(id);
+		}
+		selectedIds = next;
+	}
+
+	const toggleSelected = (id: string) => select([id], () => !selectedIds.has(id));
+	const selectAll = () =>
+		select(
+			allInView.map((entry) => entry.note.id),
+			() => true
+		);
+
+	async function startSelecting() {
+		selectMode = true;
+		// The button is replaced by the selection's toolbar, so the focus moves there.
+		await tick();
+		toolbar?.querySelector<HTMLElement>('.selectionBar button')?.focus();
+	}
+
+	async function stopSelecting() {
+		const hadFocus = toolbar?.contains(document.activeElement) ?? false;
+		selectMode = false;
+		selectedIds = new Set();
+		if (!hadFocus) return;
+		await tick();
+		toolbar?.querySelector<HTMLElement>('.selectButton')?.focus();
+	}
+
 	// New notes are neither archived nor trashed, so they'd be hidden right away in those views.
 	const canCreate = $derived(view.kind === 'notes' || view.kind === 'tag');
 	// The archive and the trash are in the order notes ended up there.
@@ -107,9 +165,13 @@
 	});
 
 	$effect(() => {
-		// Close the open note when switching to another view.
+		// Close the open note, and stop selecting, when switching to another view.
 		void viewKey;
 		focusedNoteId = null;
+		untrack(() => {
+			selectMode = false;
+			selectedIds = new Set();
+		});
 	});
 
 	// An open note has its own history entry, so the back button or gesture closes it, rather than
@@ -196,7 +258,18 @@
 			} else if (event.target === searchInput) {
 				store.searchQuery = '';
 				searchInput?.blur();
+			} else if (selecting) {
+				void stopSelecting();
 			}
+		} else if (
+			(event.ctrlKey || event.metaKey) &&
+			event.key.toLowerCase() === 'a' &&
+			focusedNoteId === null &&
+			!isTyping(event.target)
+		) {
+			// Selects all notes in the view (that match the search), rather than the page's text.
+			event.preventDefault();
+			selectAll();
 		} else if (event.key === '/' && focusedNoteId === null && !isTyping(event.target)) {
 			// Like many sites, "/" jumps to the search field.
 			event.preventDefault();
@@ -208,37 +281,58 @@
 <svelte:window {onkeydown} />
 
 <div class="notesView" data-view={view.kind}>
-	<div class="toolbar">
+	<div class="toolbar" bind:this={toolbar}>
 		<SyncStatus />
 		<div class="actions">
-			<div class="search">
-				<SearchIcon width="18px" aria-hidden="true" />
-				<input
-					bind:this={searchInput}
-					bind:value={store.searchQuery}
-					type="search"
-					placeholder={searchPlaceholder}
-					aria-label={searchPlaceholder}
-					aria-keyshortcuts="/"
+			{#if selecting}
+				<!-- In place of the search field and the new note button. -->
+				<SelectionBar
+					entries={selectedEntries}
+					{view}
+					{canSelectAll}
+					onSelectAll={selectAll}
+					onClose={stopSelecting}
+					onDone={stopSelecting}
 				/>
-				{#if store.searchQuery}
-					<button
-						class="clear"
-						aria-label="Clear search"
-						onclick={() => {
-							store.searchQuery = '';
-							searchInput?.focus();
-						}}
-					>
-						<CloseIcon width="18px" />
-					</button>
+			{:else}
+				<div class="search">
+					<SearchIcon width="18px" aria-hidden="true" />
+					<input
+						bind:this={searchInput}
+						bind:value={store.searchQuery}
+						type="search"
+						placeholder={searchPlaceholder}
+						aria-label={searchPlaceholder}
+						aria-keyshortcuts="/"
+					/>
+					{#if store.searchQuery}
+						<button
+							class="clear"
+							aria-label="Clear search"
+							onclick={() => {
+								store.searchQuery = '';
+								searchInput?.focus();
+							}}
+						>
+							<CloseIcon width="18px" />
+						</button>
+					{/if}
+				</div>
+				{#if canCreate}
+					<Button onclick={addNote}>+ New note</Button>
 				{/if}
-			</div>
-			{#if canCreate}
-				<Button onclick={addNote}>+ New note</Button>
+				<button
+					class="selectButton"
+					aria-label="Select notes"
+					title="Select notes (or Shift+click them)"
+					disabled={allInView.length === 0}
+					onclick={startSelecting}
+				>
+					<SelectIcon width="22px" />
+				</button>
 			{/if}
 		</div>
-		{#if view.kind === 'trash'}
+		{#if view.kind === 'trash' && !selecting}
 			<!-- At the far end, away from the search field, so it isn't clicked by accident. -->
 			<Button
 				--bg="var(--color-red)"
@@ -300,13 +394,24 @@
 				entries={shownMain}
 				bind:focusedNoteId
 				{twoColumns}
-				onMove={canReorder ? (from, to) => move(selection.main, from, to) : undefined}
+				{selectedIds}
+				{selecting}
+				onToggleSelected={toggleSelected}
+				onMove={canReorder && !selecting ? (from, to) => move(selection.main, from, to) : undefined}
 				{onCloneNote}
 			/>
 
 			{#if shownArchived.length > 0}
 				<h3 class="sectionHeading">Archived</h3>
-				<NotesGrid entries={shownArchived} bind:focusedNoteId {twoColumns} {onCloneNote} />
+				<NotesGrid
+					entries={shownArchived}
+					bind:focusedNoteId
+					{twoColumns}
+					{selectedIds}
+					{selecting}
+					onToggleSelected={toggleSelected}
+					{onCloneNote}
+				/>
 			{/if}
 
 			{#if hasMore}
@@ -416,6 +521,24 @@
 			&:hover {
 				background: #8883;
 			}
+		}
+	}
+
+	.selectButton {
+		display: flex;
+		flex-shrink: 0;
+		padding: var(--spacing-sm);
+		border-radius: 50%;
+		color: var(--color-text-primary);
+		cursor: pointer;
+
+		&:hover:not(:disabled) {
+			background: #8883;
+		}
+
+		&:disabled {
+			opacity: 0.4;
+			cursor: default;
 		}
 	}
 

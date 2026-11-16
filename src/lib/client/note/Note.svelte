@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext, untrack } from 'svelte';
 	import ArrowLeftIcon from '@iconify-svelte/lucide/arrow-left';
+	import CheckIcon from '@iconify-svelte/lucide/check';
 	import type { NoteData } from '../Database';
 	import NotePreview from '../editor/NotePreview.svelte';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
@@ -28,10 +29,17 @@
 	let {
 		entry,
 		focusedNoteId = $bindable(),
+		selected = false,
+		selecting = false,
+		onToggleSelected,
 		onClone
 	}: {
 		entry: NoteEntry;
 		focusedNoteId: string | null;
+		selected?: boolean;
+		/** While notes are being selected, clicking a note selects it, rather than opening it. */
+		selecting?: boolean;
+		onToggleSelected?: () => void;
 		onClone: () => void;
 	} = $props();
 	const user = getContext<() => RuntimeUser>('user')();
@@ -209,7 +217,13 @@
 		// (e.g. archiving it), which must not open it again.
 		const fromControl =
 			event.target instanceof Element && event.target.closest('button, input, label, [popover]');
-		if (!fromControl) openNote();
+		if (fromControl) return;
+		// Shift-clicking selects a note without opening it, and so does clicking while selecting.
+		if (!isFocused && onToggleSelected && (event.shiftKey || selecting)) {
+			onToggleSelected();
+		} else {
+			openNote();
+		}
 	};
 
 	function openNote() {
@@ -219,9 +233,14 @@
 	}
 
 	const onKeyDown = (e: KeyboardEvent) => {
-		if (!isFocused && (e.key === 'Enter' || e.key === ' ')) {
+		if (isFocused || e.target !== e.currentTarget) return;
+		if (e.key === ' ' && (e.shiftKey || selecting) && onToggleSelected) {
 			e.preventDefault();
-			openNote();
+			onToggleSelected();
+		} else if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			if (selecting && onToggleSelected) onToggleSelected();
+			else openNote();
 		}
 	};
 
@@ -277,9 +296,16 @@
 		onclick={onClick}
 		onkeydown={onKeyDown}
 		data-note-id={id}
+		aria-pressed={selecting && !isFocused ? selected : undefined}
 		class:isFocused
 		class:isInBackground
+		class:selected={selected && !isFocused}
 	>
+		{#if (selecting || selected) && !isFocused}
+			<span class="selectMark" aria-hidden="true">
+				{#if selected}<CheckIcon width="16px" />{/if}
+			</span>
+		{/if}
 		{#if isFocused}
 			<button class="back" aria-label="Back to notes" title="Back" onclick={closeNote}>
 				<ArrowLeftIcon width="24px" />
@@ -410,6 +436,8 @@
 	}
 
 	div[role='button'] {
+		/* For the selection mark. */
+		position: relative;
 		appearance: none;
 		border: none;
 		text-align: left;
@@ -447,6 +475,35 @@
 
 		&.isInBackground {
 			pointer-events: none;
+		}
+
+		&.selected {
+			outline: 3px solid var(--color-text-primary);
+			/* Inside the note, so the list doesn't cut it off at the top. */
+			outline-offset: -3px;
+		}
+	}
+
+	/* Shows whether a note is selected, while selecting. */
+	.selectMark {
+		position: absolute;
+		top: var(--spacing-sm);
+		right: var(--spacing-sm);
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		border: 2px solid #1118;
+		border-radius: 50%;
+		background: #fff8;
+		color: #fff;
+
+		.selected & {
+			border-color: var(--color-text-primary);
+			background: var(--color-text-primary);
+			color: var(--color-background-header);
 		}
 	}
 

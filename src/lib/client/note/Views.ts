@@ -29,6 +29,17 @@ const byTagAddedAt = (tag: string) => (a: Entry, b: Entry) =>
 	(b.tags[tag] ?? 0) - (a.tags[tag] ?? 0) || byNewest(a, b);
 
 /**
+ * Whether a note belongs to a view, whatever is searched for. Archived notes
+ * belong to the notes and tag views too, as they show up there when searching.
+ */
+export function belongsToView(entry: Pick<Entry, 'tags'>, view: NotesViewKind) {
+	if (view.kind === 'trash') return isTrashed(entry.tags);
+	if (isTrashed(entry.tags)) return false;
+	if (view.kind === 'archive') return isArchived(entry.tags);
+	return view.kind !== 'tag' || hasTag(entry.tags, view.tag);
+}
+
+/**
  * Picks the notes to show for a view and search. Search terms must already be
  * parsed with `parseSearchQuery`.
  *
