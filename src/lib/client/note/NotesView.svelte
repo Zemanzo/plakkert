@@ -36,6 +36,44 @@
 		store.entries && selectNotes(store.entries, view, terms, focusedNoteId)
 	);
 	const isEmpty = $derived(selection?.main.length === 0 && selection.archived.length === 0);
+
+	// Notes are shown a page at a time, and more are added when scrolling down, since showing
+	// hundreds of notes at once makes the app slow. Searching still goes through all notes.
+	const PAGE_SIZE = 50;
+	let limit = $derived.by(() => {
+		// Starts over in another view or search.
+		void viewKey;
+		void store.searchQuery;
+		return PAGE_SIZE;
+	});
+	/** The first `count` notes, and as many more as it takes to include the open note. */
+	function firstNotes(entries: NoteEntry[], count: number) {
+		const open =
+			focusedNoteId === null ? -1 : entries.findIndex((e) => e.note.id === focusedNoteId);
+		return entries.slice(0, Math.max(0, count, open + 1));
+	}
+	const shownMain = $derived(selection ? firstNotes(selection.main, limit) : []);
+	const shownArchived = $derived(
+		selection ? firstNotes(selection.archived, limit - shownMain.length) : []
+	);
+	const hasMore = $derived(
+		!!selection &&
+			shownMain.length + shownArchived.length < selection.main.length + selection.archived.length
+	);
+
+	/** Shows the next page once the end of the notes comes near. */
+	function loadMore(element: HTMLElement) {
+		// Observing anew after every page, in case the end of the notes is still in sight.
+		void limit;
+		const observer = new IntersectionObserver(
+			(observed) => {
+				if (observed.some((entry) => entry.isIntersecting)) limit += PAGE_SIZE;
+			},
+			{ root: element.closest('.scroll-container'), rootMargin: '0px 0px 100% 0px' }
+		);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}
 	// New notes are neither archived nor trashed, so they'd be hidden right away in those views.
 	const canCreate = $derived(view.kind === 'notes' || view.kind === 'tag');
 	// The archive and the trash are in the order notes ended up there.
@@ -256,17 +294,23 @@
 				</p>
 			{/if}
 
+			<!-- The shown notes are the first ones of `selection.main`, so their positions are the
+			     same in both. -->
 			<NotesGrid
-				entries={selection.main}
+				entries={shownMain}
 				bind:focusedNoteId
 				{twoColumns}
 				onMove={canReorder ? (from, to) => move(selection.main, from, to) : undefined}
 				{onCloneNote}
 			/>
 
-			{#if selection.archived.length > 0}
+			{#if shownArchived.length > 0}
 				<h3 class="sectionHeading">Archived</h3>
-				<NotesGrid entries={selection.archived} bind:focusedNoteId {twoColumns} {onCloneNote} />
+				<NotesGrid entries={shownArchived} bind:focusedNoteId {twoColumns} {onCloneNote} />
+			{/if}
+
+			{#if hasMore}
+				<div class="loadMore" {@attach loadMore}></div>
 			{/if}
 
 			{#if selection.trashedMatches > 0}
@@ -394,6 +438,10 @@
 		font-family: var(--font-family-display);
 		font-size: 1.3rem;
 		text-align: center;
+	}
+
+	.loadMore {
+		height: 1px;
 	}
 
 	.sectionHeading {

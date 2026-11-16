@@ -2,6 +2,7 @@
 	import { getContext, untrack } from 'svelte';
 	import ArrowLeftIcon from '@iconify-svelte/lucide/arrow-left';
 	import type { NoteData } from '../Database';
+	import NotePreview from '../editor/NotePreview.svelte';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
 	import { toasts } from '../components/ToastStore.svelte';
 	import {
@@ -69,16 +70,52 @@
 	// reading a note. Only new, empty notes are focused right away there.
 	const autofocus = $derived(!isTouchScreen || htmlToText(note.data.content) === '');
 
-	function save(data: NoteData) {
+	/** How long to wait for more typing before saving. Every save updates the whole list. */
+	const SAVE_DELAY_MS = 300;
+	let saveTimeout: ReturnType<typeof setTimeout> | undefined;
+	let hasUnsavedChanges = false;
+
+	/** Saves the data shortly, once typing pauses, or right away if `now` is set. */
+	function save(data: NoteData, now = false) {
 		currentData = data;
+		// For the preview once the note is closed. The open editor only reads it when it's created.
+		editorContent = data.content;
+		hasUnsavedChanges = true;
+		clearTimeout(saveTimeout);
+		if (now) {
+			saveNow();
+		} else {
+			saveTimeout = setTimeout(saveNow, SAVE_DELAY_MS);
+		}
+	}
+
+	function saveNow() {
+		clearTimeout(saveTimeout);
+		if (!hasUnsavedChanges) return;
+		hasUnsavedChanges = false;
 		const updatedAt = new Date();
 		ownVersions.push(updatedAt.getTime());
-		updateNoteData(id, data, noteKey, updatedAt);
+		updateNoteData(id, currentData, noteKey, updatedAt);
 	}
+
+	// Nothing typed is left unsaved when the note is closed, or the app is left or closed.
+	$effect(() => {
+		if (!isFocused) return;
+		const onVisibilityChange = () => {
+			if (document.visibilityState === 'hidden') saveNow();
+		};
+		document.addEventListener('visibilitychange', onVisibilityChange);
+		window.addEventListener('pagehide', saveNow);
+		return () => {
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+			window.removeEventListener('pagehide', saveNow);
+			saveNow();
+		};
+	});
 
 	function changeColor(newColor: string) {
 		color = newColor;
-		save({ ...currentData, meta: { ...currentData.meta, color: newColor } });
+		save({ ...currentData, meta: { ...currentData.meta, color: newColor } }, true);
 	}
 
 	$effect(() => {
@@ -248,16 +285,22 @@
 				<ArrowLeftIcon width="24px" />
 			</button>
 		{/if}
-		{#key editorRevision}
-			<RichTextComposer
-				disabled={!isFocused}
-				readonly={!canEdit}
-				focused={isFocused}
-				{autofocus}
-				initialContent={editorContent}
-				onUpdateData={(htmlContent) => save({ ...currentData, content: htmlContent })}
-			/>
-		{/key}
+		<!-- Only the open note gets an editor. With hundreds of notes, editors for all of them would
+		     make the app slow. -->
+		{#if isFocused}
+			{#key editorRevision}
+				<RichTextComposer
+					disabled={false}
+					readonly={!canEdit}
+					focused
+					{autofocus}
+					initialContent={editorContent}
+					onUpdateData={(htmlContent) => save({ ...currentData, content: htmlContent })}
+				/>
+			{/key}
+		{:else}
+			<NotePreview html={editorContent} />
+		{/if}
 		{#if !isOwner || tagNames.length > 0 || daysLeft !== null}
 			<div class="details">
 				{#if daysLeft !== null}

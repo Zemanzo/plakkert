@@ -69,6 +69,8 @@ export class NoteStore {
 	#notes = new Map<string, { updatedAt: number; note: Note; normalizedText: string }>();
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#tags = new Map<string, { encrypted: Uint8Array | undefined; tags: NoteTags }>();
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#entries = new Map<string, NoteEntry>();
 
 	constructor(user: RuntimeUser) {
 		this.#user = user;
@@ -150,13 +152,26 @@ export class NoteStore {
 			this.#tags.set(id, { encrypted: row.encryptedTags, tags });
 		}
 
-		return {
+		// The same entry as before if nothing changed, so only notes that did change are updated in
+		// the page. Otherwise, every save would update every note that is shown.
+		const previous = this.#entries.get(id);
+		if (
+			previous?.note === note &&
+			previous.tags === tags &&
+			previous.noteKey === noteKey &&
+			previous.permission === row.permission
+		) {
+			return previous;
+		}
+		const entry: NoteEntry = {
 			note,
 			noteKey,
 			permission: row.permission,
 			tags,
 			searchText: buildSearchText(normalizedText, userTags(tags))
 		};
+		this.#entries.set(id, entry);
+		return entry;
 	}
 
 	#decryptNoteKey(row: EncryptedRow) {
