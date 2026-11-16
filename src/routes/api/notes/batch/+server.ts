@@ -1,7 +1,13 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '#lib/server/db/index.js';
-import { writeNote, writeResultJson, writeTags, type WriteResult } from '#lib/server/notes.js';
+import {
+	deleteNote,
+	writeNote,
+	writeResultJson,
+	writeTags,
+	type WriteResult
+} from '#lib/server/notes.js';
 
 /** So one request can't keep the database busy for long. */
 const MAX_BATCH_SIZE = 100;
@@ -16,7 +22,8 @@ const outcome = (result: WriteResult) => ({ status: result.status, body: writeRe
  * for each, e.g. after importing hundreds of notes. Each item is the body of a
  * single note PUT (`note`) and/or tags PUT (`tags`), and each gets the status
  * and body those would respond with. The note is written before its tags, so
- * a new note can be sent along with its tags.
+ * a new note can be sent along with its tags. With `delete: true`, the note is
+ * deleted instead, as by a note DELETE (`deleted`).
  */
 export const POST: RequestHandler = async ({ locals, request }) => {
 	if (!locals.user) throw error(401, 'Unauthorized');
@@ -36,8 +43,11 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	}
 
 	const results = db.transaction((tx) =>
-		(items as Record<string, unknown>[]).map(({ id, note, tags }) => ({
+		(items as Record<string, unknown>[]).map(({ id, note, tags, delete: remove }) => ({
 			id,
+			...(remove === true && {
+				deleted: { status: deleteNote(tx, userId, id as string).status, body: null }
+			}),
 			...(isObject(note) && { note: outcome(writeNote(tx, userId, id as string, note)) }),
 			...(isObject(tags) && { tags: outcome(writeTags(tx, userId, id as string, tags)) })
 		}))

@@ -213,3 +213,36 @@ export function writeResultJson(result: WriteResult) {
 	if ('note' in result) return toNoteJson(result.note);
 	return { message: result.message };
 }
+
+/**
+ * Deletes a note the user owns, leaving a tombstone so the deletion syncs.
+ * Deleting twice is fine, e.g. when a client retries after losing the
+ * response. Run it in a transaction.
+ */
+export function deleteNote(
+	tx: Transaction,
+	userId: string,
+	noteId: string
+): { status: 204 | 403 | 404 } {
+	const note = tx
+		.select({ owner: notes.owner, deletedAt: notes.deletedAt })
+		.from(notes)
+		.where(eq(notes.id, noteId))
+		.get();
+	if (!note) return { status: 404 };
+	if (note.owner !== userId) return { status: 403 };
+	if (note.deletedAt) return { status: 204 };
+
+	const now = new Date();
+	const changedAt = changeStamp();
+	tx.update(notes)
+		.set({ content: null, deletedAt: now, updatedAt: now, changedAt })
+		.where(eq(notes.id, noteId))
+		.run();
+	// Everyone's tags are encrypted with the note key too, so they go along with the content.
+	tx.update(userNotes)
+		.set({ tags: null, tagsUpdatedAt: null, changedAt })
+		.where(eq(userNotes.noteId, noteId))
+		.run();
+	return { status: 204 };
+}

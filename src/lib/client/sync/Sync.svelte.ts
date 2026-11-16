@@ -193,13 +193,13 @@ async function applyNoteOutcome(
 	}
 }
 
-async function pushDeletion(note: Note<Uint8Array>) {
-	const response = await fetchOrOffline(`/api/notes/${note.id}`, { method: 'DELETE' });
+/** Handles what the server responded to deleting a note. */
+async function applyDeletionOutcome(note: Note<Uint8Array>, { status, body }: PushOutcome) {
 	// 404: the note was deleted before it ever reached the server.
-	if (response.ok || response.status === 404) {
+	if (status === 200 || status === 204 || status === 404) {
 		await markSynced(note);
 	} else {
-		throw await toApiError(response);
+		throw new ApiError(errorMessage(body), status);
 	}
 }
 
@@ -277,16 +277,17 @@ const BATCH_MAX_NOTES = 100;
 /** And at most about this much, well below the server's limit on the size of a request. */
 const BATCH_MAX_BYTES = 256 * 1024;
 
-/** A note and/or its tags to send, and what was sent, to handle the outcome with. */
+/** A note and/or its tags to send, or a deletion, and what was sent, to handle the outcome with. */
 interface PushItem {
 	id: string;
+	deletion?: Note<Uint8Array>;
 	note?: { local: Note<Uint8Array>; body: Record<string, unknown> };
 	tags?: { local: NoteKey; body: Record<string, unknown> };
 	/** Roughly how many bytes it adds to the request. */
 	size: number;
 }
 
-/** What to send for the given changes to notes (other than deletions) and tags. */
+/** What to send for the given changes to notes and tags. */
 async function getPushItems(userId: string, notes: Note<Uint8Array>[], noteKeys: NoteKey[]) {
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local, never rendered
 	const items = new Map<string, PushItem>();
@@ -300,6 +301,11 @@ async function getPushItems(userId: string, notes: Note<Uint8Array>[], noteKeys:
 		(await db.noteKeys.where({ userId }).toArray()).map((noteKey) => [noteKey.noteId, noteKey])
 	);
 	for (const note of notes) {
+		if (note.deletedAt) {
+			itemFor(note.id).deletion = note;
+			itemFor(note.id).size += 100;
+			continue;
+		}
 		const content = note.data.toBase64();
 		const item = itemFor(note.id);
 		item.note = {
@@ -358,24 +364,32 @@ async function pushBatch(batch: PushItem[], userId: string, attempt: Attempt) {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({
-			notes: batch.map(({ id, note, tags }) => ({ id, note: note?.body, tags: tags?.body }))
+			notes: batch.map(({ id, note, tags, deletion }) =>
+				deletion ? { id, delete: true } : { id, note: note?.body, tags: tags?.body }
+			)
 		})
 	});
 	if (!response.ok) throw await toApiError(response);
 	const { results } = (await response.json()) as {
-		results: { id: string; note?: PushOutcome; tags?: PushOutcome }[];
+		results: { id: string; note?: PushOutcome; tags?: PushOutcome; deleted?: PushOutcome }[];
 	};
 
 	// What was stored is marked as synced all at once. Every transaction updates the notes that
 	// are shown, which would take long for hundreds of them one by one.
+	const isDone = (outcome?: PushOutcome) => !!outcome && [200, 204, 404].includes(outcome.status);
 	await db.transaction('rw', db.notes, db.noteKeys, async () => {
-		for (const [i, { note, tags }] of batch.entries()) {
+		for (const [i, { note, tags, deletion }] of batch.entries()) {
+			if (deletion && isDone(results[i]?.deleted)) await markSynced(deletion);
 			if (note && results[i]?.note?.status === 200) await markSynced(note.local);
 			if (tags && results[i]?.tags?.status === 200) await markTagsSynced(tags.local);
 		}
 	});
-	for (const [i, { id, note, tags }] of batch.entries()) {
+	for (const [i, { id, note, tags, deletion }] of batch.entries()) {
 		const result = results[i];
+		if (deletion && result?.deleted && !isDone(result.deleted)) {
+			const outcome = result.deleted;
+			await attempt(id, () => applyDeletionOutcome(deletion, outcome));
+		}
 		if (note && result?.note && result.note.status !== 200) {
 			const outcome = result.note;
 			await attempt(id, () => applyNoteOutcome(note.local, userId, outcome));
@@ -388,8 +402,8 @@ async function pushBatch(batch: PushItem[], userId: string, attempt: Attempt) {
 }
 
 /**
- * Sends all local changes to the server: deletions one by one, and the rest in
- * batches, which is much faster when there are many, e.g. after an import.
+ * Sends all local changes to the server in batches, which is much faster than
+ * one by one when there are many, e.g. after an import.
  *
  * @returns Whether every change was sent.
  */
@@ -407,14 +421,7 @@ async function pushChanges(userId: string) {
 	};
 
 	const [notes, noteKeys] = await Promise.all([getPushableNotes(userId), getPushableTags(userId)]);
-	for (const note of notes.filter((note) => note.deletedAt)) {
-		await attempt(note.id, () => pushDeletion(note));
-	}
-	const items = await getPushItems(
-		userId,
-		notes.filter((note) => !note.deletedAt),
-		noteKeys
-	);
+	const items = await getPushItems(userId, notes, noteKeys);
 	for (const batch of inBatches(items)) {
 		await attempt(batch[0].id, () => pushBatch(batch, userId, attempt));
 	}
