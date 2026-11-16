@@ -428,8 +428,8 @@
 		}
 
 		/* The tag being merged into another one. */
-		&.merging {
-			background-color: color-mix(in srgb, var(--color-yellow) 35%, transparent);
+		&.merging input {
+			border: 1px solid var(--color-yellow);
 		}
 	}
 
@@ -468,8 +468,8 @@
 	.status {
 		/* Lined up with the name, past the handle. */
 		padding: 0 0 var(--spacing-sm) calc(18px + 3 * var(--spacing-sm));
-		font-size: 0.85rem;
-		opacity: 0.8;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
 
 		&.error {
 			opacity: 1;
@@ -499,12 +499,13 @@
 	}
 
 	/* The tags that can be merged into. */
-	.mergeButton.target {
-		background-color: color-mix(in srgb, var(--color-yellow) 35%, transparent);
+	.mergeButton.target:hover {
+		background-color: #8883;
 	}
 
 	.isMerging input:disabled {
 		opacity: 0.7;
+		color: var(--color-text-primary);
 	}
 
 	/* The tag being merged reads normally, as it's highlighted. */
