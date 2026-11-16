@@ -1,7 +1,8 @@
 /**
  * Importing notes from other apps. Each app is a source: its export is read in
- * a web worker (see `Import.worker.ts`), which turns it into `ImportedNote`s,
- * and those are then encrypted and saved like any other note (`ImportNotes.ts`).
+ * a web worker (see `Import.worker.ts`), which turns it into `ImportedNote`s.
+ * `ImportPlan.ts` then works out what will be imported, which the user
+ * confirms, and `ImportNotes.ts` saves the notes like any other note.
  *
  * To add a source, add it to `IMPORT_SOURCES`, and its parser to the worker.
  */
@@ -13,7 +14,7 @@ export const IMPORT_SOURCES = [
 		id: 'keep',
 		name: 'Google Keep',
 		description:
-			'Import the .zip with your Keep notes from Google Takeout. Archived notes go to the archive, and notes in the trash are skipped.',
+			'Import the .zip with your Keep notes from Google Takeout. Labels become tags, archived notes go to the archive, and notes in the trash are skipped.',
 		/** Given to every imported note, so they're easy to find and to tidy up. */
 		tag: 'Keep import',
 		/** For the file picker. */
@@ -30,7 +31,12 @@ export interface ImportedNote {
 	content: string;
 	color: NoteColor;
 	archived: boolean;
-	/** Milliseconds since the epoch. */
+	/** Labels or the like, which become tags. As named in the other app. */
+	labels: string[];
+	/**
+	 * Milliseconds since the epoch, a whole number. Also tells whether the note
+	 * was imported before (see `ImportPlan.ts`).
+	 */
 	createdAt: number;
 	/** Milliseconds since the epoch. */
 	updatedAt: number;

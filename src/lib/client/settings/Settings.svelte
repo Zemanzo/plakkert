@@ -2,11 +2,12 @@
 	import Button from '../components/Button.svelte';
 	import { localUser } from '../User.svelte';
 	import { db } from '../Database';
-	import { REMEMBERED_SESSION_DAYS } from '../auth/Session';
+	import { getUnlockedSession, REMEMBERED_SESSION_DAYS } from '../auth/Session';
 	import { decodeKey } from '../cryptography/PrivateKey';
 	import { fileDrop } from '../components/FileDrop';
 	import { IMPORT_SOURCES, type ImportSource, type ImportSourceId } from '../import';
-	import { importNotes, type ImportProgress, type ImportSummary } from '../import/ImportNotes';
+	import { prepareImport, saveImport } from '../import/ImportNotes';
+	import type { ImportPlan } from '../import/ImportPlan';
 	import { tagHref } from '../tags/TagLinks';
 	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
@@ -32,37 +33,64 @@
 		await db.users.update(localUser.data!.id, { preferences: $state.snapshot(settings) });
 	}
 
-	// One import at a time, whose progress or outcome is shown with its source.
-	let importState = $state<{
-		source: ImportSourceId;
-		progress?: ImportProgress;
-		summary?: ImportSummary;
-		error?: string;
-	} | null>(null);
-	const isImporting = $derived(!!importState && !importState.summary && !importState.error);
+	// One import at a time: the file is read first, and what it will import is shown, so the user
+	// can confirm it before anything is saved.
+	type ImportState = { source: ImportSourceId } & (
+		| { step: 'reading'; done: number; total: number }
+		| { step: 'confirming'; plan: ImportPlan }
+		| { step: 'saving'; plan: ImportPlan; done: number }
+		| { step: 'done'; plan: ImportPlan }
+		| { step: 'failed'; error: string }
+	);
+	let importState = $state<ImportState | null>(null);
+	const isImporting = $derived(importState?.step === 'reading' || importState?.step === 'saving');
 	const fileInputs = $state<Partial<Record<ImportSourceId, HTMLInputElement>>>({});
 
-	async function startImport(source: ImportSource, file: File) {
+	const importingUser = () => {
 		const user = localUser.data!;
-		importState = { source: source.id };
+		return {
+			id: user.id,
+			publicKeyUint8: decodeKey(user.publicKey),
+			decodedPrivateKey: getUnlockedSession()!.privateKey
+		};
+	};
+
+	function showImportError(source: ImportSource, error: unknown) {
+		console.warn('Import failed', error);
+		importState = {
+			source: source.id,
+			step: 'failed',
+			error: error instanceof Error ? error.message : 'The notes couldn’t be imported.'
+		};
+	}
+
+	async function readImport(source: ImportSource, file: File) {
+		importState = { source: source.id, step: 'reading', done: 0, total: 0 };
 		try {
-			const summary = await importNotes(
-				source,
-				file,
-				{ id: user.id, publicKeyUint8: decodeKey(user.publicKey) },
-				(progress) => (importState = { source: source.id, progress })
-			);
-			importState = { source: source.id, summary };
+			const plan = await prepareImport(source, file, importingUser(), (done, total) => {
+				importState = { source: source.id, step: 'reading', done, total };
+			});
+			importState = { source: source.id, step: 'confirming', plan };
 		} catch (error) {
-			console.warn('Import failed', error);
-			importState = {
-				source: source.id,
-				error: error instanceof Error ? error.message : 'The notes couldn’t be imported.'
-			};
+			showImportError(source, error);
+		}
+	}
+
+	async function confirmImport(plan: ImportPlan) {
+		const source = plan.source.id;
+		importState = { source, step: 'saving', plan, done: 0 };
+		try {
+			await saveImport(plan, importingUser(), (done) => {
+				importState = { source, step: 'saving', plan, done };
+			});
+			importState = { source, step: 'done', plan };
+		} catch (error) {
+			showImportError(plan.source, error);
 		}
 	}
 
 	const notesCount = (count: number) => (count === 1 ? '1 note' : `${count} notes`);
+	const were = (count: number) => (count === 1 ? 'was' : 'were');
 	const MAX_FAILED_NAMES = 3;
 </script>
 
@@ -120,43 +148,86 @@
 				{@const state = importState?.source === source.id ? importState : null}
 				<div
 					class="preferenceItem"
-					{@attach fileDrop((file) => startImport(source, file), !isImporting)}
+					{@attach fileDrop((file) => readImport(source, file), !isImporting)}
 				>
 					<div>
 						<label for="import-{source.id}">{source.name}</label>
 						<p>{source.description} Imported notes get the tag “{source.tag}”.</p>
 						{#if state}
-							<p class="importStatus" role="status">
-								{#if state.error}
-									<span class="error">{state.error}</span>
-								{:else if state.summary}
-									{@const { imported, archived, trashed, failed } = state.summary}
-									Imported {notesCount(imported)}{archived > 0
-										? `, of which ${archived} to the archive`
-										: ''}.
-									{#if imported > 0}
+							<div class="importStatus" aria-live="polite">
+								{#if state.step === 'failed'}
+									<p class="error">{state.error}</p>
+								{:else if state.step === 'reading'}
+									<p>
+										{state.total > 0
+											? `Reading notes… ${state.done} of ${state.total}`
+											: 'Reading the file…'}
+									</p>
+								{:else if state.step === 'saving'}
+									<p>Saving notes… {state.done} of {state.plan.notes.length}</p>
+								{:else if state.step === 'done'}
+									<p>
+										Imported {notesCount(state.plan.notes.length)}.
 										<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it -->
 										<a href={tagHref(source.tag)}>View them</a>
+									</p>
+								{:else}
+									{@const { notes, archived, labels, duplicates, trashed, failed } = state.plan}
+									<p class="importSummary">
+										{notes.length > 0
+											? `Ready to import ${notesCount(notes.length)}${archived > 0 ? `, of which ${archived} to the archive` : ''}.`
+											: 'There are no new notes to import.'}
+									</p>
+									{#if labels.length > 0}
+										<p>
+											{labels.length === 1
+												? 'Their label becomes a tag:'
+												: `Their ${labels.length} labels become tags:`}
+										</p>
+										<ul class="importLabels">
+											{#each labels as label (label.name)}
+												<li title={notesCount(label.notes)}>
+													{label.name}
+													<span class="count">{label.notes}</span>
+													{#if !label.isNewTag}<span class="existing">existing tag</span>{/if}
+												</li>
+											{/each}
+										</ul>
+									{/if}
+									{#if duplicates > 0}
+										<p>
+											Skipping {notesCount(duplicates)} that {were(duplicates)} imported before.
+										</p>
 									{/if}
 									{#if trashed > 0}
-										Left out {notesCount(trashed)} that {trashed === 1 ? 'was' : 'were'} in the trash.
+										<p>Leaving out {notesCount(trashed)} that {were(trashed)} in the trash.</p>
 									{/if}
 									{#if failed.length > 0}
-										<span class="error">
+										<p class="error">
 											{failed.length === 1 ? '1 file' : `${failed.length} files`} couldn’t be read: {failed
 												.slice(0, MAX_FAILED_NAMES)
 												.join(', ')}{failed.length > MAX_FAILED_NAMES
 												? ` and ${failed.length - MAX_FAILED_NAMES} more`
 												: ''}.
-										</span>
+										</p>
 									{/if}
-								{:else if state.progress}
-									{state.progress.step === 'reading' ? 'Reading' : 'Saving'} notes… {state.progress
-										.done} of {state.progress.total}
-								{:else}
-									Reading the file…
+									<div class="importActions">
+										{#if notes.length > 0}
+											<Button class="sm" onclick={() => confirmImport(state.plan)}>
+												Import {notesCount(notes.length)}
+											</Button>
+										{/if}
+										<Button
+											class="sm"
+											--bg="var(--color-input-background)"
+											--text="var(--color-text-primary)"
+											onclick={() => (importState = null)}
+										>
+											{notes.length > 0 ? 'Cancel' : 'OK'}
+										</Button>
+									</div>
 								{/if}
-							</p>
+							</div>
 						{/if}
 					</div>
 					<input
@@ -168,7 +239,7 @@
 						onchange={(event) => {
 							const file = event.currentTarget.files?.[0];
 							event.currentTarget.value = '';
-							if (file) startImport(source, file);
+							if (file) readImport(source, file);
 						}}
 					/>
 					<Button class="sm" disabled={isImporting} onclick={() => fileInputs[source.id]?.click()}>
@@ -235,8 +306,19 @@
 				}
 
 				.importStatus {
-					margin-top: var(--spacing-sm);
-					color: var(--color-text-primary);
+					display: flex;
+					flex-direction: column;
+					gap: var(--spacing-sm);
+					margin-block: var(--spacing-md) var(--spacing-sm);
+
+					p {
+						color: var(--color-text-primary);
+					}
+
+					.importSummary {
+						font-size: 0.9rem;
+						font-weight: 500;
+					}
 
 					a {
 						text-decoration: underline;
@@ -245,6 +327,33 @@
 					.error {
 						color: var(--color-red);
 					}
+				}
+
+				.importLabels {
+					display: flex;
+					flex-wrap: wrap;
+					gap: var(--spacing-xs) var(--spacing-sm);
+					font-size: 0.8rem;
+
+					li {
+						display: flex;
+						align-items: center;
+						gap: var(--spacing-sm);
+						padding: var(--spacing-xs) var(--spacing-md);
+						border-radius: 999px;
+						background: var(--color-input-background);
+					}
+
+					.count,
+					.existing {
+						color: var(--color-text-muted);
+					}
+				}
+
+				.importActions {
+					display: flex;
+					gap: var(--spacing-sm);
+					margin-top: var(--spacing-xs);
 				}
 
 				/* Set by the fileDrop attachment. */

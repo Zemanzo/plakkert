@@ -1,7 +1,36 @@
 import { db } from '../Database';
-import { decryptTags, encryptTags } from '../serialization/Serialize';
+import { decryptNoteKey, decryptTags, encryptTags } from '../serialization/Serialize';
 import { syncEngine } from '../sync/Sync.svelte';
-import type { NoteTags } from './Tags';
+import type { RuntimeUser } from '#lib/types.js';
+import { userTags, type NoteTags } from './Tags';
+
+/**
+ * The names of all the user's own tags, read straight from the database, for
+ * where the notes aren't loaded, such as the settings.
+ */
+export async function loadTagNames(
+	user: Pick<RuntimeUser, 'id' | 'publicKeyUint8' | 'decodedPrivateKey'>
+) {
+	const rows = await db.noteKeys.where({ userId: user.id }).toArray();
+	const names = new Set<string>();
+	await Promise.all(
+		rows.map(async ({ encryptedKey, tags }) => {
+			if (!tags) return;
+			try {
+				const noteKey = await decryptNoteKey(
+					encryptedKey,
+					user.publicKeyUint8,
+					user.decodedPrivateKey
+				);
+				for (const tag of userTags(await decryptTags(tags, noteKey))) names.add(tag);
+			} catch (error) {
+				// The notes view leaves out these tags as well.
+				console.warn('Could not read the tags of a note', error);
+			}
+		})
+	);
+	return names;
+}
 
 /**
  * Replaces the user's tags for a note. Like note edits, this is written to

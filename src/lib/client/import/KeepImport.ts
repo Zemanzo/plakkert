@@ -1,8 +1,8 @@
 /**
  * Reads the notes from a Google Takeout of Google Keep. The zip has a JSON and
  * an HTML file for every note, in `Takeout/Keep/`; only the JSON is used. Only
- * the text, checklists and colour are brought over, not formatting, images or
- * labels.
+ * the text, checklists, colour and labels are brought over, not formatting or
+ * images.
  */
 
 import { DEFAULT_NOTE_COLOR, type NoteColor } from '../note/NoteColors';
@@ -18,6 +18,7 @@ interface KeepNote {
 	isArchived?: boolean;
 	textContent?: string;
 	listContent?: { text?: string; isChecked?: boolean }[];
+	labels?: { name?: string }[];
 	/** Microseconds since the epoch. */
 	createdTimestampUsec?: number;
 	/** Microseconds since the epoch. */
@@ -59,7 +60,9 @@ export function convertKeepNote(json: unknown): ImportedNote | null {
 	if (!isKeepNote(json)) throw new Error('Not a Google Keep note');
 	if (json.isTrashed) return null;
 
-	const createdAt = json.createdTimestampUsec! / 1000;
+	// Dates are stored in whole milliseconds.
+	const toMs = (usec: number) => Math.floor(usec / 1000);
+	const createdAt = toMs(json.createdTimestampUsec!);
 	return {
 		content: noteHtml({
 			title: json.title,
@@ -72,8 +75,9 @@ export function convertKeepNote(json: unknown): ImportedNote | null {
 		// The default colour is white, which notes here don't have.
 		color: KEEP_COLORS[json.color ?? ''] ?? DEFAULT_NOTE_COLOR,
 		archived: json.isArchived === true,
+		labels: (json.labels ?? []).flatMap((label) => (label.name ? [label.name] : [])),
 		createdAt,
-		updatedAt: json.userEditedTimestampUsec ? json.userEditedTimestampUsec / 1000 : createdAt
+		updatedAt: json.userEditedTimestampUsec ? toMs(json.userEditedTimestampUsec) : createdAt
 	};
 }
 

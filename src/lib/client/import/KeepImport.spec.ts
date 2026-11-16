@@ -33,13 +33,14 @@ const listNote = {
 const json = (value: unknown) => strToU8(JSON.stringify(value));
 
 describe('convertKeepNote', () => {
-	it('converts a text note, keeping its colour, dates and whether it is archived', () => {
+	it('converts a text note, keeping its colour, labels, dates and whether it is archived', () => {
 		expect(convertKeepNote(textNote)).toEqual({
 			content:
 				'<h1>LEKKERE KIP</h1><p>Ketjap manis, kerriepoeder en knoflook.</p>' +
 				'<p>Paar uurtjes in de koelkast. 🌶️</p>',
 			color: 'yellow',
 			archived: true,
+			labels: ['Recipes'],
 			createdAt: 1697810051695,
 			updatedAt: 1697810051695
 		});
@@ -53,6 +54,7 @@ describe('convertKeepNote', () => {
 				'<li data-type="taskItem" data-checked="false"><p>Appels</p></li></ul>',
 			color: 'red',
 			archived: false,
+			labels: [],
 			createdAt: 1783110222066,
 			updatedAt: 1783319048333
 		});
@@ -76,6 +78,11 @@ describe('convertKeepNote', () => {
 	it('uses the creation date when the note was never edited', () => {
 		const note = convertKeepNote({ ...textNote, userEditedTimestampUsec: undefined })!;
 		expect(note.updatedAt).toBe(note.createdAt);
+	});
+
+	it('rounds dates down to whole milliseconds, as they are stored', () => {
+		const note = convertKeepNote({ ...textNote, createdTimestampUsec: 1697810051695999 })!;
+		expect(note.createdAt).toBe(1697810051695);
 	});
 
 	it('refuses anything that is not a Keep note', () => {

@@ -41,9 +41,10 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
     settings. It then stays unlocked on that device until it hasn't been used for 30 days.
 - Two notes side by side on phones, if you prefer (in the settings)
 - Importing notes from Google Keep, from a Google Takeout zip (in the settings). Text, checklists,
-  colours and dates come along, as does whether a note was archived; formatting, images and labels
-  don't. Imported notes get the tag "Keep import". Other apps can be added in
-  `src/lib/client/import/`.
+  colours and dates come along, labels become tags, and archived notes go to the archive;
+  formatting and images don't come along. Imported notes get the tag "Keep import". What will be
+  imported is shown first, to confirm, and notes that were imported before are skipped. Other
+  apps can be added in `src/lib/client/import/`.
 - Invite-only registration (see below)
 
 ## How encryption works

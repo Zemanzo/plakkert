@@ -1,6 +1,17 @@
 import { strToU8, zipSync } from 'fflate';
 import type { Page } from '@playwright/test';
-import { expect, goTo, navLink, newNote, note, syncNow, test, uniqueName, url } from './helpers';
+import {
+	addTag,
+	expect,
+	goTo,
+	navLink,
+	newNote,
+	note,
+	syncNow,
+	test,
+	uniqueName,
+	url
+} from './helpers';
 
 const keepNote = (fields: Record<string, unknown>) =>
 	strToU8(
@@ -11,7 +22,6 @@ const keepNote = (fields: Record<string, unknown>) =>
 			isArchived: false,
 			textContent: '',
 			title: '',
-			createdTimestampUsec: Date.UTC(2024, 0, 1) * 1000,
 			userEditedTimestampUsec: Date.UTC(2024, 0, 2) * 1000,
 			...fields
 		})
@@ -27,20 +37,28 @@ const takeout = zipSync({
 		listContent: [
 			{ text: 'Apples', textHtml: '<p>Apples</p>', isChecked: true },
 			{ text: 'Pears', textHtml: '<p>Pears</p>', isChecked: false }
-		]
+		],
+		labels: [{ name: 'Shopping' }],
+		createdTimestampUsec: Date.UTC(2024, 0, 1) * 1000
 	}),
 	'Takeout/Keep/Groceries.html': strToU8('<html></html>'),
 	'Takeout/Keep/Recipe.json': keepNote({
 		title: 'Spicy chicken',
 		textContent: 'Soy sauce & garlic\nA few hours in the fridge',
-		isArchived: true
+		isArchived: true,
+		labels: [{ name: 'recipes' }],
+		createdTimestampUsec: Date.UTC(2023, 5, 1) * 1000
 	}),
-	'Takeout/Keep/Old.json': keepNote({ title: 'Thrown away', isTrashed: true })
+	'Takeout/Keep/Old.json': keepNote({
+		title: 'Thrown away',
+		isTrashed: true,
+		createdTimestampUsec: Date.UTC(2022, 0, 1) * 1000
+	})
 });
 
 const importStatus = (page: Page) => page.locator('.importStatus');
 
-async function importFile(page: Page, name: string, buffer: Buffer | Uint8Array) {
+async function chooseFile(page: Page, name: string, buffer: Buffer | Uint8Array) {
 	await page.goto(url('/settings'));
 	await page.locator('#import-keep').setInputFiles({
 		name,
@@ -53,12 +71,34 @@ test('notes can be imported from a Google Keep takeout', async ({ app }) => {
 	const username = uniqueName('import');
 	const { page } = await app.register(username);
 	await newNote(page, 'Already here');
+	await addTag(page, 'Already here', 'Recipes');
 
-	await test.step('importing tells what was imported', async () => {
-		await importFile(page, 'takeout-20261116.zip', takeout);
-		await expect(importStatus(page)).toHaveText(
-			/Imported 2 notes, of which 1 to the archive\.\s*View them\s*Left out 1 note that was in the trash\./
-		);
+	await test.step('it first tells what will be imported, and waits for a go', async () => {
+		await chooseFile(page, 'takeout-20261116.zip', takeout);
+		const status = importStatus(page);
+		await expect(status).toContainText('Ready to import 2 notes, of which 1 to the archive.');
+		await expect(status).toContainText('Their 2 labels become tags:');
+		await expect(status.locator('.importLabels li')).toHaveText([
+			/Recipes\s*1\s*existing tag/,
+			/Shopping\s*1/
+		]);
+		await expect(status).toContainText('Leaving out 1 note that was in the trash.');
+		await page.goto(url('/'));
+		await expect(note(page, 'Groceries')).toHaveCount(0);
+	});
+
+	await test.step('cancelling imports nothing', async () => {
+		await chooseFile(page, 'takeout-20261116.zip', takeout);
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await expect(importStatus(page)).toHaveCount(0);
+		await page.goto(url('/'));
+		await expect(note(page, 'Groceries')).toHaveCount(0);
+	});
+
+	await test.step('confirming imports them', async () => {
+		await chooseFile(page, 'takeout-20261116.zip', takeout);
+		await page.getByRole('button', { name: 'Import 2 notes' }).click();
+		await expect(importStatus(page)).toHaveText(/Imported 2 notes\.\s*View them/);
 	});
 
 	await test.step('they get the import tag', async () => {
@@ -67,6 +107,14 @@ test('notes can be imported from a Google Keep takeout', async ({ app }) => {
 		await expect(note(page, 'Groceries')).toBeVisible();
 		await expect(note(page, 'Spicy chicken')).toBeVisible();
 		await expect(note(page, 'Already here')).toHaveCount(0);
+	});
+
+	await test.step('their labels become tags, joining existing ones', async () => {
+		await goTo(page, 'Recipes');
+		await expect(note(page, 'Already here')).toBeVisible();
+		await expect(note(page, 'Spicy chicken')).toBeVisible();
+		await goTo(page, 'Shopping');
+		await expect(page.locator('[data-note-id]')).toHaveText([/Groceries/]);
 	});
 
 	await test.step('with their text, checklists and colour, but no formatting', async () => {
@@ -90,7 +138,17 @@ test('notes can be imported from a Google Keep takeout', async ({ app }) => {
 		await expect(recipe).toHaveAttribute('style', /--color-yellow/);
 	});
 
+	await test.step('importing them again skips them', async () => {
+		await chooseFile(page, 'takeout-20261116.zip', takeout);
+		const status = importStatus(page);
+		await expect(status).toContainText('There are no new notes to import.');
+		await expect(status).toContainText('Skipping 2 notes that were imported before.');
+		await expect(page.getByRole('button', { name: /^Import/ })).toHaveCount(0);
+		await page.getByRole('button', { name: 'OK' }).click();
+	});
+
 	await test.step('they sync to other devices', async () => {
+		await page.goto(url('/'));
 		await syncNow(page);
 		const other = await app.login(username);
 		await expect(note(other.page, 'Groceries')).toBeVisible();
@@ -102,9 +160,9 @@ test('notes can be imported from a Google Keep takeout', async ({ app }) => {
 test('importing something that is not a Keep takeout explains why', async ({ app }) => {
 	const { page } = await app.register(uniqueName('badImport'));
 
-	await importFile(page, 'notes.zip', strToU8('not a zip'));
+	await chooseFile(page, 'notes.zip', strToU8('not a zip'));
 	await expect(importStatus(page)).toHaveText('This file isn’t a .zip file, or it’s damaged.');
 
-	await importFile(page, 'photos.zip', zipSync({ 'Takeout/Photos/photo.jpg': new Uint8Array(4) }));
+	await chooseFile(page, 'photos.zip', zipSync({ 'Takeout/Photos/photo.jpg': new Uint8Array(4) }));
 	await expect(importStatus(page)).toHaveText('There are no Google Keep notes in this file.');
 });
