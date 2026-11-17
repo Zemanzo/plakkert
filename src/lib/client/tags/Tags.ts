@@ -6,18 +6,27 @@
  * Archiving and trashing a note are special tags as well. They start with a
  * `$`, which tags typed by the user can't. So is the note's place in the
  * user's own order, `$position`, whose value is a sort key rather than a time.
- * A note whose text is hidden while it's closed has `$hidden`, and the message
- * shown in its place, if any, is the rest of a tag starting with
- * `$hiddenMessage:`. It's kept when the note is shown again, for if it's hidden
- * again later.
+ * A note whose text is hidden while it's closed has `$hidden`.
  */
 export type NoteTags = Record<string, number>;
+
+/**
+ * What a user keeps of their own for a note: their tags, and the message shown
+ * in place of the note's text while it's hidden ('' for none). They're
+ * encrypted and synced together. The message is kept when the note is shown
+ * again, for if it's hidden again later.
+ */
+export interface NoteUserData {
+	tags: NoteTags;
+	hiddenMessage: string;
+}
 
 export const ARCHIVED_TAG = '$archived';
 export const TRASHED_TAG = '$trashed';
 export const POSITION_TAG = '$position';
 export const HIDDEN_TAG = '$hidden';
-const HIDDEN_MESSAGE_PREFIX = '$hiddenMessage:';
+/** Where the message is stored, next to the tags. Its value is text rather than a time. */
+const HIDDEN_MESSAGE_KEY = '$hiddenMessage';
 
 export const MAX_HIDDEN_MESSAGE_LENGTH = 100;
 
@@ -118,21 +127,26 @@ export const isArchived = (tags: NoteTags) => hasTag(tags, ARCHIVED_TAG);
 export const isTrashed = (tags: NoteTags) => hasTag(tags, TRASHED_TAG);
 export const isHidden = (tags: NoteTags) => hasTag(tags, HIDDEN_TAG);
 
-/** The message shown in place of the note's text while it's hidden, or '' if there is none. */
-export function hiddenMessage(tags: NoteTags) {
-	const tag = Object.keys(tags).find((tag) => tag.startsWith(HIDDEN_MESSAGE_PREFIX));
-	return tag?.slice(HIDDEN_MESSAGE_PREFIX.length) ?? '';
+/** Trims the message shown in place of a hidden note's text, and limits its length. */
+export function normalizeHiddenMessage(message: string) {
+	return normalizeTagName(message).slice(0, MAX_HIDDEN_MESSAGE_LENGTH);
 }
 
-/** Sets the message shown in place of a hidden note's text, or removes it when empty. */
-export function withHiddenMessage(tags: NoteTags, message: string, now = Date.now()): NoteTags {
-	const normalized = normalizeTagName(message).slice(0, MAX_HIDDEN_MESSAGE_LENGTH);
-	if (normalized === hiddenMessage(tags)) return tags;
-	const result = Object.fromEntries(
-		Object.entries(tags).filter(([tag]) => !tag.startsWith(HIDDEN_MESSAGE_PREFIX))
-	);
-	if (normalized) result[HIDDEN_MESSAGE_PREFIX + normalized] = now;
-	return result;
+/** The user's data for a note as it's encrypted: the tags, with the message next to them. */
+export function serializeNoteUserData({ tags, hiddenMessage }: NoteUserData) {
+	return hiddenMessage ? { ...tags, [HIDDEN_MESSAGE_KEY]: hiddenMessage } : tags;
+}
+
+/** Reads the user's data for a note from what was decrypted, see `serializeNoteUserData`. */
+export function parseNoteUserData(value: unknown): NoteUserData {
+	const message =
+		typeof value === 'object' && value !== null
+			? (value as Record<string, unknown>)[HIDDEN_MESSAGE_KEY]
+			: undefined;
+	return {
+		tags: parseTags(value),
+		hiddenMessage: typeof message === 'string' ? normalizeHiddenMessage(message) : ''
+	};
 }
 
 /** When a trashed note will be deleted for good, or null if it isn't in the trash. */

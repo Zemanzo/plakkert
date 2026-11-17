@@ -110,15 +110,63 @@ input {
     }
   }
 
+  /* Drawn with the theme's colours, rather than the browser's own checkbox, which is hard to see
+     on a dark background. */
   &[type='checkbox'].plainCheckbox {
+    position: relative;
     flex-shrink: 0;
+    appearance: none;
     width: 1rem;
     height: 1rem;
     margin: 0;
     padding: 0;
-    border: revert;
-    background: revert;
-    accent-color: var(--color-yellow);
+    border: 2px solid rgba(from var(--color-text-primary) r g b / 0.6);
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-text-primary);
+    }
+
+    &:checked,
+    &:indeterminate {
+      border-color: var(--color-yellow);
+      background: var(--color-yellow);
+    }
+
+    /* A tick, or a dash for "some of them". */
+    &:checked::before,
+    &:indeterminate::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      box-sizing: border-box;
+      border: solid #161616;
+    }
+
+    /* The two strokes of a tick: the corner of an L turned on its side. Moved up and to the left
+       a little, as turning it puts its weight at the bottom right. */
+    &:checked::before {
+      width: 5px;
+      height: 9px;
+      border-width: 0 2px 2px 0;
+      translate: -65% -62%;
+      rotate: 45deg;
+    }
+
+    &:indeterminate::before {
+      width: 8px;
+      height: 2px;
+      border-width: 2px 0 0;
+      translate: -50% -50%;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
   }
 }
 

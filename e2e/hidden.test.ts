@@ -72,4 +72,14 @@ test('notes can be hidden while closed, with a message in their place', async ({
 		await expect(hidden).toHaveCount(0);
 		await expect(note(page, 'Secret plans')).toBeVisible();
 	});
+
+	await test.step('its message stays for when it’s hidden again, also when tags change', async () => {
+		await note(page, 'Secret plans').click({ modifiers: ['ControlOrMeta'] });
+		await bar.getByRole('button', { name: 'Tags' }).click();
+		await page.fill('#selectionTags input[aria-label="Tag name"]', 'Extra');
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('Escape');
+		await bar.getByRole('button', { name: 'Hide' }).click();
+		await expect(hidden).toHaveText(/Birthday/);
+	});
 });

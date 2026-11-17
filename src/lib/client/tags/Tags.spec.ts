@@ -4,11 +4,13 @@ import {
 	daysUntilDeleted,
 	findExistingTag,
 	HIDDEN_TAG,
-	hiddenMessage,
 	isArchived,
 	isHidden,
 	MAX_HIDDEN_MESSAGE_LENGTH,
-	withHiddenMessage,
+	normalizeHiddenMessage,
+	parseNoteUserData,
+	serializeNoteUserData,
+	type NoteUserData,
 	isTrashed,
 	isTrashExpired,
 	normalizeTagName,
@@ -125,28 +127,25 @@ describe('trash', () => {
 });
 
 describe('hidden notes', () => {
-	it('keeps the message in a tag of its own, which isn’t one of the user’s tags', () => {
-		const tags = withHiddenMessage({ [HIDDEN_TAG]: 1, work: 2 }, '  Gift  ideas ', 3);
-		expect(isHidden(tags)).toBe(true);
-		expect(hiddenMessage(tags)).toBe('Gift ideas');
-		expect(userTags(tags)).toEqual(['work']);
-		expect(hiddenMessage(parseTags(JSON.parse(JSON.stringify(tags))))).toBe('Gift ideas');
+	const roundTrip = (data: NoteUserData) =>
+		parseNoteUserData(JSON.parse(JSON.stringify(serializeNoteUserData(data))));
+
+	it('keeps the message next to the tags, rather than as one of them', () => {
+		const data = roundTrip({ tags: { [HIDDEN_TAG]: 1, work: 2 }, hiddenMessage: 'Gift ideas' });
+		expect(data).toEqual({ tags: { [HIDDEN_TAG]: 1, work: 2 }, hiddenMessage: 'Gift ideas' });
+		expect(isHidden(data.tags)).toBe(true);
+		expect(userTags(data.tags)).toEqual(['work']);
 	});
 
-	it('replaces or removes the message', () => {
-		const tags = withHiddenMessage({ [HIDDEN_TAG]: 1 }, 'One', 2);
-		expect(Object.keys(withHiddenMessage(tags, 'Two', 3))).toEqual([
-			HIDDEN_TAG,
-			'$hiddenMessage:Two'
-		]);
-		expect(withHiddenMessage(tags, ' ', 3)).toEqual({ [HIDDEN_TAG]: 1 });
-		expect(withHiddenMessage(tags, 'One', 3)).toBe(tags);
-		expect(hiddenMessage({})).toBe('');
+	it('reads tags without a message, and leaves out an empty one', () => {
+		expect(parseNoteUserData({ work: 1 })).toEqual({ tags: { work: 1 }, hiddenMessage: '' });
+		expect(serializeNoteUserData({ tags: { work: 1 }, hiddenMessage: '' })).toEqual({ work: 1 });
+		expect(parseNoteUserData({ $hiddenMessage: 5 }).hiddenMessage).toBe('');
 	});
 
-	it('limits the length of the message', () => {
-		const tags = withHiddenMessage({}, 'x'.repeat(200));
-		expect(hiddenMessage(tags)).toHaveLength(MAX_HIDDEN_MESSAGE_LENGTH);
+	it('trims the message and limits its length', () => {
+		expect(normalizeHiddenMessage('  Gift  ideas ')).toBe('Gift ideas');
+		expect(normalizeHiddenMessage('x'.repeat(200))).toHaveLength(MAX_HIDDEN_MESSAGE_LENGTH);
 	});
 });
 

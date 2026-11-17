@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { decryptTags, encryptTags, generateUserKeys, getNoteKey } from './Serialize';
+import {
+	decryptNoteUserData,
+	decryptTags,
+	encryptTags,
+	generateUserKeys,
+	getNoteKey
+} from './Serialize';
 
 describe('tag encryption', () => {
 	it('round-trips tags with the note key', async () => {
@@ -10,6 +16,21 @@ describe('tag encryption', () => {
 		const encrypted = await encryptTags(tags, noteKey);
 
 		expect(new TextDecoder().decode(encrypted)).not.toContain('work');
+		expect(await decryptTags(encrypted, noteKey)).toEqual(tags);
+	});
+
+	it('keeps the message of a hidden note with them', async () => {
+		const { publicKey } = await generateUserKeys();
+		const { noteKey } = await getNoteKey(publicKey);
+		const tags = { work: 1, $hidden: 2 };
+
+		const encrypted = await encryptTags(tags, noteKey, 'Gift ideas');
+
+		expect(new TextDecoder().decode(encrypted)).not.toContain('Gift');
+		expect(await decryptNoteUserData(encrypted, noteKey)).toEqual({
+			tags,
+			hiddenMessage: 'Gift ideas'
+		});
 		expect(await decryptTags(encrypted, noteKey)).toEqual(tags);
 	});
 

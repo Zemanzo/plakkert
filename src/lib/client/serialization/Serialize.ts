@@ -1,6 +1,6 @@
 import _sodium from 'libsodium-wrappers';
 import type { Note } from '../Database';
-import { parseTags, type NoteTags } from '../tags/Tags';
+import { parseNoteUserData, serializeNoteUserData, type NoteTags } from '../tags/Tags';
 
 async function initCrypto() {
 	// Always wait for the WASM binary to load completely
@@ -85,14 +85,22 @@ export async function decryptNoteData(encryptedData: Uint8Array, noteKey: Uint8A
 	return (await decryptJson(encryptedData, noteKey)) as Note['data'];
 }
 
-/** Encrypts a user's tags for a note with the note key, so the server can't read them. */
-export async function encryptTags(tags: NoteTags, noteKey: Uint8Array) {
-	return encryptJson(tags, noteKey);
+/**
+ * Encrypts a user's tags for a note with the note key, so the server can't read them, together
+ * with the message shown while the note is hidden.
+ */
+export async function encryptTags(tags: NoteTags, noteKey: Uint8Array, hiddenMessage = '') {
+	return encryptJson(serializeNoteUserData({ tags, hiddenMessage }), noteKey);
 }
 
-/** Decrypts tags that were encrypted with {@link encryptTags}. */
+/** Decrypts the tags and message that were encrypted with {@link encryptTags}. */
+export async function decryptNoteUserData(encryptedTags: Uint8Array, noteKey: Uint8Array) {
+	return parseNoteUserData(await decryptJson(encryptedTags, noteKey));
+}
+
+/** Decrypts just the tags that were encrypted with {@link encryptTags}. */
 export async function decryptTags(encryptedTags: Uint8Array, noteKey: Uint8Array) {
-	return parseTags(await decryptJson(encryptedTags, noteKey));
+	return (await decryptNoteUserData(encryptedTags, noteKey)).tags;
 }
 
 /**

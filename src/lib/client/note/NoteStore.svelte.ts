@@ -1,6 +1,6 @@
 import { liveQuery } from 'dexie';
 import { db, type Note, type NotePermission } from '../Database';
-import { decryptNoteData, decryptNoteKey, decryptTags } from '../serialization/Serialize';
+import { decryptNoteData, decryptNoteKey, decryptNoteUserData } from '../serialization/Serialize';
 import { buildSearchText, htmlToText, normalizeForSearch } from '../search/Search';
 import {
 	decryptSyncedSettings,
@@ -8,11 +8,11 @@ import {
 	type SyncedSettings
 } from '../settings/SyncedSettings';
 import {
-	hiddenMessage,
 	isTrashed,
 	tagOrderComparator,
 	userTags,
-	type NoteTags
+	type NoteTags,
+	type NoteUserData
 } from '../tags/Tags';
 import type { RuntimeUser } from '#lib/types.js';
 
@@ -24,6 +24,8 @@ export interface NoteEntry {
 	permission: NotePermission;
 	/** The user's own tags for the note, including whether it is archived or trashed. */
 	tags: NoteTags;
+	/** Shown in place of the note's text while it's hidden, or '' for none. The user's own too. */
+	hiddenMessage: string;
 	/** The note's text and tags, normalized for searching. */
 	searchText: string;
 }
@@ -89,7 +91,7 @@ export class NoteStore {
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#notes = new Map<string, { updatedAt: number; note: Note; normalizedText: string }>();
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
-	#tags = new Map<string, { encrypted: Uint8Array | undefined; tags: NoteTags }>();
+	#tags = new Map<string, { encrypted: Uint8Array | undefined; data: NoteUserData }>();
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#entries = new Map<string, NoteEntry>();
 
@@ -182,18 +184,19 @@ export class NoteStore {
 		}
 
 		// A note whose tags can't be decrypted is still shown, just without its tags.
-		let tags: NoteTags = {};
+		let data: NoteUserData = { tags: {}, hiddenMessage: '' };
 		const cachedTags = this.#tags.get(id);
 		if (cachedTags && sameBytes(cachedTags.encrypted, row.encryptedTags)) {
-			tags = cachedTags.tags;
+			data = cachedTags.data;
 		} else {
 			try {
-				tags = row.encryptedTags ? await decryptTags(row.encryptedTags, noteKey) : {};
+				if (row.encryptedTags) data = await decryptNoteUserData(row.encryptedTags, noteKey);
 			} catch (error) {
 				console.error(`Failed to decrypt the tags of note ${id}`, error);
 			}
-			this.#tags.set(id, { encrypted: row.encryptedTags, tags });
+			this.#tags.set(id, { encrypted: row.encryptedTags, data });
 		}
+		const { tags, hiddenMessage } = data;
 
 		// The same entry as before if nothing changed, so only notes that did change are updated in
 		// the page. Otherwise, every save would update every note that is shown.
@@ -201,6 +204,7 @@ export class NoteStore {
 		if (
 			previous?.note === note &&
 			previous.tags === tags &&
+			previous.hiddenMessage === hiddenMessage &&
 			previous.noteKey === noteKey &&
 			previous.permission === row.permission
 		) {
@@ -211,9 +215,10 @@ export class NoteStore {
 			noteKey,
 			permission: row.permission,
 			tags,
+			hiddenMessage,
 			// A hidden note can also be found by the message shown in its place.
 			searchText: buildSearchText(
-				[normalizedText, normalizeForSearch(hiddenMessage(tags))].join('\n'),
+				[normalizedText, normalizeForSearch(hiddenMessage)].join('\n'),
 				userTags(tags)
 			)
 		};

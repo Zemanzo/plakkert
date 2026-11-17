@@ -1,8 +1,13 @@
 import { db } from '../Database';
-import { decryptNoteKey, decryptTags, encryptTags } from '../serialization/Serialize';
+import {
+	decryptNoteKey,
+	decryptNoteUserData,
+	decryptTags,
+	encryptTags
+} from '../serialization/Serialize';
 import { syncEngine } from '../sync/Sync.svelte';
 import type { RuntimeUser } from '#lib/types.js';
-import { userTags, type NoteTags } from './Tags';
+import { normalizeHiddenMessage, userTags, type NoteTags, type NoteUserData } from './Tags';
 
 /**
  * The names of all the user's own tags, read straight from the database, for
@@ -33,22 +38,22 @@ export async function loadTagNames(
 }
 
 /**
- * Replaces the user's tags for a note. Like note edits, this is written to
- * IndexedDB first and synced in the background, so it also works offline.
+ * Replaces the user's tags and message for a note. Like note edits, this is
+ * written to IndexedDB first and synced in the background, so it also works
+ * offline.
  *
  * @param noteKey The decrypted key of the note, which the tags are encrypted with.
  */
-export async function saveTags(
+async function saveNoteUserData(
 	noteId: string,
 	userId: string,
 	noteKey: Uint8Array,
-	tags: NoteTags,
-	updatedAt = new Date()
+	{ tags, hiddenMessage }: NoteUserData
 ) {
-	const encryptedTags = await encryptTags(tags, noteKey);
+	const encryptedTags = await encryptTags(tags, noteKey, hiddenMessage);
 	await db.noteKeys
 		.where({ noteId, userId })
-		.modify({ tags: encryptedTags, tagsUpdatedAt: updatedAt, tagsDirty: 1 });
+		.modify({ tags: encryptedTags, tagsUpdatedAt: new Date(), tagsDirty: 1 });
 	syncEngine.requestSync();
 }
 
@@ -74,10 +79,11 @@ export async function updateTagsOfNotes(
 		await Promise.all(
 			rows.map(async (row) => {
 				const noteKey = noteKeys.get(row.noteId)!;
-				const before = row.tags ? await decryptTags(row.tags, noteKey) : {};
-				const after = update(before);
-				if (after === before) return [];
-				return [{ row, noteKey, encryptedTags: await encryptTags(after, noteKey) }];
+				const data = row.tags ? await decryptNoteUserData(row.tags, noteKey) : noUserData;
+				const after = update(data.tags);
+				if (after === data.tags) return [];
+				const encryptedTags = await encryptTags(after, noteKey, data.hiddenMessage);
+				return [{ row, noteKey, encryptedTags }];
 			})
 		)
 	).flat();
@@ -103,10 +109,17 @@ export async function updateTagsOfNotes(
 	syncEngine.requestSync();
 }
 
+const noUserData: NoteUserData = { tags: {}, hiddenMessage: '' };
+
+/** Reads the user's current tags and message for a note from IndexedDB. */
+async function loadNoteUserData(noteId: string, userId: string, noteKey: Uint8Array) {
+	const row = await db.noteKeys.where({ noteId, userId }).first();
+	return row?.tags ? decryptNoteUserData(row.tags, noteKey) : noUserData;
+}
+
 /** Reads the user's current tags for a note from IndexedDB. */
 export async function loadTags(noteId: string, userId: string, noteKey: Uint8Array) {
-	const row = await db.noteKeys.where({ noteId, userId }).first();
-	return row?.tags ? decryptTags(row.tags, noteKey) : {};
+	return (await loadNoteUserData(noteId, userId, noteKey)).tags;
 }
 
 /** Pending tag updates per note, so quick successive changes build on each other. */
@@ -119,17 +132,44 @@ const queues = new Map<string, Promise<unknown>>();
  *
  * @returns The tags before and after the change.
  */
-export function updateTags(
+export async function updateTags(
 	noteId: string,
 	userId: string,
 	noteKey: Uint8Array,
 	update: (tags: NoteTags) => NoteTags
 ) {
+	const { before, after } = await updateNoteUserData(noteId, userId, noteKey, (data) => {
+		const tags = update(data.tags);
+		return tags === data.tags ? data : { ...data, tags };
+	});
+	return { before: before.tags, after: after.tags };
+}
+
+/** Changes the message shown in place of a hidden note's text, like `updateTags`. */
+export function updateHiddenMessage(
+	noteId: string,
+	userId: string,
+	noteKey: Uint8Array,
+	message: string
+) {
+	return updateNoteUserData(noteId, userId, noteKey, (data) => {
+		const hiddenMessage = normalizeHiddenMessage(message);
+		return hiddenMessage === data.hiddenMessage ? data : { ...data, hiddenMessage };
+	});
+}
+
+/** Changes the user's tags and message for a note, one update after another. */
+function updateNoteUserData(
+	noteId: string,
+	userId: string,
+	noteKey: Uint8Array,
+	update: (data: NoteUserData) => NoteUserData
+) {
 	const run = async () => {
-		const before = await loadTags(noteId, userId, noteKey);
+		const before = await loadNoteUserData(noteId, userId, noteKey);
 		const after = update(before);
 		if (after !== before) {
-			await saveTags(noteId, userId, noteKey, after);
+			await saveNoteUserData(noteId, userId, noteKey, after);
 		}
 		return { before, after };
 	};

@@ -10,16 +10,14 @@
 	import {
 		daysUntilDeleted,
 		HIDDEN_TAG,
-		hiddenMessage as messageOf,
 		isArchived as archived,
 		isHidden as hidden,
 		isTrashed as trashed,
 		userTags,
-		withHiddenMessage,
 		withoutTag,
 		withTag
 	} from '../tags/Tags';
-	import { updateTags } from '../tags/TagsCRUD';
+	import { updateHiddenMessage, updateTags } from '../tags/TagsCRUD';
 	import { htmlToText } from '../search/Search';
 	import { preferencesOf } from '../settings/Preferences';
 	import type { RuntimeUser } from '#lib/types.js';
@@ -71,7 +69,7 @@
 	const daysLeft = $derived(daysUntilDeleted(entry.tags));
 	// A hidden note's text is only shown while it's open, e.g. for when someone looks along.
 	const isHidden = $derived(hidden(entry.tags));
-	const hiddenMessage = $derived(messageOf(entry.tags));
+	const hiddenMessage = $derived(entry.hiddenMessage);
 	const showsHidden = $derived(isHidden && !isFocused);
 	const hideTags = preferencesOf(user).hideTagsOfHiddenNotes;
 	const shownTags = $derived(showsHidden && hideTags ? [] : tagNames);
@@ -408,7 +406,7 @@
 						)
 					)}
 				onHiddenMessageChange={(message) =>
-					report(updateTags(id, user.id, noteKey, (tags) => withHiddenMessage(tags, message)))}
+					report(updateHiddenMessage(id, user.id, noteKey, message))}
 				onToggleArchived={() =>
 					closeAndRun(() => (isArchived ? unarchiveNote : archiveNote)(entry, user.id))}
 				onTrash={() => closeAndRun(() => trashNote(entry, user.id))}
