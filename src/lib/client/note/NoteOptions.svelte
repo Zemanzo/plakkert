@@ -157,30 +157,31 @@
 			}}
 		>
 			<div class="hideOptions">
-				<label class="checkbox">
-					<input
-						class="themedCheckbox"
-						type="checkbox"
-						checked={isHidden}
-						onchange={(event) => onHiddenChange(event.currentTarget.checked)}
-					/>
-					Hide when closed
-				</label>
+				<h3>Hide when closed</h3>
 				<p class="hint">
 					Shows a crossed-out eye instead of the text, until you open the note. Only for you.
 				</p>
-				<label class="message">
-					Message (optional)
-					<input
-						bind:this={messageInput}
-						type="text"
-						value={hiddenMessage}
-						maxlength={MAX_HIDDEN_MESSAGE_LENGTH}
-						placeholder="Shown instead of the text"
-						disabled={!isHidden}
-						onchange={(event) => onHiddenMessageChange(event.currentTarget.value)}
-					/>
-				</label>
+				<div>
+					<label class="checkbox">
+						<input
+							class="themedCheckbox"
+							type="checkbox"
+							checked={isHidden}
+							onchange={(event) => onHiddenChange(event.currentTarget.checked)}
+						/>
+					</label>
+					<label class="message">
+						<input
+							bind:this={messageInput}
+							type="text"
+							value={hiddenMessage}
+							maxlength={MAX_HIDDEN_MESSAGE_LENGTH}
+							placeholder="Message (optional)"
+							disabled={!isHidden}
+							onchange={(event) => onHiddenMessageChange(event.currentTarget.value)}
+						/>
+					</label>
+				</div>
 			</div>
 		</div>
 
@@ -207,10 +208,13 @@
 			cursor: pointer;
 			border-radius: 50%;
 
-			&:hover,
-			&.active {
+			&:hover {
 				color: #161616;
 				background-color: #00000016;
+			}
+
+			&.active {
+				color: #000;
 			}
 		}
 	}
@@ -222,6 +226,17 @@
 		width: min(18rem, 80vw);
 		padding: var(--spacing-sm);
 		color: var(--color-text-primary);
+
+		h3 {
+			margin: 0;
+			font-family: var(--font-family-display);
+			font-size: 1.2rem;
+		}
+
+		> div {
+			display: flex;
+			gap: var(--spacing-md);
+		}
 
 		.checkbox {
 			display: flex;
@@ -241,6 +256,7 @@
 			flex-direction: column;
 			gap: var(--spacing-xs);
 			font-size: 0.85rem;
+			flex: 1;
 
 			input:disabled {
 				opacity: 0.5;
