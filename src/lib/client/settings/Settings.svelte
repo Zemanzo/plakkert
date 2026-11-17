@@ -124,6 +124,7 @@
 				</div>
 				<input
 					id="pref-twoColumns"
+					class="themedCheckbox"
 					type="checkbox"
 					bind:checked={settings.twoColumnsOnNarrowScreens}
 				/>
@@ -136,7 +137,12 @@
 						as tags can give away what a note is about.
 					</p>
 				</div>
-				<input id="pref-hideTags" type="checkbox" bind:checked={settings.hideTagsOfHiddenNotes} />
+				<input
+					id="pref-hideTags"
+					class="themedCheckbox"
+					type="checkbox"
+					bind:checked={settings.hideTagsOfHiddenNotes}
+				/>
 			</div>
 		</div>
 		<div class="preferencesList">
@@ -149,7 +155,12 @@
 						days. Anyone who can use this device can then read your notes, without your password.
 					</p>
 				</div>
-				<input id="security-stayLoggedIn" type="checkbox" bind:checked={settings.stayLoggedIn} />
+				<input
+					id="security-stayLoggedIn"
+					class="themedCheckbox"
+					type="checkbox"
+					bind:checked={settings.stayLoggedIn}
+				/>
 			</div>
 		</div>
 		<div class="preferencesList">
@@ -370,30 +381,6 @@
 				&:global([data-dropping]) {
 					outline: 2px dashed var(--color-yellow);
 					outline-offset: -2px;
-				}
-
-				/* The global checkbox style is meant for the notes' light colours, and would be hard to see
-				   here in the dark theme. These match the dropdown instead. */
-				input[type='checkbox'] {
-					flex-shrink: 0;
-					width: 1.25em;
-					height: 1.25em;
-					background: var(--color-input-background);
-					border: 2px solid rgba(from var(--color-text-primary) r g b / 0.5);
-					opacity: 1;
-
-					&:hover {
-						border-color: var(--color-text-primary);
-					}
-
-					&:checked {
-						background: var(--color-text-primary);
-						border-color: var(--color-text-primary);
-
-						&::before {
-							color: var(--color-input-background);
-						}
-					}
 				}
 			}
 		}

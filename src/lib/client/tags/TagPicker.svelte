@@ -79,7 +79,7 @@
 						<!-- A tag only some of the notes have is shown as neither checked nor unchecked;
 						     checking it adds it to all of them. -->
 						<input
-							class="plainCheckbox"
+							class="themedCheckbox"
 							type="checkbox"
 							checked={!partial && noteTags.includes(tag)}
 							aria-checked={partial ? 'mixed' : undefined}

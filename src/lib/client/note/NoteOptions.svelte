@@ -159,7 +159,7 @@
 			<div class="hideOptions">
 				<label class="checkbox">
 					<input
-						class="plainCheckbox"
+						class="themedCheckbox"
 						type="checkbox"
 						checked={isHidden}
 						onchange={(event) => onHiddenChange(event.currentTarget.checked)}

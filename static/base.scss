@@ -75,8 +75,8 @@ input {
   }
 
   /* Made for checklists on the notes' light colours. Elsewhere, such as in popovers, use the
-     browser's own checkbox with the plainCheckbox class below. */
-  &[type='checkbox']:not(.plainCheckbox) {
+     themedCheckbox class below. */
+  &[type='checkbox']:not(.themedCheckbox) {
     position: relative;
     appearance: none;
     background: transparent;
@@ -110,19 +110,18 @@ input {
     }
   }
 
-  /* Drawn with the theme's colours, rather than the browser's own checkbox, which is hard to see
-     on a dark background. */
-  &[type='checkbox'].plainCheckbox {
+  /* Drawn with the theme's colours, so it shows on any background, like the dropdowns. Used in the
+     settings and in popovers. */
+  &[type='checkbox'].themedCheckbox {
     position: relative;
     flex-shrink: 0;
     appearance: none;
-    width: 1rem;
-    height: 1rem;
+    width: 1.25em;
+    height: 1.25em;
     margin: 0;
     padding: 0;
-    border: 2px solid rgba(from var(--color-text-primary) r g b / 0.6);
-    border-radius: 3px;
-    background: transparent;
+    background: var(--color-input-background);
+    border: 2px solid rgba(from var(--color-text-primary) r g b / 0.5);
     cursor: pointer;
 
     &:hover {
@@ -131,36 +130,25 @@ input {
 
     &:checked,
     &:indeterminate {
-      border-color: var(--color-yellow);
-      background: var(--color-yellow);
+      background: var(--color-text-primary);
+      border-color: var(--color-text-primary);
     }
 
-    /* A tick, or a dash for "some of them". */
-    &:checked::before,
+    &:checked::before {
+      position: absolute;
+      top: -4px;
+      left: 2px;
+      content: '✔';
+      color: var(--color-input-background);
+    }
+
+    /* For "some of them", e.g. a tag only some of the selected notes have. */
     &:indeterminate::before {
       content: '';
       position: absolute;
-      left: 50%;
-      top: 50%;
-      box-sizing: border-box;
-      border: solid #161616;
-    }
-
-    /* The two strokes of a tick: the corner of an L turned on its side. Moved up and to the left
-       a little, as turning it puts its weight at the bottom right. */
-    &:checked::before {
-      width: 5px;
-      height: 9px;
-      border-width: 0 2px 2px 0;
-      translate: -65% -62%;
-      rotate: 45deg;
-    }
-
-    &:indeterminate::before {
-      width: 8px;
+      inset: calc(50% - 1px) 3px auto;
       height: 2px;
-      border-width: 2px 0 0;
-      translate: -50% -50%;
+      background: var(--color-input-background);
     }
 
     &:disabled {
