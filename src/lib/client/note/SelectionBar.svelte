@@ -96,19 +96,24 @@
 	}
 </script>
 
+<!-- One row on wide screens. On narrow screens, two: what is selected, in place of the navigation,
+     and the actions, each with its name, scrolling sideways like the navigation when they don't
+     fit. -->
 <div class="selectionBar" role="toolbar" aria-label="Selected notes">
-	<button aria-label="Stop selecting" title="Stop selecting (Esc)" onclick={onClose}>
-		<CloseIcon width="22px" />
-	</button>
-	<span class="count" aria-live="polite">{count}</span>
-	<button
-		class="selectAllButton"
-		title={`${canSelectAll ? 'Select' : 'Deselect'} all (Ctrl+A)`}
-		aria-keyshortcuts="Control+A Meta+A"
-		disabled={busy}
-		onclick={onSelectAll}
-		>{canSelectAll ? 'Select' : 'Deselect'} all
-	</button>
+	<div class="head">
+		<button aria-label="Stop selecting" title="Stop selecting (Esc)" onclick={onClose}>
+			<CloseIcon width="22px" />
+		</button>
+		<span class="count" aria-live="polite">{count}</span>
+		<button
+			class="selectAllButton"
+			title={`${canSelectAll ? 'Select' : 'Deselect'} all (Ctrl+A)`}
+			aria-keyshortcuts="Control+A Meta+A"
+			disabled={busy}
+			onclick={onSelectAll}
+			>{canSelectAll ? 'Select' : 'Deselect'} all
+		</button>
+	</div>
 
 	<div class="actions">
 		{#if view.kind === 'trash'}
@@ -119,6 +124,7 @@
 				onclick={() => run((notes) => setTrashed(notes, user.id, false), true)}
 			>
 				<RestoreIcon width="22px" />
+				<span class="label">Restore</span>
 			</button>
 			<button
 				class="danger"
@@ -131,10 +137,12 @@
 					})}
 			>
 				<TrashIcon width="22px" />
+				<span class="label">Delete forever</span>
 			</button>
 		{:else}
 			<button popovertarget="selectionTags" aria-label="Tags" title="Tags" {disabled}>
 				<TagIcon width="22px" />
+				<span class="label">Tags</span>
 			</button>
 			<button
 				popovertarget="selectionColors"
@@ -143,6 +151,7 @@
 				disabled={disabled || editable.length === 0}
 			>
 				<PaletteIcon width="22px" />
+				<span class="label">Color</span>
 			</button>
 			<button
 				aria-label={unarchive ? 'Unarchive' : 'Archive'}
@@ -155,6 +164,7 @@
 				{:else}
 					<ArchiveIcon width="22px" />
 				{/if}
+				<span class="label">{unarchive ? 'Unarchive' : 'Archive'}</span>
 			</button>
 			<button
 				aria-label="Move to trash"
@@ -163,6 +173,7 @@
 				onclick={() => run((notes) => setTrashed(notes, user.id, true), true)}
 			>
 				<TrashIcon width="22px" />
+				<span class="label">Move to trash</span>
 			</button>
 		{/if}
 	</div>
@@ -196,6 +207,13 @@
 		padding: var(--spacing-xs) var(--spacing-sm);
 		border-radius: var(--radius-lg);
 		color: var(--color-text-primary);
+	}
+
+	.head {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: var(--spacing-sm);
 	}
 
 	.count {
@@ -245,6 +263,52 @@
 
 		&.danger {
 			color: var(--color-red);
+		}
+	}
+
+	/* The names of the actions are only shown on narrow screens, see below. */
+	.label {
+		display: none;
+	}
+
+	@media (max-width: 700px) {
+		.selectionBar {
+			flex: 1;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0;
+			padding: 0;
+		}
+
+		/* As high as the navigation's row, whose place it takes. */
+		.head {
+			height: 40px;
+		}
+
+		.selectAllButton {
+			margin-left: auto;
+		}
+
+		/* Like the navigation's chips, scrolling sideways when they don't all fit. */
+		.actions {
+			flex: 1;
+			align-items: center;
+			margin-left: 0;
+			overflow-x: auto;
+			scrollbar-width: none;
+
+			button {
+				align-items: center;
+				gap: var(--spacing-sm);
+				padding: var(--spacing-sm) var(--spacing-lg);
+				border-radius: 999px;
+				background-color: #8881;
+			}
+		}
+
+		.label {
+			display: inline;
+			white-space: nowrap;
 		}
 	}
 

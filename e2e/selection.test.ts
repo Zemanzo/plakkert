@@ -148,6 +148,9 @@ test('on a touch screen, notes are selected after turning on selecting', async (
 	await page.getByRole('button', { name: 'Select notes' }).tap();
 	await expect(bar(page)).toContainText('0 selected');
 	await expect(barButton(page, 'Archive')).toBeDisabled();
+	// On a narrow screen, the selection takes the navigation's place, and the actions show their name.
+	await expect(page.locator('nav[aria-label=Notes]')).toBeHidden();
+	await expect(barButton(page, 'Archive')).toHaveText('Archive');
 	await note(page, 'One').tap();
 	await note(page, 'Two').tap();
 	await expect(bar(page)).toContainText('2 selected');
@@ -159,6 +162,7 @@ test('on a touch screen, notes are selected after turning on selecting', async (
 	await expect(bar(page)).toContainText('2 selected');
 	await barButton(page, 'Stop selecting').tap();
 	await expect(bar(page)).toHaveCount(0);
+	await expect(page.locator('nav[aria-label=Notes]')).toBeVisible();
 
 	// Tapping opens notes again.
 	await note(page, 'One').tap();

@@ -117,6 +117,11 @@
 		);
 	};
 
+	$effect(() => {
+		store.selecting = selecting;
+		return () => (store.selecting = false);
+	});
+
 	async function startSelecting() {
 		selectMode = true;
 		// The button is replaced by the selection's toolbar, so the focus moves there.
@@ -282,7 +287,7 @@
 <svelte:window {onkeydown} />
 
 <div class="notesView" data-view={view.kind}>
-	<div class="toolbar" bind:this={toolbar}>
+	<div class="toolbar" class:selecting bind:this={toolbar}>
 		<SyncStatus />
 		<div class="actions">
 			{#if selecting}
@@ -597,6 +602,21 @@
 		left: 0;
 		width: 100vw;
 		height: 100vh;
+	}
+
+	/* On narrow screens, where the navigation is a row above this one, the selection takes its
+	   place too: one row for what is selected, and one for what to do with it. */
+	@media (max-width: 700px) {
+		.toolbar.selecting {
+			/* Its own height, plus that of the navigation's row (40px, see NotesNav). */
+			height: calc(var(--spacing-xxl) * 2 + 40px);
+			padding-top: 0;
+			align-items: stretch;
+
+			> :global(.syncStatus) {
+				display: none;
+			}
+		}
 	}
 
 	@media (max-width: 419px) {

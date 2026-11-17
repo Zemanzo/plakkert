@@ -49,6 +49,11 @@ export class NoteStore {
 	loadError = $state<Error | null>(null);
 	/** What is being searched for. Kept here, so it stays when switching between views. */
 	searchQuery = $state('');
+	/**
+	 * Whether notes are being selected in the view. On narrow screens, the navigation makes way
+	 * for the selection meanwhile, as going elsewhere would end it anyway.
+	 */
+	selecting = $state(false);
 
 	/** The user's settings that sync across devices. */
 	settings = $state.raw<SyncedSettings>(defaultSyncedSettings);

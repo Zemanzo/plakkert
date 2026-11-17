@@ -57,7 +57,7 @@
 {#if !user || !store}
 	<p class="loadingIndicator">Loading user data...</p>
 {:else}
-	<div class="notesLayout">
+	<div class="notesLayout" class:selecting={store.selecting}>
 		<NotesNav />
 		<main>
 			{@render children()}
@@ -107,6 +107,11 @@
 	@media (max-width: 700px) {
 		.notesLayout {
 			flex-direction: column;
+		}
+
+		/* The selection takes the navigation's place. See NotesView. */
+		.selecting :global(nav[aria-label='Notes']) {
+			display: none;
 		}
 	}
 </style>
