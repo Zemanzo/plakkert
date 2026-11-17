@@ -76,8 +76,9 @@
 		observer.observe(element);
 		return () => observer.disconnect();
 	}
-	// Selecting notes, to do something with all of them at once: by shift-clicking them (or
-	// Shift+Space), Ctrl+A for all of them, or by turning on selecting with the button for it.
+	// Selecting notes, to do something with all of them at once: by Ctrl-clicking them (or
+	// Ctrl+Space), Shift-clicking for all notes from the one selected last, Ctrl+A for all of them,
+	// or by turning on selecting with the button for it.
 
 	/** Whether selecting was turned on with its button, which also works without a keyboard. */
 	let selectMode = $state(false);
@@ -109,7 +110,22 @@
 		selectedIds = next;
 	}
 
-	const toggleSelected = (id: string) => select([id], () => !selectedIds.has(id));
+	/** The note selected or deselected last, from where Shift selects a range of notes. */
+	let anchorId: string | null = null;
+
+	function selectNote(id: string, range: boolean) {
+		const ids = allInView.map((entry) => entry.note.id);
+		const from = anchorId === null || !selecting ? -1 : ids.indexOf(anchorId);
+		const to = ids.indexOf(id);
+		if (range && from !== -1 && to !== -1) {
+			// In the order they're shown in. Notes in between are always shown too.
+			select(ids.slice(Math.min(from, to), Math.max(from, to) + 1), () => true);
+		} else {
+			anchorId = id;
+			select([id], () => !selectedIds.has(id));
+		}
+	}
+
 	const selectAll = () => {
 		select(
 			allInView.map((entry) => entry.note.id),
@@ -304,7 +320,7 @@
 				<button
 					class="selectButton"
 					aria-label="Select notes"
-					title="Select notes (or Shift+click them)"
+					title="Select notes (or Ctrl+click them)"
 					disabled={allInView.length === 0}
 					onclick={startSelecting}
 				>
@@ -405,7 +421,7 @@
 				{twoColumns}
 				{selectedIds}
 				{selecting}
-				onToggleSelected={toggleSelected}
+				onSelect={selectNote}
 				onMove={canReorder && !selecting ? (from, to) => move(selection.main, from, to) : undefined}
 				{onCloneNote}
 			/>
@@ -418,7 +434,7 @@
 					{twoColumns}
 					{selectedIds}
 					{selecting}
-					onToggleSelected={toggleSelected}
+					onSelect={selectNote}
 					{onCloneNote}
 				/>
 			{/if}

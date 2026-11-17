@@ -11,7 +11,7 @@
 		twoColumns = false,
 		selectedIds,
 		selecting = false,
-		onToggleSelected,
+		onSelect,
 		onMove,
 		onCloneNote
 	}: {
@@ -23,7 +23,7 @@
 		selectedIds?: ReadonlySet<string>;
 		/** While notes are being selected, clicking a note selects it, rather than opening it. */
 		selecting?: boolean;
-		onToggleSelected?: (id: string) => void;
+		onSelect?: (id: string, range: boolean) => void;
 		/**
 		 * Moves a note to another place in `entries`. Only when given can notes be
 		 * reordered, by dragging them or with Shift and the arrow keys.
@@ -122,7 +122,7 @@
 				bind:focusedNoteId
 				selected={selectedIds?.has(entry.note.id) ?? false}
 				{selecting}
-				onToggleSelected={onToggleSelected && (() => onToggleSelected(entry.note.id))}
+				onSelect={onSelect && ((range) => onSelect(entry.note.id, range))}
 				onClone={() => {
 					onCloneNote(entry.note.id);
 				}}

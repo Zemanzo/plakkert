@@ -21,8 +21,8 @@ test('notes can be selected, and changed all at once', async ({ app }) => {
 	await newNote(page, 'Second');
 	await newNote(page, 'Third');
 
-	await test.step('shift-clicking a note selects it without opening it', async () => {
-		await note(page, 'First').click({ modifiers: ['Shift'] });
+	await test.step('Ctrl-clicking a note selects it without opening it', async () => {
+		await note(page, 'First').click({ modifiers: ['ControlOrMeta'] });
 		await expect(openedNote(page)).toHaveCount(0);
 		await expect(bar(page)).toContainText('1 selected');
 		await expect(note(page, 'First')).toHaveAttribute('aria-pressed', 'true');
@@ -50,11 +50,11 @@ test('notes can be selected, and changed all at once', async ({ app }) => {
 		await expect(note(page, 'First')).not.toHaveAttribute('aria-pressed');
 	});
 
-	await test.step('Shift+Space selects the focused note', async () => {
+	await test.step('Ctrl+Space selects the focused note', async () => {
 		await note(page, 'Third').focus();
-		await page.keyboard.press('Shift+Space');
+		await page.keyboard.press('ControlOrMeta+Space');
 		await expect(bar(page)).toContainText('1 selected');
-		await note(page, 'First').click({ modifiers: ['Shift'] });
+		await note(page, 'First').click({ modifiers: ['ControlOrMeta'] });
 		await expect(bar(page)).toContainText('2 selected');
 	});
 
@@ -120,7 +120,7 @@ test('notes can be selected, and changed all at once', async ({ app }) => {
 	await test.step('in the trash, they can be restored or deleted forever', async () => {
 		await goTo(page, 'Trash');
 		await page.waitForURL(url('/trash'));
-		await note(page, 'First').click({ modifiers: ['Shift'] });
+		await note(page, 'First').click({ modifiers: ['ControlOrMeta'] });
 		await barButton(page, 'Restore').click();
 		await expectGone(page, 'First');
 
@@ -133,6 +133,47 @@ test('notes can be selected, and changed all at once', async ({ app }) => {
 
 		await goTo(page, 'Notes');
 		await expect(page.locator('[data-note-id]')).toHaveText([/First/]);
+	});
+});
+
+test('Shift selects the notes from the one selected last', async ({ app }) => {
+	const { page } = await app.register(uniqueName('select'));
+	// Newest first: Note 6 to Note 1.
+	for (let i = 1; i <= 6; i++) await newNote(page, `Note ${i}`);
+	const isSelected = (n: number) => note(page, `Note ${n}`).getAttribute('aria-pressed');
+
+	await test.step('without a selection, Shift-clicking selects just that note', async () => {
+		await note(page, 'Note 5').click({ modifiers: ['Shift'] });
+		await expect(bar(page)).toContainText('1 selected');
+		await expect(openedNote(page)).toHaveCount(0);
+	});
+
+	await test.step('Shift-clicking another note selects the notes in between too', async () => {
+		await note(page, 'Note 2').click({ modifiers: ['Shift'] });
+		await expect(bar(page)).toContainText('4 selected');
+		expect(await Promise.all([6, 5, 4, 3, 2, 1].map(isSelected))).toEqual([
+			'false',
+			'true',
+			'true',
+			'true',
+			'true',
+			'false'
+		]);
+		// Without selecting the text of the notes in between.
+		expect(await page.evaluate(() => getSelection()?.toString())).toBe('');
+	});
+
+	await test.step('it counts from the note selected last, in either direction', async () => {
+		await note(page, 'Note 6').click({ modifiers: ['Shift'] });
+		await expect(bar(page)).toContainText('5 selected');
+		await note(page, 'Note 1').click({ modifiers: ['ControlOrMeta'] });
+		await expect(bar(page)).toContainText('6 selected');
+		await note(page, 'Note 3').click({ modifiers: ['ControlOrMeta'] });
+		await note(page, 'Note 4').click({ modifiers: ['ControlOrMeta'] });
+		await expect(bar(page)).toContainText('4 selected');
+		await note(page, 'Note 2').focus();
+		await page.keyboard.press('Shift+Space');
+		await expect(bar(page)).toContainText('6 selected');
 	});
 });
 

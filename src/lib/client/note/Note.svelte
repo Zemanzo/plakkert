@@ -31,7 +31,7 @@
 		focusedNoteId = $bindable(),
 		selected = false,
 		selecting = false,
-		onToggleSelected,
+		onSelect,
 		onClone
 	}: {
 		entry: NoteEntry;
@@ -39,7 +39,11 @@
 		selected?: boolean;
 		/** While notes are being selected, clicking a note selects it, rather than opening it. */
 		selecting?: boolean;
-		onToggleSelected?: () => void;
+		/**
+		 * Selects or deselects the note. With `range`, selects the notes from the one selected last
+		 * up to this one instead.
+		 */
+		onSelect?: (range: boolean) => void;
 		onClone: () => void;
 	} = $props();
 	const user = getContext<() => RuntimeUser>('user')();
@@ -218,12 +222,21 @@
 		const fromControl =
 			event.target instanceof Element && event.target.closest('button, input, label, [popover]');
 		if (fromControl) return;
-		// Shift-clicking selects a note without opening it, and so does clicking while selecting.
-		if (!isFocused && onToggleSelected && (event.shiftKey || selecting)) {
-			onToggleSelected();
+		// Ctrl-clicking (⌘ on a Mac) selects a note without opening it, and so does clicking while
+		// selecting. Shift-clicking selects the notes from the one selected last up to it.
+		if (!isFocused && onSelect && (selectsOnly(event) || selecting)) {
+			onSelect(event.shiftKey);
 		} else {
 			openNote();
 		}
+	};
+
+	const selectsOnly = (event: MouseEvent | KeyboardEvent) =>
+		event.ctrlKey || event.metaKey || event.shiftKey;
+
+	/** Shift-clicking would otherwise select the text from the last click up to here. */
+	const onMouseDown = (event: MouseEvent) => {
+		if (!isFocused && onSelect && event.shiftKey) event.preventDefault();
 	};
 
 	function openNote() {
@@ -234,12 +247,12 @@
 
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (isFocused || e.target !== e.currentTarget) return;
-		if (e.key === ' ' && (e.shiftKey || selecting) && onToggleSelected) {
+		if (e.key === ' ' && (selectsOnly(e) || selecting) && onSelect) {
 			e.preventDefault();
-			onToggleSelected();
+			onSelect(e.shiftKey);
 		} else if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
-			if (selecting && onToggleSelected) onToggleSelected();
+			if (selecting && onSelect) onSelect(e.shiftKey);
 			else openNote();
 		}
 	};
@@ -294,6 +307,7 @@
 		style="--bg:var(--color-{color})"
 		tabindex="0"
 		onclick={onClick}
+		onmousedown={onMouseDown}
 		onkeydown={onKeyDown}
 		data-note-id={id}
 		aria-pressed={selecting && !isFocused ? selected : undefined}

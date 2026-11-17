@@ -29,10 +29,11 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   - Your own order: drag notes around, or on a touch screen hold a note and then drag it. With the
     keyboard, Shift and the arrow keys move the selected note. The archive and the trash are in the
     order notes ended up there.
-  - Several notes at once: Shift+click a note (or Shift+Space) to select it, or turn on selecting
-    with the button next to "New note", which also works on touch screens. While selecting,
-    clicking a note selects it, and Ctrl+A (⌘A on a Mac) selects all notes in the view, also those
-    further down. The selected notes can be tagged, coloured, archived and moved to the trash all
+  - Several notes at once: Ctrl+click a note (⌘-click on a Mac, or Ctrl+Space) to select it, or
+    turn on selecting with the button next to "New note", which also works on touch screens. While
+    selecting, clicking a note selects it, Shift+click (or Shift+Space) also selects the notes
+    between it and the one selected last, and Ctrl+A (⌘A on a Mac) selects all notes in the view,
+    also those further down. The selected notes can be tagged, coloured, archived and moved to the trash all
     at once, or in the trash, restored and deleted forever.
   - Tags, archive, trash and order are per user: on a shared note, everyone organises it their own
     way, and only deleting it forever from the trash deletes it for everyone
