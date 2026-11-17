@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import SearchIcon from '@iconify-svelte/lucide/search';
-	import SelectIcon from '@iconify-svelte/lucide/square-check-big';
+	import SelectIcon from '@iconify-svelte/lucide/square-dashed-mouse-pointer';
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import CloseIcon from '@iconify-svelte/lucide/x';
 	import Button from '../components/Button.svelte';
@@ -110,11 +110,12 @@
 	}
 
 	const toggleSelected = (id: string) => select([id], () => !selectedIds.has(id));
-	const selectAll = () =>
+	const selectAll = () => {
 		select(
 			allInView.map((entry) => entry.note.id),
-			() => true
+			() => canSelectAll
 		);
+	};
 
 	async function startSelecting() {
 		selectMode = true;
@@ -469,6 +470,7 @@
 		padding: var(--spacing-lg);
 		gap: var(--spacing-md);
 		align-items: center;
+		height: calc(var(--spacing-xxl) * 2);
 	}
 
 	.actions {

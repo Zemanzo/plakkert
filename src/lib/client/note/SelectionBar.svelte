@@ -2,7 +2,6 @@
 	import { getContext } from 'svelte';
 	import ArchiveIcon from '@iconify-svelte/lucide/archive';
 	import ArchiveRestoreIcon from '@iconify-svelte/lucide/archive-restore';
-	import CheckCheckIcon from '@iconify-svelte/lucide/check-check';
 	import PaletteIcon from '@iconify-svelte/lucide/palette';
 	import RestoreIcon from '@iconify-svelte/lucide/rotate-ccw';
 	import TagIcon from '@iconify-svelte/lucide/tag';
@@ -103,13 +102,13 @@
 	</button>
 	<span class="count" aria-live="polite">{count}</span>
 	<button
+		class="selectAllButton"
 		aria-label="Select all"
 		title="Select all (Ctrl+A)"
 		aria-keyshortcuts="Control+A Meta+A"
-		disabled={busy || !canSelectAll}
+		disabled={busy}
 		onclick={onSelectAll}
-	>
-		<CheckCheckIcon width="22px" />
+		>{canSelectAll ? 'Select' : 'Deselect'} all
 	</button>
 
 	<div class="actions">
@@ -197,7 +196,6 @@
 		gap: var(--spacing-sm);
 		padding: var(--spacing-xs) var(--spacing-sm);
 		border-radius: var(--radius-lg);
-		background: color-mix(in srgb, var(--color-yellow) 40%, var(--color-input-background));
 		color: var(--color-text-primary);
 	}
 
@@ -206,6 +204,22 @@
 		margin-inline: var(--spacing-sm);
 		font-weight: bold;
 		white-space: nowrap;
+	}
+
+	.selectAllButton {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-md);
+		font-size: 0.85rem;
+		text-decoration: underline;
+		color: var(--color-text-muted);
+
+		&:hover {
+			background-color: transparent;
+			color: var(--color-text-primary);
+		}
 	}
 
 	.actions {
