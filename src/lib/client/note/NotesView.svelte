@@ -296,6 +296,15 @@
 					onDone={stopSelecting}
 				/>
 			{:else}
+				<button
+					class="selectButton"
+					aria-label="Select notes"
+					title="Select notes (or Shift+click them)"
+					disabled={allInView.length === 0}
+					onclick={startSelecting}
+				>
+					<SelectIcon width="22px" />
+				</button>
 				<div class="search">
 					<SearchIcon width="18px" aria-hidden="true" />
 					<input
@@ -320,17 +329,11 @@
 					{/if}
 				</div>
 				{#if canCreate}
-					<Button onclick={addNote}>+ New note</Button>
+					<!-- Just "+ New" on the narrowest screens, but always named in full. -->
+					<Button onclick={addNote} aria-label="New note"
+						>+ New<span class="long"> note</span></Button
+					>
 				{/if}
-				<button
-					class="selectButton"
-					aria-label="Select notes"
-					title="Select notes (or Shift+click them)"
-					disabled={allInView.length === 0}
-					onclick={startSelecting}
-				>
-					<SelectIcon width="22px" />
-				</button>
 			{/if}
 		</div>
 		{#if view.kind === 'trash' && !selecting}
@@ -594,6 +597,12 @@
 		left: 0;
 		width: 100vw;
 		height: 100vh;
+	}
+
+	@media (max-width: 419px) {
+		.long {
+			display: none;
+		}
 	}
 
 	@media (max-width: 600px) {

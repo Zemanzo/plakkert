@@ -108,7 +108,11 @@ test('notes can be selected, and changed all at once', async ({ app }) => {
 	await test.step('Ctrl+A selects all notes, and they can be moved to the trash', async () => {
 		await page.keyboard.press('ControlOrMeta+A');
 		await expect(bar(page)).toContainText('3 selected');
-		await expect(barButton(page, 'Select all')).toBeDisabled();
+		await barButton(page, 'Deselect all').click();
+		// Without the select button, deselecting the last notes stops selecting.
+		await expect(bar(page)).toHaveCount(0);
+		await page.keyboard.press('ControlOrMeta+A');
+		await expect(bar(page)).toContainText('3 selected');
 		await barButton(page, 'Move to trash').click();
 		await expect(page.getByText('No notes yet')).toBeVisible();
 	});

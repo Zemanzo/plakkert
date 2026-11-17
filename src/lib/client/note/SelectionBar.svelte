@@ -103,8 +103,7 @@
 	<span class="count" aria-live="polite">{count}</span>
 	<button
 		class="selectAllButton"
-		aria-label="Select all"
-		title="Select all (Ctrl+A)"
+		title={`${canSelectAll ? 'Select' : 'Deselect'} all (Ctrl+A)`}
 		aria-keyshortcuts="Control+A Meta+A"
 		disabled={busy}
 		onclick={onSelectAll}
