@@ -7,7 +7,13 @@ import {
 	defaultSyncedSettings,
 	type SyncedSettings
 } from '../settings/SyncedSettings';
-import { isTrashed, tagOrderComparator, userTags, type NoteTags } from '../tags/Tags';
+import {
+	hiddenMessage,
+	isTrashed,
+	tagOrderComparator,
+	userTags,
+	type NoteTags
+} from '../tags/Tags';
 import type { RuntimeUser } from '#lib/types.js';
 
 /** A decrypted note, as shown in the app. */
@@ -205,7 +211,11 @@ export class NoteStore {
 			noteKey,
 			permission: row.permission,
 			tags,
-			searchText: buildSearchText(normalizedText, userTags(tags))
+			// A hidden note can also be found by the message shown in its place.
+			searchText: buildSearchText(
+				[normalizedText, normalizeForSearch(hiddenMessage(tags))].join('\n'),
+				userTags(tags)
+			)
 		};
 		this.#entries.set(id, entry);
 		return entry;

@@ -3,7 +3,12 @@ import {
 	ARCHIVED_TAG,
 	daysUntilDeleted,
 	findExistingTag,
+	HIDDEN_TAG,
+	hiddenMessage,
 	isArchived,
+	isHidden,
+	MAX_HIDDEN_MESSAGE_LENGTH,
+	withHiddenMessage,
 	isTrashed,
 	isTrashExpired,
 	normalizeTagName,
@@ -116,6 +121,32 @@ describe('trash', () => {
 		expect(daysUntilDeleted(tags, trashedAt + 29.5 * DAY)).toBe(1);
 		expect(daysUntilDeleted(tags, trashedAt + 31 * DAY)).toBe(0);
 		expect(daysUntilDeleted({}, trashedAt)).toBeNull();
+	});
+});
+
+describe('hidden notes', () => {
+	it('keeps the message in a tag of its own, which isn’t one of the user’s tags', () => {
+		const tags = withHiddenMessage({ [HIDDEN_TAG]: 1, work: 2 }, '  Gift  ideas ', 3);
+		expect(isHidden(tags)).toBe(true);
+		expect(hiddenMessage(tags)).toBe('Gift ideas');
+		expect(userTags(tags)).toEqual(['work']);
+		expect(hiddenMessage(parseTags(JSON.parse(JSON.stringify(tags))))).toBe('Gift ideas');
+	});
+
+	it('replaces or removes the message', () => {
+		const tags = withHiddenMessage({ [HIDDEN_TAG]: 1 }, 'One', 2);
+		expect(Object.keys(withHiddenMessage(tags, 'Two', 3))).toEqual([
+			HIDDEN_TAG,
+			'$hiddenMessage:Two'
+		]);
+		expect(withHiddenMessage(tags, ' ', 3)).toEqual({ [HIDDEN_TAG]: 1 });
+		expect(withHiddenMessage(tags, 'One', 3)).toBe(tags);
+		expect(hiddenMessage({})).toBe('');
+	});
+
+	it('limits the length of the message', () => {
+		const tags = withHiddenMessage({}, 'x'.repeat(200));
+		expect(hiddenMessage(tags)).toHaveLength(MAX_HIDDEN_MESSAGE_LENGTH);
 	});
 });
 

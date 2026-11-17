@@ -79,6 +79,7 @@
 						<!-- A tag only some of the notes have is shown as neither checked nor unchecked;
 						     checking it adds it to all of them. -->
 						<input
+							class="plainCheckbox"
 							type="checkbox"
 							checked={!partial && noteTags.includes(tag)}
 							aria-checked={partial ? 'mixed' : undefined}
@@ -160,24 +161,6 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
-		}
-
-		/* The app's own checkbox style is made for notes; this list is on the page background. */
-		input[type='checkbox'] {
-			appearance: auto;
-			flex-shrink: 0;
-			width: 1rem;
-			height: 1rem;
-			margin: 0;
-			padding: 0;
-			border: revert;
-			background: revert;
-			opacity: 1;
-			accent-color: var(--color-yellow);
-
-			&::before {
-				content: none;
-			}
 		}
 	}
 

@@ -3,6 +3,8 @@ export interface Preferences {
 	theme: 'light' | 'dark' | 'system';
 	/** Shows two notes side by side on narrow screens, where there's otherwise room for one. */
 	twoColumnsOnNarrowScreens: boolean;
+	/** Hides the tags of hidden notes too, while they're closed, as tags can tell what they're about. */
+	hideTagsOfHiddenNotes: boolean;
 	/** Stays logged in after closing the app, rather than only while it's open. See `Session.ts`. */
 	stayLoggedIn: boolean;
 }
@@ -10,6 +12,7 @@ export interface Preferences {
 export const defaultPreferences = {
 	theme: 'system',
 	twoColumnsOnNarrowScreens: false,
+	hideTagsOfHiddenNotes: false,
 	stayLoggedIn: false
 } as const satisfies Preferences;
 

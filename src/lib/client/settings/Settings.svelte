@@ -128,6 +128,16 @@
 					bind:checked={settings.twoColumnsOnNarrowScreens}
 				/>
 			</div>
+			<div class="preferenceItem">
+				<div>
+					<label for="pref-hideTags">Hide the tags of hidden notes</label>
+					<p>
+						Hidden notes still show their tags while they're closed. Turn this on to hide those too,
+						as tags can give away what a note is about.
+					</p>
+				</div>
+				<input id="pref-hideTags" type="checkbox" bind:checked={settings.hideTagsOfHiddenNotes} />
+			</div>
 		</div>
 		<div class="preferencesList">
 			<h2>Security</h2>

@@ -74,7 +74,9 @@ input {
     color: rgba(from var(--color-text-primary) r g b / 0.5);
   }
 
-  &[type='checkbox'] {
+  /* Made for checklists on the notes' light colours. Elsewhere, such as in popovers, use the
+     browser's own checkbox with the plainCheckbox class below. */
+  &[type='checkbox']:not(.plainCheckbox) {
     position: relative;
     appearance: none;
     background: transparent;
@@ -106,6 +108,17 @@ input {
         text-align: center;
       }
     }
+  }
+
+  &[type='checkbox'].plainCheckbox {
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    padding: 0;
+    border: revert;
+    background: revert;
+    accent-color: var(--color-yellow);
   }
 }
 

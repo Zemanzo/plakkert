@@ -6,12 +6,20 @@
  * Archiving and trashing a note are special tags as well. They start with a
  * `$`, which tags typed by the user can't. So is the note's place in the
  * user's own order, `$position`, whose value is a sort key rather than a time.
+ * A note whose text is hidden while it's closed has `$hidden`, and the message
+ * shown in its place, if any, is the rest of a tag starting with
+ * `$hiddenMessage:`. It's kept when the note is shown again, for if it's hidden
+ * again later.
  */
 export type NoteTags = Record<string, number>;
 
 export const ARCHIVED_TAG = '$archived';
 export const TRASHED_TAG = '$trashed';
 export const POSITION_TAG = '$position';
+export const HIDDEN_TAG = '$hidden';
+const HIDDEN_MESSAGE_PREFIX = '$hiddenMessage:';
+
+export const MAX_HIDDEN_MESSAGE_LENGTH = 100;
 
 /** How long a note stays in the trash before it is deleted for good. */
 export const TRASH_RETENTION_DAYS = 30;
@@ -108,6 +116,24 @@ export function withChangedTags(
 
 export const isArchived = (tags: NoteTags) => hasTag(tags, ARCHIVED_TAG);
 export const isTrashed = (tags: NoteTags) => hasTag(tags, TRASHED_TAG);
+export const isHidden = (tags: NoteTags) => hasTag(tags, HIDDEN_TAG);
+
+/** The message shown in place of the note's text while it's hidden, or '' if there is none. */
+export function hiddenMessage(tags: NoteTags) {
+	const tag = Object.keys(tags).find((tag) => tag.startsWith(HIDDEN_MESSAGE_PREFIX));
+	return tag?.slice(HIDDEN_MESSAGE_PREFIX.length) ?? '';
+}
+
+/** Sets the message shown in place of a hidden note's text, or removes it when empty. */
+export function withHiddenMessage(tags: NoteTags, message: string, now = Date.now()): NoteTags {
+	const normalized = normalizeTagName(message).slice(0, MAX_HIDDEN_MESSAGE_LENGTH);
+	if (normalized === hiddenMessage(tags)) return tags;
+	const result = Object.fromEntries(
+		Object.entries(tags).filter(([tag]) => !tag.startsWith(HIDDEN_MESSAGE_PREFIX))
+	);
+	if (normalized) result[HIDDEN_MESSAGE_PREFIX + normalized] = now;
+	return result;
+}
 
 /** When a trashed note will be deleted for good, or null if it isn't in the trash. */
 export function trashExpiresAt(tags: NoteTags) {

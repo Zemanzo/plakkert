@@ -3,6 +3,7 @@ import { toasts } from '../components/ToastStore.svelte';
 import { loadTags, updateTags, updateTagsOfNotes } from '../tags/TagsCRUD';
 import {
 	ARCHIVED_TAG,
+	HIDDEN_TAG,
 	isTrashExpired,
 	POSITION_TAG,
 	TRASHED_TAG,
@@ -94,6 +95,10 @@ export const setTrashed = (entries: NoteEntry[], userId: string, trashed: boolea
 		trashed,
 		trashed ? 'moved to the trash' : 'restored'
 	);
+
+/** Hides the text of several notes while they're closed, or shows it again. */
+export const setHidden = (entries: NoteEntry[], userId: string, hidden: boolean) =>
+	toggleTagOfMany(entries, userId, HIDDEN_TAG, hidden, hidden ? 'hidden' : 'shown');
 
 /** Changes the colour of several notes at once. Notes the user may only view keep theirs. */
 export async function setColor(entries: NoteEntry[], color: string) {

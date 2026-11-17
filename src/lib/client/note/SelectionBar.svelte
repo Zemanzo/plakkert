@@ -2,6 +2,8 @@
 	import { getContext } from 'svelte';
 	import ArchiveIcon from '@iconify-svelte/lucide/archive';
 	import ArchiveRestoreIcon from '@iconify-svelte/lucide/archive-restore';
+	import EyeIcon from '@iconify-svelte/lucide/eye';
+	import EyeOffIcon from '@iconify-svelte/lucide/eye-off';
 	import PaletteIcon from '@iconify-svelte/lucide/palette';
 	import RestoreIcon from '@iconify-svelte/lucide/rotate-ccw';
 	import TagIcon from '@iconify-svelte/lucide/tag';
@@ -9,13 +11,14 @@
 	import CloseIcon from '@iconify-svelte/lucide/x';
 	import { toasts } from '../components/ToastStore.svelte';
 	import TagPicker from '../tags/TagPicker.svelte';
-	import { isArchived, userTags, type NoteTags } from '../tags/Tags';
+	import { isArchived, isHidden, userTags, type NoteTags } from '../tags/Tags';
 	import type { RuntimeUser } from '#lib/types.js';
 	import ColorPicker from './ColorPicker.svelte';
 	import {
 		confirmDeleteManyForever,
 		setArchived,
 		setColor,
+		setHidden,
 		setTrashed,
 		updateTagsOfEntries
 	} from './NoteActions';
@@ -79,6 +82,9 @@
 	const unarchive = $derived(
 		view.kind === 'archive' || (entries.length > 0 && entries.every((e) => isArchived(e.tags)))
 	);
+
+	// Unhidden when all already are hidden.
+	const unhide = $derived(entries.length > 0 && entries.every((e) => isHidden(e.tags)));
 
 	/** Runs an action on the selected notes, and shows what went wrong, if anything. */
 	async function run(action: (entries: NoteEntry[]) => Promise<unknown>, done = false) {
@@ -152,6 +158,19 @@
 			>
 				<PaletteIcon width="22px" />
 				<span class="label">Color</span>
+			</button>
+			<button
+				aria-label={unhide ? 'Unhide' : 'Hide'}
+				title={unhide ? 'Unhide' : 'Hide when closed'}
+				{disabled}
+				onclick={() => run((notes) => setHidden(notes, user.id, !unhide))}
+			>
+				{#if unhide}
+					<EyeIcon width="22px" />
+				{:else}
+					<EyeOffIcon width="22px" />
+				{/if}
+				<span class="label">{unhide ? 'Unhide' : 'Hide'}</span>
 			</button>
 			<button
 				aria-label={unarchive ? 'Unarchive' : 'Archive'}

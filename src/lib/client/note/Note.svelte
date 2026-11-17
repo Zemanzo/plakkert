@@ -2,18 +2,26 @@
 	import { getContext, untrack } from 'svelte';
 	import ArrowLeftIcon from '@iconify-svelte/lucide/arrow-left';
 	import CheckIcon from '@iconify-svelte/lucide/check';
+	import EyeOffIcon from '@iconify-svelte/lucide/eye-off';
 	import type { NoteData } from '../Database';
 	import NotePreview from '../editor/NotePreview.svelte';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
 	import { toasts } from '../components/ToastStore.svelte';
 	import {
 		daysUntilDeleted,
+		HIDDEN_TAG,
+		hiddenMessage as messageOf,
 		isArchived as archived,
+		isHidden as hidden,
 		isTrashed as trashed,
-		userTags
+		userTags,
+		withHiddenMessage,
+		withoutTag,
+		withTag
 	} from '../tags/Tags';
 	import { updateTags } from '../tags/TagsCRUD';
 	import { htmlToText } from '../search/Search';
+	import { preferencesOf } from '../settings/Preferences';
 	import type { RuntimeUser } from '#lib/types.js';
 	import {
 		archiveNote,
@@ -61,6 +69,12 @@
 	const canEdit = $derived(entry.permission === 'edit' && !isTrashed);
 	const tagNames = $derived(userTags(entry.tags).sort(store.compareTags));
 	const daysLeft = $derived(daysUntilDeleted(entry.tags));
+	// A hidden note's text is only shown while it's open, e.g. for when someone looks along.
+	const isHidden = $derived(hidden(entry.tags));
+	const hiddenMessage = $derived(messageOf(entry.tags));
+	const showsHidden = $derived(isHidden && !isFocused);
+	const hideTags = preferencesOf(user).hideTagsOfHiddenNotes;
+	const shownTags = $derived(showsHidden && hideTags ? [] : tagNames);
 	const allTags = $derived(store.tags.map((tag) => tag.name));
 
 	const isTouchScreen = matchMedia('(pointer: coarse)').matches;
@@ -338,10 +352,19 @@
 					onUpdateData={(htmlContent) => save({ ...currentData, content: htmlContent })}
 				/>
 			{/key}
+		{:else if showsHidden}
+			<div class="hiddenContent">
+				<EyeOffIcon width="32px" aria-hidden="true" />
+				{#if hiddenMessage}
+					<p>{hiddenMessage}</p>
+				{:else}
+					<span class="sr-only">Hidden note</span>
+				{/if}
+			</div>
 		{:else}
 			<NotePreview html={editorContent} />
 		{/if}
-		{#if !isOwner || tagNames.length > 0 || daysLeft !== null}
+		{#if !isOwner || shownTags.length > 0 || daysLeft !== null}
 			<div class="details">
 				{#if daysLeft !== null}
 					<span class="info">
@@ -357,7 +380,7 @@
 							: ' · view only'}
 					</span>
 				{/if}
-				{#each tagNames as tag (tag)}
+				{#each shownTags as tag (tag)}
 					<span class="tag">{tag}</span>
 				{/each}
 			</div>
@@ -370,12 +393,22 @@
 				{canEdit}
 				{isArchived}
 				{isTrashed}
+				{isHidden}
+				{hiddenMessage}
 				tags={entry.tags}
 				{allTags}
 				{color}
 				htmlContent={editorContent}
 				onColorChange={changeColor}
 				onTagsChange={(update) => report(updateTags(id, user.id, noteKey, update))}
+				onHiddenChange={(hide) =>
+					report(
+						updateTags(id, user.id, noteKey, (tags) =>
+							hide ? withTag(tags, HIDDEN_TAG) : withoutTag(tags, HIDDEN_TAG)
+						)
+					)}
+				onHiddenMessageChange={(message) =>
+					report(updateTags(id, user.id, noteKey, (tags) => withHiddenMessage(tags, message)))}
 				onToggleArchived={() =>
 					closeAndRun(() => (isArchived ? unarchiveNote : archiveNote)(entry, user.id))}
 				onTrash={() => closeAndRun(() => trashNote(entry, user.id))}
@@ -417,6 +450,26 @@
 
 	.isFocused .details {
 		max-height: none;
+	}
+
+	/* In place of the text of a hidden note. */
+	.hiddenContent {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-sm);
+		overflow: hidden;
+		color: #1119;
+		text-align: center;
+
+		p {
+			margin: 0;
+			font-weight: bold;
+			overflow-wrap: anywhere;
+		}
 	}
 
 	.placeholder {

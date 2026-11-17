@@ -35,7 +35,11 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
     between it and the one selected last, and Ctrl+A (⌘A on a Mac) selects all notes in the view,
     also those further down. The selected notes can be tagged, coloured, archived and moved to the trash all
     at once, or in the trash, restored and deleted forever.
-  - Tags, archive, trash and order are per user: on a shared note, everyone organises it their own
+  - Hidden notes: for when someone looks along, a note's text can be hidden until you open it,
+    with a crossed-out eye and optionally a short message of your own in its place. Hide notes by
+    selecting them, or from the eye button of an open note, where the message is set too. The
+    settings can hide their tags as well.
+  - Tags, archive, trash, order and hidden notes are per user: on a shared note, everyone organises it their own
     way, and only deleting it forever from the trash deletes it for everyone
 - Search through the text and tags of notes (`/` jumps to the search field)
 - Ten note colours
@@ -66,7 +70,8 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
 - Every note has its own key, which is encrypted with the owner's public key. Note contents are
   encrypted with that note key, so the server only ever stores ciphertext.
 - Tags are encrypted with the note key as well, and stored per user. Archiving and trashing a note
-  are special tags, so the server can't tell either, and so is a note's place in the user's order. Because of that, the server can't empty the
+  are special tags, so the server can't tell either, and so are a note's place in the user's order
+  and whether it's hidden, with its message. Because of that, the server can't empty the
   trash itself: the app deletes notes that have been in the trash for 30 days, once it has synced,
   so a note that was restored on another device isn't deleted by mistake.
 - Settings that sync across devices, such as the order of your tags, are encrypted with your own

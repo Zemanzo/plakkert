@@ -7,9 +7,10 @@
 	import TrashIcon from '@iconify-svelte/lucide/trash-2';
 	import CopyIcon from '@iconify-svelte/lucide/copy';
 	import DownloadIcon from '@iconify-svelte/lucide/download';
+	import EyeOffIcon from '@iconify-svelte/lucide/eye-off';
 	import Button from '../components/Button.svelte';
 	import TagPicker from '../tags/TagPicker.svelte';
-	import type { NoteTags } from '../tags/Tags';
+	import { MAX_HIDDEN_MESSAGE_LENGTH, type NoteTags } from '../tags/Tags';
 	import ShareOptions from './ShareOptions.svelte';
 	import ExportOptions from './ExportOptions.svelte';
 	import ColorPicker from './ColorPicker.svelte';
@@ -21,12 +22,16 @@
 		canEdit,
 		isArchived,
 		isTrashed,
+		isHidden,
+		hiddenMessage,
 		tags,
 		allTags,
 		color,
 		htmlContent,
 		onColorChange,
 		onTagsChange,
+		onHiddenChange,
+		onHiddenMessageChange,
 		onToggleArchived,
 		onTrash,
 		onRestore,
@@ -39,6 +44,10 @@
 		canEdit: boolean;
 		isArchived: boolean;
 		isTrashed: boolean;
+		/** Whether the note's text is hidden while it's closed. */
+		isHidden: boolean;
+		/** Shown in place of the text while it's hidden. */
+		hiddenMessage: string;
 		tags: NoteTags;
 		/** All tags the user has, to pick from. */
 		allTags: string[];
@@ -47,6 +56,8 @@
 		htmlContent: string;
 		onColorChange: (color: string) => void;
 		onTagsChange: (update: (tags: NoteTags) => NoteTags) => void;
+		onHiddenChange: (hidden: boolean) => void;
+		onHiddenMessageChange: (message: string) => void;
 		onToggleArchived: () => void;
 		onTrash: () => void;
 		onRestore: () => void;
@@ -56,6 +67,7 @@
 	} = $props();
 
 	let shareOptions = $state<ShareOptions>();
+	let messageInput = $state<HTMLInputElement>();
 </script>
 
 <div class="optionsContainer">
@@ -84,6 +96,14 @@
 		{/if}
 		<button popovertarget="tagOptions" aria-label="Tags" title="Tags">
 			<TagIcon width="24px" />
+		</button>
+		<button
+			popovertarget="hideOptions"
+			aria-label="Hide when closed"
+			title="Hide when closed"
+			class:active={isHidden}
+		>
+			<EyeOffIcon width="24px" />
 		</button>
 		<button aria-label="Export" title="Export" popovertarget="exportOptions">
 			<DownloadIcon width="24px" />
@@ -126,6 +146,44 @@
 			<TagPicker {tags} {allTags} onChange={onTagsChange} />
 		</div>
 
+		<!-- The message is saved when leaving the field, or when closing this without leaving it. -->
+		<div
+			popover
+			id="hideOptions"
+			ontoggle={(event) => {
+				if (event.newState === 'closed' && isHidden && messageInput) {
+					onHiddenMessageChange(messageInput.value);
+				}
+			}}
+		>
+			<div class="hideOptions">
+				<label class="checkbox">
+					<input
+						class="plainCheckbox"
+						type="checkbox"
+						checked={isHidden}
+						onchange={(event) => onHiddenChange(event.currentTarget.checked)}
+					/>
+					Hide when closed
+				</label>
+				<p class="hint">
+					Shows a crossed-out eye instead of the text, until you open the note. Only for you.
+				</p>
+				<label class="message">
+					Message (optional)
+					<input
+						bind:this={messageInput}
+						type="text"
+						value={hiddenMessage}
+						maxlength={MAX_HIDDEN_MESSAGE_LENGTH}
+						placeholder="Shown instead of the text"
+						disabled={!isHidden}
+						onchange={(event) => onHiddenMessageChange(event.currentTarget.value)}
+					/>
+				</label>
+			</div>
+		</div>
+
 		<div popover id="exportOptions">
 			<ExportOptions {noteId} {htmlContent} />
 		</div>
@@ -149,9 +207,43 @@
 			cursor: pointer;
 			border-radius: 50%;
 
-			&:hover {
+			&:hover,
+			&.active {
 				color: #161616;
 				background-color: #00000016;
+			}
+		}
+	}
+
+	.hideOptions {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		width: min(18rem, 80vw);
+		padding: var(--spacing-sm);
+		color: var(--color-text-primary);
+
+		.checkbox {
+			display: flex;
+			align-items: center;
+			gap: var(--spacing-sm);
+			font-weight: bold;
+		}
+
+		.hint {
+			margin: 0;
+			font-size: 0.8rem;
+			opacity: 0.7;
+		}
+
+		.message {
+			display: flex;
+			flex-direction: column;
+			gap: var(--spacing-xs);
+			font-size: 0.85rem;
+
+			input:disabled {
+				opacity: 0.5;
 			}
 		}
 	}
