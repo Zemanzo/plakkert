@@ -157,7 +157,7 @@
 			}}
 		>
 			<div class="hideOptions">
-				<h3>Hide when closed</h3>
+				<h3 id="hideTitle">Hide when closed</h3>
 				<p class="hint">
 					Shows a crossed-out eye instead of the text, until you open the note. Only for you.
 				</p>
@@ -166,12 +166,14 @@
 						<input
 							class="themedCheckbox"
 							type="checkbox"
+							aria-labelledby="hideTitle"
 							checked={isHidden}
 							onchange={(event) => onHiddenChange(event.currentTarget.checked)}
 						/>
 					</label>
 					<label class="message">
 						<input
+							aria-label="Message (optional)"
 							bind:this={messageInput}
 							type="text"
 							value={hiddenMessage}
