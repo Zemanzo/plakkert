@@ -613,4 +613,11 @@
 			display: flex;
 		}
 	}
+
+	@media (max-width: 420px) {
+		div[role='button'] {
+			padding-inline: 0;
+			padding: var(--spacing-xs) var(--spacing-sm);
+		}
+	}
 </style>

@@ -12,6 +12,17 @@
 	&.isDisabled .ProseMirror {
 		pointer-events: none;
 	}
+
+	/* On touch screens, a swipe over a closed note scrolls the list of notes, not the note, so long
+	   notes don't get in the way of going through them. Open the note to read the rest. */
+	@media (pointer: coarse) {
+		&.isDisabled,
+		&.isDisabled .tipex-editor-wrap,
+		&.isDisabled .tipex-editor-section,
+		&.isDisabled .ProseMirror {
+			overflow: hidden;
+		}
+	}
 	/* font-family: serif; */
 
 	ul[data-type='taskList'] {
@@ -40,6 +51,10 @@
 			}
 		}
 
+		@media (max-width: 420px) {
+			padding: var(--spacing-sm) 0;
+		}
+
 		p {
 			margin: 0;
 		}
@@ -65,6 +80,14 @@
 		h1 {
 			margin-block: 0;
 			font-weight: 400;
+			line-height: 1.2;
+			font-size: var(--text-tipex-xl);
+		}
+
+		@media (max-width: 420px) {
+			h1 {
+				line-height: 1.1;
+			}
 		}
 
 		.is-empty::before {
