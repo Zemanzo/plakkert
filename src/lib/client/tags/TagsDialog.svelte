@@ -197,7 +197,7 @@
 			const viewed = viewedTag();
 			if (viewed !== null && changes.has(viewed)) {
 				// eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it
-				await goto(tagHref(changes.get(viewed)!), { replaceState: true });
+				await goto(tagHref(changes.get(viewed)!), { replace: true, state: page.state });
 			}
 			dialog?.close();
 		} catch (error) {

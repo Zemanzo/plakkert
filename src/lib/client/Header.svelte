@@ -10,7 +10,7 @@
 
 	async function signOut() {
 		await logout();
-		await goto(resolve('/login'));
+		await goto(resolve('/login'), { replace: true });
 	}
 </script>
 

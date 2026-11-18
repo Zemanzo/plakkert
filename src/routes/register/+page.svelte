@@ -37,7 +37,7 @@
 		errorMessage = null;
 		try {
 			await register(username, password, mode === 'invite' ? inviteCode : undefined);
-			await goto(resolve('/(notes)'));
+			await goto(resolve('/(notes)'), { replace: true });
 		} catch (error) {
 			console.error('Registration failed', error);
 			if (error instanceof OfflineError) {

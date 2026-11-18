@@ -19,7 +19,7 @@
 		errorMessage = null;
 		try {
 			await login(username, password);
-			await goto(resolve('/(notes)'));
+			await goto(resolve('/(notes)'), { replace: true });
 		} catch (error) {
 			console.error('Login failed', error);
 			errorMessage = error instanceof Error ? error.message : 'Unexpected error';

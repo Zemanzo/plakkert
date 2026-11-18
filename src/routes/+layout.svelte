@@ -3,9 +3,10 @@
 	import Header from '#lib/client/Header.svelte';
 	import ConfirmDialog from '#lib/client/components/ConfirmDialog.svelte';
 	import Toasts from '#lib/client/components/Toasts.svelte';
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { tick } from 'svelte';
 	import { localUser } from '#lib/client/User.svelte.js';
 	import { getUnlockedSession, keepUnlockedSession } from '#lib/client/auth/Session.js';
 	import { applyTheme, preferencesOf } from '#lib/client/settings/Preferences.js';
@@ -30,6 +31,42 @@
 			goto(resolve('/(notes)'), { replace: true });
 		}
 	});
+
+	// Like an app, the history is at most two entries deep: all notes, and the section that is open,
+	// e.g. the settings, the archive or a tag. Going back from a section shows all notes, and going
+	// back from there leaves the app, however much was opened in between. An open note adds an
+	// entry of its own, which going back closes.
+	const isMain = (url: { pathname: string; search: string }) =>
+		url.pathname === resolve('/(notes)') && url.search === '';
+
+	beforeNavigate((navigation) => {
+		const to = navigation.to?.url;
+		if (navigation.type !== 'link' || !navigation.from || !to) return;
+		navigation.cancel();
+		void openSection(to);
+	});
+
+	async function openSection(to: URL) {
+		// Close the open note first, as if going back, so its entry doesn't stay behind.
+		while (page.state.openNoteId) {
+			const popped = new Promise((resolve) =>
+				addEventListener('popstate', resolve, { once: true })
+			);
+			history.back();
+			await popped;
+			await tick();
+		}
+		if (isMain(page.url)) {
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- a link's own URL
+			if (!isMain(to)) await goto(to, { state: { fromMain: true } });
+		} else if (isMain(to) && page.state.fromMain) {
+			history.back();
+		} else {
+			// The app may have been opened at a section, with no entry for all notes before it.
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- a link's own URL
+			await goto(to, { replace: true, state: { fromMain: page.state.fromMain } });
+		}
+	}
 
 	$effect(() => {
 		const user = localUser.data;

@@ -14,6 +14,8 @@ declare global {
 		interface PageState {
 			/** The note that is open. Opening one adds a history entry, so going back closes it. */
 			openNoteId?: string;
+			/** Whether the entry before this one is all notes, so going back to them can go back. */
+			fromMain?: boolean;
 		}
 		// interface Platform {}
 	}
