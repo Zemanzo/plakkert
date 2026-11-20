@@ -9,8 +9,21 @@ import type {
 	OAuthTokens
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { readFile } from 'node:fs/promises';
+import Database from 'better-sqlite3';
 import type { APIRequestContext } from '@playwright/test';
-import { addTag, expect, newNote, noteAction, test, uniqueName, url, waitSynced } from './helpers';
+import {
+	addTag,
+	clickNoteButton,
+	closeNote,
+	expect,
+	newNote,
+	noteAction,
+	openNote,
+	test,
+	uniqueName,
+	url,
+	waitSynced
+} from './helpers';
 import { catchRedirect, connect, MCP_URL, REDIRECT_URI } from './mcpClient';
 
 // What MCP clients can do with a user's notes, once connected (see oauth.test.ts): read them,
@@ -84,6 +97,7 @@ test('an MCP client can search and read the user’s notes, and nothing else', a
 		};
 		expect(tools.map((tool) => tool.name).sort()).toEqual([
 			'get_note',
+			'list_colors',
 			'list_tags',
 			'search_notes'
 		]);
@@ -121,7 +135,7 @@ test('an MCP client can search and read the user’s notes, and nothing else', a
 			shared_by: null
 		});
 		const tags = await callTool(request, aliceClient.access_token, 'list_tags');
-		expect(tags.structuredContent).toEqual({ tags: [{ name: 'Shopping', count: 1 }] });
+		expect(tags.structuredContent).toEqual({ tags: [{ name: 'Shopping', count: 1 }], skipped: 0 });
 
 		// Another user's token can't read it, even with its id.
 		const asBob = await callTool(request, bobClient.access_token, 'get_note', { id });
@@ -148,6 +162,109 @@ test('an MCP client can search and read the user’s notes, and nothing else', a
 		expect(database.includes(Buffer.from(secret, 'base64url'))).toBe(false);
 		expect(database.includes(aliceClient.access_token.split('.')[0] + '.')).toBe(false);
 		expect(database.includes('groceries')).toBe(false);
+	});
+});
+
+test('search results have colours and dates, can be sorted and paged, and report skipped notes', async ({
+	app,
+	request
+}) => {
+	const { page } = await app.register(uniqueName('search'));
+	await newNote(page, 'Groceries for Sunday');
+	await newNote(page, '🧮- Boerenkoolstamppot');
+	await newNote(page, 'Plans | ideas');
+	await openNote(page, 'Groceries');
+	await clickNoteButton(page, 'Pick color');
+	await page.locator('#colorSelection label[title=Red]').click();
+	await closeNote(page);
+	await addTag(page, 'Boerenkoolstamppot', 'Recepten');
+	await waitSynced(page);
+	const { access_token } = await connect(page, request);
+	const search = (args: Record<string, unknown>) =>
+		callTool(request, access_token, 'search_notes', args);
+
+	await test.step('summaries have the colour and when notes were created', async () => {
+		const result = await search({ color: 'red' });
+		expect(result.structuredContent).toMatchObject({
+			total: 1,
+			offset: 0,
+			has_more: false,
+			next_offset: null,
+			skipped: 0
+		});
+		const [groceries] = result.structuredContent.notes as Record<string, unknown>[];
+		expect(groceries).toMatchObject({ title: 'Groceries for Sunday', color: 'red' });
+		expect(Date.parse(groceries.created as string)).toBeGreaterThan(Date.now() - 600_000);
+		const colors = await callTool(request, access_token, 'list_colors');
+		expect(colors.structuredContent).toEqual({
+			colors: [
+				{ color: 'yellow', count: 2 },
+				{ color: 'red', count: 1 }
+			],
+			skipped: 0
+		});
+	});
+
+	await test.step('words are found next to emoji and punctuation; punctuation alone is refused', async () => {
+		expect(titles(await search({ query: 'Boerenkoolstamppot' }))).toEqual([
+			'🧮- Boerenkoolstamppot'
+		]);
+		expect(titles(await search({ query: 'stamppot recepten' }))).toEqual([
+			'🧮- Boerenkoolstamppot'
+		]);
+		const pipe = await search({ query: '|' });
+		expect(pipe.isError).toBe(true);
+		expect(pipe.content[0].text).toContain('no letters or digits');
+	});
+
+	await test.step('sorted by creation, either way, and paged', async () => {
+		const oldest = await search({ sort: 'created', order: 'oldest', limit: 2 });
+		expect((oldest.structuredContent.notes as { title: string }[]).map((n) => n.title)).toEqual([
+			'Groceries for Sunday',
+			'🧮- Boerenkoolstamppot'
+		]);
+		expect(oldest.structuredContent).toMatchObject({ total: 3, has_more: true, next_offset: 2 });
+		const rest = await search({ sort: 'created', order: 'oldest', limit: 2, offset: 2 });
+		expect(titles(rest)).toEqual(['Plans | ideas']);
+		expect(rest.structuredContent).toMatchObject({ has_more: false, next_offset: null });
+		const future = await search({ created_after: '2100-01-01' });
+		expect(future.structuredContent.total).toBe(0);
+		expect((await search({ created_before: 'yesterday-ish' })).isError).toBe(true);
+	});
+
+	await test.step('the text is compact JSON of the same result', async () => {
+		const result = await search({});
+		expect(result.content[0].text).not.toContain('\n');
+		expect(JSON.parse(result.content[0].text)).toEqual(result.structuredContent);
+	});
+
+	await test.step('notes that can’t be decrypted are counted, never shown', async () => {
+		const all = (await search({})).structuredContent.notes as { id: string; title: string }[];
+		const plans = all.find((n) => n.title === 'Plans | ideas')!;
+		const recipe = all.find((n) => n.title.includes('Boerenkool'))!;
+		const database = new Database('e2e/.data/test.db');
+		database.pragma('busy_timeout = 5000');
+		// Damaged ciphertext: the note can't be read at all.
+		database
+			.prepare('UPDATE notes SET content = ? WHERE id = ?')
+			.run(Buffer.alloc(64, 1), plans.id);
+		// Damaged tags: the note is still there, like in the app, just without its tags.
+		database
+			.prepare('UPDATE user_notes SET tags = ? WHERE note_id = ?')
+			.run(Buffer.alloc(64, 2), recipe.id);
+		database.close();
+
+		const result = await search({});
+		expect(result.structuredContent).toMatchObject({ total: 2, skipped: 1 });
+		expect(titles(result)).toEqual(['Groceries for Sunday', '🧮- Boerenkoolstamppot']);
+		expect((await search({ query: 'stamppot' })).structuredContent.notes).toMatchObject([
+			{ tags: [] }
+		]);
+		const unreadable = await callTool(request, access_token, 'get_note', { id: plans.id });
+		expect(unreadable.isError).toBe(true);
+		expect(unreadable.content[0].text).toContain("couldn't be decrypted");
+		const tags = await callTool(request, access_token, 'list_tags');
+		expect(tags.structuredContent).toEqual({ tags: [], skipped: 1 });
 	});
 });
 

@@ -111,176 +111,189 @@
 				<p>All changes saved.</p>
 			{/if}
 		</div>
-		<div class="preferencesList">
-			<h2>Preferences</h2>
-			<div class="preferenceItem">
-				<label for="pref-theme">Theme</label>
-				<select id="pref-theme" bind:value={settings.theme}>
-					<option value="system">System</option>
-					<option value="light">Light</option>
-					<option value="dark">Dark</option>
-				</select>
-			</div>
-			<div class="preferenceItem">
-				<div>
-					<label for="pref-twoColumns">Two notes side by side</label>
-					<p>On narrow screens such as phones, show two smaller notes per row instead of one.</p>
+		<div class="columns">
+			<div class="column">
+				<div class="preferencesList">
+					<h2>Preferences</h2>
+					<div class="preferenceItem">
+						<label for="pref-theme">Theme</label>
+						<select id="pref-theme" bind:value={settings.theme}>
+							<option value="system">System</option>
+							<option value="light">Light</option>
+							<option value="dark">Dark</option>
+						</select>
+					</div>
+					<div class="preferenceItem">
+						<div>
+							<label for="pref-twoColumns">Two notes side by side</label>
+							<p>
+								On narrow screens such as phones, show two smaller notes per row instead of one.
+							</p>
+						</div>
+						<input
+							id="pref-twoColumns"
+							class="themedCheckbox"
+							type="checkbox"
+							bind:checked={settings.twoColumnsOnNarrowScreens}
+						/>
+					</div>
+					<div class="preferenceItem">
+						<div>
+							<label for="pref-hideTags">Hide the tags of hidden notes</label>
+							<p>
+								Hidden notes still show their tags while they're closed. Turn this on to hide those
+								too, as tags can give away what a note is about.
+							</p>
+						</div>
+						<input
+							id="pref-hideTags"
+							class="themedCheckbox"
+							type="checkbox"
+							bind:checked={settings.hideTagsOfHiddenNotes}
+						/>
+					</div>
 				</div>
-				<input
-					id="pref-twoColumns"
-					class="themedCheckbox"
-					type="checkbox"
-					bind:checked={settings.twoColumnsOnNarrowScreens}
-				/>
-			</div>
-			<div class="preferenceItem">
-				<div>
-					<label for="pref-hideTags">Hide the tags of hidden notes</label>
-					<p>
-						Hidden notes still show their tags while they're closed. Turn this on to hide those too,
-						as tags can give away what a note is about.
-					</p>
+				<div class="preferencesList">
+					<h2>Security</h2>
+					<div class="preferenceItem">
+						<div>
+							<label for="security-stayLoggedIn">Stay logged in</label>
+							<p>
+								Stay logged in on this device after closing the app, until you haven't used it for {REMEMBERED_SESSION_DAYS}
+								days. Anyone who can use this device can then read your notes, without your password.
+							</p>
+						</div>
+						<input
+							id="security-stayLoggedIn"
+							class="themedCheckbox"
+							type="checkbox"
+							bind:checked={settings.stayLoggedIn}
+						/>
+					</div>
 				</div>
-				<input
-					id="pref-hideTags"
-					class="themedCheckbox"
-					type="checkbox"
-					bind:checked={settings.hideTagsOfHiddenNotes}
-				/>
-			</div>
-		</div>
-		<div class="preferencesList">
-			<h2>Security</h2>
-			<div class="preferenceItem">
-				<div>
-					<label for="security-stayLoggedIn">Stay logged in</label>
-					<p>
-						Stay logged in on this device after closing the app, until you haven't used it for {REMEMBERED_SESSION_DAYS}
-						days. Anyone who can use this device can then read your notes, without your password.
-					</p>
-				</div>
-				<input
-					id="security-stayLoggedIn"
-					class="themedCheckbox"
-					type="checkbox"
-					bind:checked={settings.stayLoggedIn}
-				/>
-			</div>
-		</div>
-		<div class="preferencesList">
-			<h2>Import</h2>
-			{#each IMPORT_SOURCES as source (source.id)}
-				{@const state = importState?.source === source.id ? importState : null}
-				<div
-					class="preferenceItem"
-					{@attach fileDrop((file) => readImport(source, file), !isImporting)}
-				>
-					<div>
-						<label for="import-{source.id}">{source.name}</label>
-						<p>{source.description} Imported notes get the tag “{source.tag}”.</p>
-						{#if state}
-							<div class="importStatus" aria-live="polite">
-								{#if state.step === 'failed'}
-									<p class="error">{state.error}</p>
-								{:else if state.step === 'reading'}
-									<p>
-										{state.total > 0
-											? `Reading notes… ${state.done} of ${state.total}`
-											: 'Reading the file…'}
-									</p>
-								{:else if state.step === 'saving'}
-									<p>Saving notes… {state.done} of {state.plan.notes.length}</p>
-								{:else if state.step === 'done'}
-									<p>
-										Imported {notesCount(state.plan.notes.length)}.
-										<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it -->
-										<a href={tagHref(source.tag)}>View them</a>
-									</p>
-								{:else}
-									{@const { notes, archived, labels, duplicates, trashed, failed } = state.plan}
-									<p class="importSummary">
-										{notes.length > 0
-											? `Ready to import ${notesCount(notes.length)}${archived > 0 ? `, of which ${archived} to the archive` : ''}.`
-											: 'There are no new notes to import.'}
-									</p>
-									{#if labels.length > 0}
-										<p>
-											{labels.length === 1
-												? 'Their label becomes a tag:'
-												: `Their ${labels.length} labels become tags:`}
-										</p>
-										<ul class="importLabels">
-											{#each labels as label (label.name)}
-												<li title={notesCount(label.notes)}>
-													{label.name}
-													<span class="count">{label.notes}</span>
-													{#if !label.isNewTag}<span class="existing">existing tag</span>{/if}
-												</li>
-											{/each}
-										</ul>
-									{/if}
-									{#if duplicates > 0}
-										<p>
-											Skipping {notesCount(duplicates)} that {were(duplicates)} imported before.
-										</p>
-									{/if}
-									{#if trashed > 0}
-										<p>Leaving out {notesCount(trashed)} that {were(trashed)} in the trash.</p>
-									{/if}
-									{#if failed.length > 0}
-										<p class="error">
-											{failed.length === 1 ? '1 file' : `${failed.length} files`} couldn’t be read: {failed
-												.slice(0, MAX_FAILED_NAMES)
-												.join(', ')}{failed.length > MAX_FAILED_NAMES
-												? ` and ${failed.length - MAX_FAILED_NAMES} more`
-												: ''}.
-										</p>
-									{/if}
-									<div class="importActions">
-										{#if notes.length > 0}
-											<Button class="sm" onclick={() => confirmImport(state.plan)}>
-												Import {notesCount(notes.length)}
-											</Button>
+				<div class="preferencesList">
+					<h2>Import</h2>
+					{#each IMPORT_SOURCES as source (source.id)}
+						{@const state = importState?.source === source.id ? importState : null}
+						<div
+							class="preferenceItem"
+							{@attach fileDrop((file) => readImport(source, file), !isImporting)}
+						>
+							<div>
+								<label for="import-{source.id}">{source.name}</label>
+								<p>{source.description} Imported notes get the tag “{source.tag}”.</p>
+								{#if state}
+									<div class="importStatus" aria-live="polite">
+										{#if state.step === 'failed'}
+											<p class="error">{state.error}</p>
+										{:else if state.step === 'reading'}
+											<p>
+												{state.total > 0
+													? `Reading notes… ${state.done} of ${state.total}`
+													: 'Reading the file…'}
+											</p>
+										{:else if state.step === 'saving'}
+											<p>Saving notes… {state.done} of {state.plan.notes.length}</p>
+										{:else if state.step === 'done'}
+											<p>
+												Imported {notesCount(state.plan.notes.length)}.
+												<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- tagHref resolves it -->
+												<a href={tagHref(source.tag)}>View them</a>
+											</p>
+										{:else}
+											{@const { notes, archived, labels, duplicates, trashed, failed } = state.plan}
+											<p class="importSummary">
+												{notes.length > 0
+													? `Ready to import ${notesCount(notes.length)}${archived > 0 ? `, of which ${archived} to the archive` : ''}.`
+													: 'There are no new notes to import.'}
+											</p>
+											{#if labels.length > 0}
+												<p>
+													{labels.length === 1
+														? 'Their label becomes a tag:'
+														: `Their ${labels.length} labels become tags:`}
+												</p>
+												<ul class="importLabels">
+													{#each labels as label (label.name)}
+														<li title={notesCount(label.notes)}>
+															{label.name}
+															<span class="count">{label.notes}</span>
+															{#if !label.isNewTag}<span class="existing">existing tag</span>{/if}
+														</li>
+													{/each}
+												</ul>
+											{/if}
+											{#if duplicates > 0}
+												<p>
+													Skipping {notesCount(duplicates)} that {were(duplicates)} imported before.
+												</p>
+											{/if}
+											{#if trashed > 0}
+												<p>Leaving out {notesCount(trashed)} that {were(trashed)} in the trash.</p>
+											{/if}
+											{#if failed.length > 0}
+												<p class="error">
+													{failed.length === 1 ? '1 file' : `${failed.length} files`} couldn’t be read:
+													{failed.slice(0, MAX_FAILED_NAMES).join(', ')}{failed.length >
+													MAX_FAILED_NAMES
+														? ` and ${failed.length - MAX_FAILED_NAMES} more`
+														: ''}.
+												</p>
+											{/if}
+											<div class="importActions">
+												{#if notes.length > 0}
+													<Button class="sm" onclick={() => confirmImport(state.plan)}>
+														Import {notesCount(notes.length)}
+													</Button>
+												{/if}
+												<Button
+													class="sm"
+													--bg="var(--color-input-background)"
+													--text="var(--color-text-primary)"
+													onclick={() => (importState = null)}
+												>
+													{notes.length > 0 ? 'Cancel' : 'OK'}
+												</Button>
+											</div>
 										{/if}
-										<Button
-											class="sm"
-											--bg="var(--color-input-background)"
-											--text="var(--color-text-primary)"
-											onclick={() => (importState = null)}
-										>
-											{notes.length > 0 ? 'Cancel' : 'OK'}
-										</Button>
 									</div>
 								{/if}
 							</div>
-						{/if}
-					</div>
-					<input
-						bind:this={fileInputs[source.id]}
-						id="import-{source.id}"
-						type="file"
-						accept={source.accept}
-						hidden
-						onchange={(event) => {
-							const file = event.currentTarget.files?.[0];
-							event.currentTarget.value = '';
-							if (file) readImport(source, file);
-						}}
-					/>
-					<Button class="sm" disabled={isImporting} onclick={() => fileInputs[source.id]?.click()}>
-						Choose file
-					</Button>
+							<input
+								bind:this={fileInputs[source.id]}
+								id="import-{source.id}"
+								type="file"
+								accept={source.accept}
+								hidden
+								onchange={(event) => {
+									const file = event.currentTarget.files?.[0];
+									event.currentTarget.value = '';
+									if (file) readImport(source, file);
+								}}
+							/>
+							<Button
+								class="sm"
+								disabled={isImporting}
+								onclick={() => fileInputs[source.id]?.click()}
+							>
+								Choose file
+							</Button>
+						</div>
+					{/each}
 				</div>
-			{/each}
-		</div>
-		<!-- Only when the server offers MCP, which it finds out itself. -->
-		<div class="preferencesList" hidden={!mcpAvailable}>
-			<h2>MCP</h2>
-			<McpSettings onAvailable={(available) => (mcpAvailable = available)} />
-		</div>
-		<div class="preferencesList">
-			<h2>Export</h2>
-			<ExportAll getUser={importingUser} />
+				<div class="preferencesList">
+					<h2>Export</h2>
+					<ExportAll getUser={importingUser} />
+				</div>
+			</div>
+			<!-- A second column where there's room, otherwise at the bottom. Only when the server
+			     offers MCP, which it finds out itself. -->
+			<div class="column" hidden={!mcpAvailable}>
+				<div class="preferencesList">
+					<h2>MCP</h2>
+					<McpSettings onAvailable={(available) => (mcpAvailable = available)} />
+				</div>
+			</div>
 		</div>
 	{/if}
 </section>
@@ -299,13 +312,26 @@
 			height: 2.75rem;
 		}
 
-		.preferencesList {
+		/* Two columns where there's room for both, otherwise one, with the second at the bottom. */
+		.columns {
 			display: flex;
-			flex-direction: column;
+			flex-wrap: wrap;
+			align-items: flex-start;
+			gap: var(--spacing-xxl) calc(var(--spacing-xxl) * 2);
+		}
+
+		.column {
+			flex: 0 1 60ch;
+			min-width: min(36ch, 100%);
 
 			&[hidden] {
 				display: none;
 			}
+		}
+
+		.preferencesList {
+			display: flex;
+			flex-direction: column;
 			max-width: min(60ch, 100%);
 			gap: var(--spacing-sm);
 

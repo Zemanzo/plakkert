@@ -7,6 +7,7 @@ import {
 	parseNoteUserData,
 	userTags
 } from '#lib/client/tags/Tags.js';
+import { DEFAULT_NOTE_COLOR, NOTE_COLORS } from '#lib/client/note/NoteColors.js';
 import { selectUserNotes } from '../notes';
 import { decryptJson, openNoteKey } from './crypto';
 import type { McpCaller } from './oauth';
@@ -26,6 +27,7 @@ export interface McpNote {
 	archived: boolean;
 	trashed: boolean;
 	hidden: boolean;
+	/** As the app names it, e.g. "red" or "teal". */
 	color: string;
 	createdAt: Date;
 	updatedAt: Date;
@@ -61,49 +63,72 @@ function titleOf(markdown: string) {
 	return (line ?? '').slice(0, 100) || 'Untitled';
 }
 
+/** The colours as the app names them. Two ids differ from their names, from earlier versions. */
+const COLOR_NAMES: Record<string, string> = Object.fromEntries(
+	NOTE_COLORS.map(({ id, label }) => [id, label.toLowerCase()])
+);
+export const MCP_COLORS = [...new Set(Object.values(COLOR_NAMES))];
+
+/** A note's colour as the app shows it. Notes without a known colour are yellow there too. */
+export const colorName = (id: unknown) =>
+	COLOR_NAMES[typeof id === 'string' ? id : ''] ?? COLOR_NAMES[DEFAULT_NOTE_COLOR];
+
 /**
- * Decrypts all notes of the caller. Notes that can't be decrypted are skipped and counted, like
- * the app does.
+ * Decrypts all notes of the caller. A note whose key or text can't be decrypted is skipped, and
+ * only its id is reported, never anything of its content. A note whose tags can't be decrypted
+ * is still there, without tags, like in the app.
  */
 export async function loadNotes(caller: McpCaller) {
 	const notes: McpNote[] = [];
-	let failed = 0;
+	const skippedIds: string[] = [];
 	for (const row of selectUserNotes(caller.userId).all()) {
 		if (row.deletedAt || !row.content) continue;
+		let noteKey: Uint8Array;
+		let data: { content?: unknown; meta?: { color?: unknown } };
 		try {
-			const noteKey = await openNoteKey(
+			noteKey = await openNoteKey(
 				new Uint8Array(Buffer.from(row.noteKey, 'base64')),
 				caller.publicKey,
 				caller.privateKey
 			);
-			const data = (await decryptJson(new Uint8Array(row.content as Buffer), noteKey)) as {
-				content: string;
-				meta?: { color?: string };
-			};
-			const { tags } = row.tags
-				? parseNoteUserData(await decryptJson(new Uint8Array(row.tags as Buffer), noteKey))
-				: { tags: {} };
-			const markdown = htmlToMarkdown(data.content ?? '');
-			notes.push({
-				id: row.id,
-				title: titleOf(markdown),
-				markdown,
-				searchText: buildSearchText(
-					normalizeForSearch(htmlToText(data.content ?? '')),
-					userTags(tags)
-				),
-				tags: userTags(tags),
-				archived: isArchived(tags),
-				trashed: isTrashed(tags),
-				hidden: isHidden(tags),
-				color: data.meta?.color ?? 'default',
-				createdAt: row.createdAt,
-				updatedAt: row.updatedAt,
-				sharedBy: row.owner === caller.userId ? null : row.ownerUsername
-			});
+			data = (await decryptJson(new Uint8Array(row.content as Buffer), noteKey)) as typeof data;
 		} catch {
-			failed++;
+			skippedIds.push(row.id);
+			continue;
 		}
+		let tags = {};
+		if (row.tags) {
+			try {
+				tags = parseNoteUserData(
+					await decryptJson(new Uint8Array(row.tags as Buffer), noteKey)
+				).tags;
+			} catch {
+				// Like the app: the note is still shown, just without its tags.
+			}
+		}
+		const html = typeof data.content === 'string' ? data.content : '';
+		const text = htmlToText(html);
+		let markdown: string;
+		try {
+			markdown = htmlToMarkdown(html);
+		} catch {
+			// Unusual HTML, e.g. from another app: the text is better than leaving the note out.
+			markdown = text;
+		}
+		notes.push({
+			id: row.id,
+			title: titleOf(markdown),
+			markdown,
+			searchText: buildSearchText(normalizeForSearch(text), userTags(tags)),
+			tags: userTags(tags),
+			archived: isArchived(tags),
+			trashed: isTrashed(tags),
+			hidden: isHidden(tags),
+			color: colorName(data.meta?.color),
+			createdAt: row.createdAt,
+			updatedAt: row.updatedAt,
+			sharedBy: row.owner === caller.userId ? null : row.ownerUsername
+		});
 	}
-	return { notes, failed };
+	return { notes, skippedIds };
 }

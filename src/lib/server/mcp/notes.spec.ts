@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { htmlToMarkdown } from './notes';
+import { colorName, htmlToMarkdown, MCP_COLORS } from './notes';
 
 describe('notes as Markdown', () => {
 	it('converts what the editor writes', () => {
@@ -12,6 +12,16 @@ describe('notes as Markdown', () => {
 					'</ul><pre><code class="language-js">let a = 1;</code></pre>'
 			)
 		).toBe('# Groceries\n\nFor **Sunday**\n\n- [x] Milk\n- [ ] Eggs\n\n```js\nlet a = 1;\n```');
+	});
+
+	it('names colours as the app does', () => {
+		expect(colorName('red')).toBe('red');
+		// Stored as "blue" by earlier versions, but shown as teal; "sky" is the blue.
+		expect(colorName('blue')).toBe('teal');
+		expect(colorName('sky')).toBe('blue');
+		expect(colorName(undefined)).toBe('yellow');
+		expect(colorName('nonsense')).toBe('yellow');
+		expect(MCP_COLORS).toContain('teal');
 	});
 
 	it('leaves out scripts', () => {
