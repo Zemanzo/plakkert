@@ -156,7 +156,7 @@
 							</div>
 							<Button
 								class="sm"
-								--bg="var(--color-input-background)"
+								--bg="var(--color-red)"
 								--text="var(--color-text-primary)"
 								disabled={busy}
 								onclick={() => disconnect(client)}>Disconnect</Button
@@ -231,6 +231,9 @@
 		}
 
 		li {
+			border-left: var(--color-yellow) 4px solid;
+			padding: var(--spacing-sm) var(--spacing-md);
+			background-color: #fff1;
 			display: flex;
 			align-items: center;
 			justify-content: space-between;

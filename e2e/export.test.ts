@@ -53,11 +53,11 @@ test('all notes can be exported as a zip, with or without a password', async ({ 
 		await expect(exportButton).toBeDisabled();
 		await page.getByLabel('Password', { exact: true }).fill('short');
 		await expect(page.getByText('at least 8 characters')).toBeVisible();
-		await page.getByLabel('Password', { exact: true }).fill('correct horse battery');
-		await page.getByLabel('Repeat password').fill('correct horse');
-		await expect(page.getByText('The passwords don’t match.')).toBeVisible();
 		await expect(exportButton).toBeDisabled();
-		await page.getByLabel('Repeat password').fill('correct horse battery');
+		// Typed once: there's no second field to repeat it in.
+		await page.getByLabel('Password', { exact: true }).fill('correct horse battery');
+		await expect(page.getByLabel('Repeat password')).toHaveCount(0);
+		await expect(exportButton).toBeEnabled();
 
 		const zip = await download(page);
 		await expect(readZip(zip, 'wrong password')).rejects.toThrow();

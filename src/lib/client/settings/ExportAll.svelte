@@ -16,7 +16,6 @@
 
 	let usePassword = $state(true);
 	let password = $state('');
-	let repeated = $state('');
 	let busy = $state(false);
 	let status = $state<{ error: boolean; message: string } | null>(null);
 
@@ -25,12 +24,9 @@
 		if (password.length < MIN_PASSWORD_LENGTH) {
 			return `Use a password of at least ${MIN_PASSWORD_LENGTH} characters.`;
 		}
-		if (repeated && repeated !== password) return 'The passwords don’t match.';
 		return null;
 	});
-	const canExport = $derived(
-		!busy && (!usePassword || (!passwordProblem && repeated === password))
-	);
+	const canExport = $derived(!busy && !passwordProblem);
 
 	const notesCount = (count: number) => (count === 1 ? '1 note' : `${count} notes`);
 
@@ -51,7 +47,7 @@
 					`Exported ${notesCount(notes.length)}.` +
 					(failed > 0 ? ` ${notesCount(failed)} couldn’t be decrypted, and were left out.` : '')
 			};
-			password = repeated = '';
+			password = '';
 		} catch (error) {
 			console.error('Export failed', error);
 			status = { error: true, message: 'The notes couldn’t be exported.' };
@@ -88,16 +84,10 @@
 			every one that comes with your computer. Files are named after when the note was created, as a
 			zip’s file names aren’t encrypted.
 		</p>
-		<div class="passwords">
-			<label>
-				Password
-				<input type="password" autocomplete="new-password" bind:value={password} />
-			</label>
-			<label>
-				Repeat password
-				<input type="password" autocomplete="new-password" bind:value={repeated} />
-			</label>
-		</div>
+		<label class="password">
+			Password
+			<input type="password" autocomplete="new-password" bind:value={password} />
+		</label>
 		{#if password && passwordProblem}
 			<p class="error">{passwordProblem}</p>
 		{/if}
@@ -158,18 +148,12 @@
 			}
 		}
 
-		.passwords {
+		.password {
 			display: flex;
-			flex-wrap: wrap;
-			gap: var(--spacing-md);
-
-			label {
-				display: flex;
-				flex: 1 1 12rem;
-				flex-direction: column;
-				gap: var(--spacing-xs);
-				font-size: 0.85rem;
-			}
+			flex-direction: column;
+			gap: var(--spacing-xs);
+			max-width: 20rem;
+			font-size: 0.85rem;
 		}
 
 		.actions {
