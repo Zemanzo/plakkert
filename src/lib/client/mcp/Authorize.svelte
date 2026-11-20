@@ -26,6 +26,10 @@
 	onMount(async () => {
 		try {
 			const response = await fetch(`/api/oauth/authorize?${query}`);
+			if (response.status === 404) {
+				problem = 'This server doesn’t offer MCP.';
+				return;
+			}
 			if (response.status === 401) {
 				problem =
 					'Your session has expired. Log out, log in again, and then connect the app again.';

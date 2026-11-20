@@ -1,4 +1,5 @@
 import { and, count, eq, lt, notExists } from 'drizzle-orm';
+import { MCP } from '$app/env/private';
 import { db } from '../db/index';
 import { mcpAccess, oauthClients, oauthCodes, oauthGrants, oauthTokens, user } from '../db/schema';
 import {
@@ -462,6 +463,8 @@ export async function authenticate(
 	authorization: string | null,
 	origin: string
 ): Promise<McpCaller | null> {
+	// Also refused here, not just in hooks.server.ts, while the server doesn't allow MCP.
+	if (!MCP) return null;
 	const match = /^Bearer ([^\s]+)$/i.exec(authorization ?? '');
 	const token = match && parseSecretToken(match[1]);
 	if (!token) return null;

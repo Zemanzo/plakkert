@@ -10,6 +10,7 @@
 	import type { ImportPlan } from '../import/ImportPlan';
 	import { tagHref } from '../tags/TagLinks';
 	import ExportAll from './ExportAll.svelte';
+	import McpSettings from './McpSettings.svelte';
 	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
 	let settings = $state<Preferences>(
@@ -44,6 +45,7 @@
 		| { step: 'failed'; error: string }
 	);
 	let importState = $state<ImportState | null>(null);
+	let mcpAvailable = $state(false);
 	const isImporting = $derived(importState?.step === 'reading' || importState?.step === 'saving');
 	const fileInputs = $state<Partial<Record<ImportSourceId, HTMLInputElement>>>({});
 
@@ -271,6 +273,11 @@
 				</div>
 			{/each}
 		</div>
+		<!-- Only when the server offers MCP, which it finds out itself. -->
+		<div class="preferencesList" hidden={!mcpAvailable}>
+			<h2>MCP</h2>
+			<McpSettings onAvailable={(available) => (mcpAvailable = available)} />
+		</div>
 		<div class="preferencesList">
 			<h2>Export</h2>
 			<ExportAll getUser={importingUser} />
@@ -295,6 +302,10 @@
 		.preferencesList {
 			display: flex;
 			flex-direction: column;
+
+			&[hidden] {
+				display: none;
+			}
 			max-width: min(60ch, 100%);
 			gap: var(--spacing-sm);
 

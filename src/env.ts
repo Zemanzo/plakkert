@@ -20,6 +20,15 @@ export const variables = defineEnvVars({
 		schema: optional,
 		description: 'Code needed to create an account when REGISTRATION is "invite"'
 	},
+	MCP: {
+		schema: (value) => {
+			if (!value || value === 'off') return false;
+			if (value === 'on') return true;
+			throw new Error('MCP must be "on" or "off"');
+		},
+		description:
+			'Whether users can let MCP clients (e.g. AI assistants) read their notes: "on" or "off" (default)'
+	},
 	DATABASE_URL: {
 		schema: (value) => {
 			if (!value) throw new Error('DATABASE_URL is not set');

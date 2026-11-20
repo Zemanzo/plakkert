@@ -18,6 +18,8 @@ Object.assign(process.env, {
 	// Like production: only people with the invite code can register. Keep in sync with helpers.ts.
 	REGISTRATION: 'invite',
 	INVITE_CODE: 'e2e-invite-code',
+	// Off by default; on for the MCP tests.
+	MCP: 'on',
 	PORT: port,
 	HOST: '127.0.0.1'
 });

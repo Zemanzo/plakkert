@@ -222,6 +222,52 @@ test('the official MCP client can sign in on its own, from the 401 onwards', asy
 	await client.close();
 });
 
+test('the settings turn MCP access on and off, and show connected apps', async ({
+	app,
+	request
+}) => {
+	const { page } = await app.register(uniqueName('mcpsettings'));
+	await page.goto(url('/settings'));
+	const toggle = page.getByLabel('Let MCP clients read your notes');
+	await expect(toggle).not.toBeChecked();
+	await expect(page.getByText('Server address')).toHaveCount(0);
+	await toggle.check();
+	await expect(page.locator('code', { hasText: MCP_URL })).toBeVisible();
+	await expect(page.getByText('None yet.')).toBeVisible();
+
+	const client = await connect(page, request);
+	await page.goto(url('/settings'));
+	await expect(page.getByText('Test client')).toBeVisible();
+	await expect(page.getByText(/Connected .* · not used yet/)).toBeVisible();
+	if (process.env.SHOT_DIR) {
+		await page.locator('.preferencesList', { hasText: 'MCP' }).screenshot({
+			path: `${process.env.SHOT_DIR}/mcp-settings.png`
+		});
+	}
+
+	await page.getByRole('button', { name: 'Disconnect' }).click();
+	await expect(page.getByText('None yet.')).toBeVisible();
+	const search = () =>
+		rpc(request, client.access_token, 'tools/call', { name: 'search_notes', arguments: {} });
+	expect((await search()).status()).toBe(401);
+
+	// Turning it off with an app connected asks first.
+	const second = await connect(page, request);
+	await page.goto(url('/settings'));
+	await page.getByLabel('Let MCP clients read your notes').uncheck();
+	await expect(page.locator('dialog[open]')).toContainText('“Test client” will be disconnected');
+	await page.locator('dialog[open]').getByRole('button', { name: 'Turn off' }).click();
+	await expect(page.getByText('Server address')).toHaveCount(0);
+	expect(
+		(
+			await rpc(request, second.access_token, 'tools/call', {
+				name: 'search_notes',
+				arguments: {}
+			})
+		).status()
+	).toBe(401);
+});
+
 test('MCP requests need a valid, current token of a user who allows it', async ({
 	app,
 	request

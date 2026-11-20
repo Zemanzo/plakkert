@@ -1,7 +1,8 @@
 import type { Handle } from '@sveltejs/kit/hooks';
 import { building, dev } from '$app/env';
-import { ORIGIN } from '$app/env/private';
+import { MCP, ORIGIN } from '$app/env/private';
 import { auth } from '#lib/server/auth.js';
+import { isMcpPath } from '#lib/server/mcp/paths.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 
 /** Endpoints that take forms from other sites: they don't use cookies, so CSRF doesn't apply. */
@@ -31,6 +32,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return new Response(`Cross-site ${event.request.method} form submissions are forbidden`, {
 			status: 403
 		});
+	}
+
+	// Unless the server allows MCP, it doesn't exist: no endpoint, no OAuth, no settings for it.
+	if (!building && !MCP && isMcpPath(event.url.pathname)) {
+		return new Response('Not found', { status: 404 });
 	}
 
 	if (!building) {
