@@ -4,7 +4,8 @@
 	import EyeIcon from '@iconify-svelte/charm/eye';
 	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
 	import { login } from '#lib/client/auth/Account.js';
-	import { getLastUsername } from '#lib/client/auth/Session.js';
+	import { afterLogin, getLastUsername } from '#lib/client/auth/Session.js';
+	import { page } from '$app/state';
 	import Button from '#lib/client/components/Button.svelte';
 
 	let username = $state(getLastUsername());
@@ -19,7 +20,10 @@
 		errorMessage = null;
 		try {
 			await login(username, password);
-			await goto(resolve('/(notes)'), { replace: true });
+			// Back to an MCP client's sign-in, if that's where the user came from.
+			const next = afterLogin(page.url.searchParams.get('next'));
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- checked by afterLogin
+			await goto(next ?? resolve('/(notes)'), { replace: true });
 		} catch (error) {
 			console.error('Login failed', error);
 			errorMessage = error instanceof Error ? error.message : 'Unexpected error';

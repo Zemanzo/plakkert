@@ -74,4 +74,75 @@ export const userSettings = sqliteTable('user_settings', {
 	changedAt: integer('changed_at').notNull().default(0)
 });
 
+// MCP: AI assistants and other MCP clients reading a user's notes, with their permission. See
+// `src/lib/server/mcp/`. Clients sign in with OAuth, with this server as authorization server.
+
+/** Users who allow MCP clients to read their notes. Turning it off removes the row and all grants. */
+export const mcpAccess = sqliteTable('mcp_access', {
+	userId: text('user_id')
+		.primaryKey()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	enabledAt: integer('enabled_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+/** OAuth clients, registered by themselves (RFC 7591). Their names aren't verified. */
+export const oauthClients = sqliteTable('oauth_clients', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	/** JSON array of the exact URIs the client may be sent back to. */
+	redirectUris: text('redirect_uris').notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+/**
+ * A user's permission for a client to read their notes. Holds the user's private key, encrypted
+ * with a secret that only the client has: it's part of the client's code and tokens, and never
+ * stored here. So the server can only decrypt notes while a client with a valid token asks.
+ */
+export const oauthGrants = sqliteTable('oauth_grants', {
+	id: text('id').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	clientId: text('client_id')
+		.notNull()
+		.references(() => oauthClients.id, { onDelete: 'cascade' }),
+	/** The user's private key, encrypted by their browser with the grant's secret. */
+	wrappedKey: blob('wrapped_key', { mode: 'buffer' }).notNull(),
+	scope: text('scope').notNull(),
+	/** The MCP endpoint the tokens are for (RFC 8707), so they aren't accepted anywhere else. */
+	resource: text('resource').notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+	lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' })
+});
+
+/** Authorization codes: single use, short-lived, and only valid with the PKCE verifier. */
+export const oauthCodes = sqliteTable('oauth_codes', {
+	id: text('id').primaryKey(),
+	grantId: text('grant_id')
+		.notNull()
+		.references(() => oauthGrants.id, { onDelete: 'cascade' }),
+	/** SHA-256 of the code's secret, which the browser put in the code. */
+	secretHash: text('secret_hash').notNull(),
+	redirectUri: text('redirect_uri').notNull(),
+	codeChallenge: text('code_challenge').notNull(),
+	expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+	/** When it was exchanged for tokens. Using it again revokes the grant, as it may have leaked. */
+	usedAt: integer('used_at', { mode: 'timestamp_ms' })
+});
+
+/** Access and refresh tokens. Only a hash is stored, as a token holds the grant's secret. */
+export const oauthTokens = sqliteTable('oauth_tokens', {
+	id: text('id').primaryKey(),
+	grantId: text('grant_id')
+		.notNull()
+		.references(() => oauthGrants.id, { onDelete: 'cascade' }),
+	kind: text('kind', { enum: ['access', 'refresh'] }).notNull(),
+	/** SHA-256 of the whole token. */
+	tokenHash: text('token_hash').notNull(),
+	expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+	/** When a refresh token was exchanged for new tokens. Using it again revokes the grant. */
+	usedAt: integer('used_at', { mode: 'timestamp_ms' })
+});
+
 export * from './auth.schema';

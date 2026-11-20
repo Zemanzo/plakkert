@@ -26,7 +26,12 @@ export default defineConfig(({ mode }) => {
 
 				paths: {
 					origin: ORIGIN || undefined
-				}
+				},
+
+				// SvelteKit's own CSRF check would also refuse the OAuth token endpoint, which MCP
+				// clients post forms to from their servers. hooks.server.ts does the same check
+				// instead, except for that endpoint.
+				csrf: { trustedOrigins: ['*'] }
 			})
 		],
 		test: {

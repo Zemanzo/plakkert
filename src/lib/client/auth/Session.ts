@@ -1,3 +1,4 @@
+import { resolve } from '$app/paths';
 import { decodeKey, encodeKey } from '../cryptography/PrivateKey';
 
 const SESSION_STORAGE_KEY = 'plakkert_session';
@@ -110,4 +111,16 @@ export function setLastUsername(username: string) {
 	} catch {
 		// Only a convenience, so it's fine if storage is unavailable.
 	}
+}
+
+/**
+ * Where to go after logging in, if not to the notes: only back to an MCP client's sign-in page,
+ * so a link to the login page can't send the user anywhere else.
+ */
+export function afterLogin(next: string | null) {
+	if (!next) return null;
+	const url = new URL(next, location.origin);
+	return url.origin === location.origin && url.pathname === resolve('/oauth/authorize')
+		? url.pathname + url.search
+		: null;
 }

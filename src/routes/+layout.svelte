@@ -8,7 +8,7 @@
 	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { localUser } from '#lib/client/User.svelte.js';
-	import { getUnlockedSession, keepUnlockedSession } from '#lib/client/auth/Session.js';
+	import { afterLogin, getUnlockedSession, keepUnlockedSession } from '#lib/client/auth/Session.js';
 	import { applyTheme, preferencesOf } from '#lib/client/settings/Preferences.js';
 	import { syncEngine } from '#lib/client/sync/Sync.svelte.js';
 
@@ -26,9 +26,16 @@
 		localUser.init(session?.userId);
 
 		if (!session && !PUBLIC_ROUTES.includes(routeId)) {
-			goto(resolve('/login'), { replace: true });
+			// An MCP client's sign-in comes back after logging in.
+			const next = afterLogin(page.url.pathname + page.url.search);
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved, plus a query
+			goto(resolve('/login') + (next ? `?next=${encodeURIComponent(next)}` : ''), {
+				replace: true
+			});
 		} else if (session && routeId === '/login') {
-			goto(resolve('/(notes)'), { replace: true });
+			const next = afterLogin(page.url.searchParams.get('next'));
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- checked by afterLogin
+			goto(next ?? resolve('/(notes)'), { replace: true });
 		}
 	});
 
