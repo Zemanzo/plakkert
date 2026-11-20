@@ -59,6 +59,10 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   formatting and images don't come along. Imported notes get the tag "Keep import". What will be
   imported is shown first, to confirm, and notes that were imported before are skipped. Other
   apps can be added in `src/lib/client/import/`.
+- Exporting all notes as a zip of Markdown files (in the settings), in folders for the notes, the
+  archive and the trash, with their tags, colour and dates as front matter. The zip can be
+  encrypted with a password (AES-256); its files are then named after when each note was created,
+  since a zip's file names aren't encrypted. The notes are decrypted and zipped in the browser.
 - Invite-only registration (see below)
 
 ## How encryption works

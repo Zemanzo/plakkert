@@ -103,7 +103,12 @@ export async function copyToClipboard(content: string) {
 
 export function downloadFile(content: string, filename: string, format: ExportFormat) {
 	const type = format === 'markdown' ? 'text/markdown' : 'text/plain';
-	const url = URL.createObjectURL(new Blob([content], { type: `${type};charset=utf-8` }));
+	downloadBlob(new Blob([content], { type: `${type};charset=utf-8` }), filename);
+}
+
+/** Saves a file to the user's downloads. */
+export function downloadBlob(blob: Blob, filename: string) {
+	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
 	a.href = url;
 	a.download = filename;

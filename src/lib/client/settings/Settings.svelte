@@ -9,6 +9,7 @@
 	import { prepareImport, saveImport } from '../import/ImportNotes';
 	import type { ImportPlan } from '../import/ImportPlan';
 	import { tagHref } from '../tags/TagLinks';
+	import ExportAll from './ExportAll.svelte';
 	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
 	let settings = $state<Preferences>(
@@ -46,6 +47,7 @@
 	const isImporting = $derived(importState?.step === 'reading' || importState?.step === 'saving');
 	const fileInputs = $state<Partial<Record<ImportSourceId, HTMLInputElement>>>({});
 
+	// The user with their keys, for importing and exporting notes.
 	const importingUser = () => {
 		const user = localUser.data!;
 		return {
@@ -268,6 +270,10 @@
 					</Button>
 				</div>
 			{/each}
+		</div>
+		<div class="preferencesList">
+			<h2>Export</h2>
+			<ExportAll getUser={importingUser} />
 		</div>
 	{/if}
 </section>

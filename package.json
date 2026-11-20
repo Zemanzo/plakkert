@@ -69,6 +69,7 @@
 		"@tiptap/extensions": "~3.31.4",
 		"@tiptap/pm": "~3.31.4",
 		"@tiptap/starter-kit": "~3.31.4",
+		"@zip.js/zip.js": "^2.25.0",
 		"better-sqlite3": "^13.0.3",
 		"dexie": "^4.4.7",
 		"fflate": "^0.8.3",
