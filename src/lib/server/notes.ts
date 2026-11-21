@@ -1,4 +1,4 @@
-import { and, eq, gte, max, or } from 'drizzle-orm';
+import { and, eq, gte, max, ne, or } from 'drizzle-orm';
 import { db } from './db/index';
 import { notes, user, userNotes, userSettings } from './db/schema';
 
@@ -212,6 +212,59 @@ export function writeResultJson(result: WriteResult) {
 	if (result.status === 200) return result.body;
 	if ('note' in result) return toNoteJson(result.note);
 	return { message: result.message };
+}
+
+export type SharePermission = 'view' | 'edit';
+
+/**
+ * Shares a note with a user, or changes their permission. Check first that the note is the
+ * sharer's own, and not deleted. The note key must already be sealed to the recipient's public
+ * key, so the server never sees it.
+ */
+export function upsertShare(
+	executor: Pick<typeof db, 'insert'>,
+	noteId: string,
+	recipientId: string,
+	noteKey: string,
+	permissions: SharePermission
+) {
+	executor
+		.insert(userNotes)
+		.values({ userId: recipientId, noteId, noteKey, permissions, changedAt: changeStamp() })
+		.onConflictDoUpdate({
+			target: [userNotes.userId, userNotes.noteId],
+			set: { noteKey, permissions, changedAt: changeStamp() }
+		})
+		.run();
+}
+
+/** Takes a user's access to a note away. Check first that the caller may. */
+export function removeShare(executor: Pick<typeof db, 'delete'>, noteId: string, userId: string) {
+	return (
+		executor
+			.delete(userNotes)
+			.where(and(eq(userNotes.noteId, noteId), eq(userNotes.userId, userId)))
+			.run().changes > 0
+	);
+}
+
+/** Who a note is shared with, besides its owner, by name. */
+export function listShares(
+	noteId: string,
+	ownerId: string,
+	executor: Pick<typeof db, 'select'> = db
+) {
+	return executor
+		.select({
+			userId: userNotes.userId,
+			username: user.username,
+			permissions: userNotes.permissions
+		})
+		.from(userNotes)
+		.innerJoin(user, eq(userNotes.userId, user.id))
+		.where(and(eq(userNotes.noteId, noteId), ne(userNotes.userId, ownerId)))
+		.orderBy(user.username)
+		.all();
 }
 
 /**

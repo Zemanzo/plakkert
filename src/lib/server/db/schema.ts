@@ -110,6 +110,21 @@ export const oauthGrants = sqliteTable('oauth_grants', {
 	/** The user's private key, encrypted by their browser with the grant's secret. */
 	wrappedKey: blob('wrapped_key', { mode: 'buffer' }).notNull(),
 	scope: text('scope').notNull(),
+	/**
+	 * What the user lets the client do, as JSON (see `McpPermissions` in `src/lib/mcp.ts`). Grants
+	 * from before there were permissions keep what they could do then: read everything.
+	 */
+	permissions: text('permissions')
+		.notNull()
+		.default(
+			'{"read":true,"readHidden":true,"tagMode":"exclude","create":false,"edit":false,"delete":false,"organize":false,"share":false}'
+		),
+	/**
+	 * The tags the permissions' `tagMode` applies to, as JSON encrypted with the user's public key
+	 * by their browser, so only the user, and the server while the client calls, can read them.
+	 * Null for no filter.
+	 */
+	tagFilter: blob('tag_filter', { mode: 'buffer' }),
 	/** The MCP endpoint the tokens are for (RFC 8707), so they aren't accepted anywhere else. */
 	resource: text('resource').notNull(),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

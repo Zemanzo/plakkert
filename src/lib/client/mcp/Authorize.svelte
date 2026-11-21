@@ -1,13 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { DEFAULT_MCP_PERMISSIONS, type McpPermissions, type McpTagFilter } from '#lib/mcp.js';
 	import { getUnlockedSession } from '../auth/Session';
 	import Button from '../components/Button.svelte';
+	import { decodeKey } from '../cryptography/PrivateKey';
+	import { db } from '../Database';
+	import { loadTagNames } from '../tags/TagsCRUD';
 	import { clientRedirect, wrapKeyForGrant } from './Grant';
+	import { sealTagFilter } from './Permissions';
+	import PermissionsEditor from './PermissionsEditor.svelte';
 
 	// Where an MCP client sends the user to approve it (OAuth's authorization endpoint). The
-	// request is checked by the server; this page shows it, and on approval encrypts the user's
-	// private key for the client. See `src/lib/server/mcp/oauth.ts`.
+	// request is checked by the server; this page shows it, lets the user choose what the client
+	// may do, and on approval encrypts the user's private key for the client. See
+	// `src/lib/server/mcp/oauth.ts`.
 
 	type Request = {
 		clientName: string;
@@ -20,8 +27,32 @@
 	let request = $state<Request | null>(null);
 	let problem = $state<string | null>(null);
 	let busy = $state(false);
+	let permissions = $state<McpPermissions>({ ...DEFAULT_MCP_PERMISSIONS });
+	let filterTags = $state<McpTagFilter>([]);
+	let availableTags = $state<string[]>([]);
 
 	const query = location.search.slice(1);
+
+	/** The signed-in user's keys, from this device. */
+	async function userKeys() {
+		const session = getUnlockedSession();
+		const user = session && (await db.users.get(session.userId));
+		return user && session
+			? { id: user.id, publicKey: decodeKey(user.publicKey), privateKey: session.privateKey }
+			: null;
+	}
+
+	onMount(async () => {
+		const keys = await userKeys();
+		if (keys) {
+			const names = await loadTagNames({
+				id: keys.id,
+				publicKeyUint8: keys.publicKey,
+				decodedPrivateKey: keys.privateKey
+			});
+			availableTags = [...names];
+		}
+	});
 
 	onMount(async () => {
 		try {
@@ -81,16 +112,31 @@
 		}
 	}
 
+	const allowsAnything = $derived(
+		permissions.read ||
+			permissions.create ||
+			permissions.edit ||
+			permissions.delete ||
+			permissions.organize ||
+			permissions.share
+	);
+
 	async function allow() {
-		const session = getUnlockedSession();
-		if (!request || !session) return;
+		const keys = await userKeys();
+		if (!request || !keys) return;
 		busy = true;
 		try {
-			const { wrappedKey, secret, secretHash } = await wrapKeyForGrant(session.privateKey);
+			const { wrappedKey, secret, secretHash } = await wrapKeyForGrant(keys.privateKey);
 			const response = await fetch('/api/oauth/authorize', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ query, wrappedKey, secretHash })
+				body: JSON.stringify({
+					query,
+					wrappedKey,
+					secretHash,
+					permissions,
+					tagFilter: permissions.read ? await sealTagFilter(filterTags, keys.publicKey) : null
+				})
 			});
 			const result = await response.json().catch(() => ({}));
 			if (!response.ok || !result.ok) {
@@ -130,21 +176,31 @@
 	{:else if !request}
 		<p>Checking the request…</p>
 	{:else}
-		<h1>Let “{request.clientName}” read your notes?</h1>
+		<h1>Let “{request.clientName}” use your notes?</h1>
 		<p class="unverified">
 			The app chose this name itself. Only continue if you just connected it, from an app you trust.
 		</p>
+		<div class="choose">
+			<h2>What it may do</h2>
+			<PermissionsEditor
+				id="authorize"
+				bind:permissions
+				bind:tags={filterTags}
+				{availableTags}
+				disabled={busy}
+			/>
+		</div>
 		<ul>
 			<li>
-				It can read all your notes and tags, including the archive, the trash, hidden notes and
-				notes shared with you. It can’t change or delete anything.
+				Reading includes the archive, the trash and notes shared with you, as far as the choices
+				above allow.
 			</li>
 			<li>
-				Your notes are end-to-end encrypted, so this server decrypts them for the app while it reads
-				them. Nothing is decrypted otherwise.
+				Your notes are end-to-end encrypted, so this server decrypts and encrypts them for the app
+				while it uses them. Nothing is decrypted otherwise.
 			</li>
 			<li>You’ll go back to <strong>{destination}</strong>.</li>
-			<li>You can disconnect it at any time in the settings.</li>
+			<li>You can change this, or disconnect it, at any time in the settings.</li>
 		</ul>
 		{#if !request.mcpEnabled}
 			<p class="off">MCP access is turned off for your account. Turn it on to connect apps.</p>
@@ -159,7 +215,7 @@
 			</div>
 		{:else}
 			<div class="actions">
-				<Button disabled={busy} onclick={allow}>Allow</Button>
+				<Button disabled={busy || !allowsAnything} onclick={allow}>Allow</Button>
 				<Button
 					--bg="var(--color-input-background)"
 					--text="var(--color-text-primary)"
@@ -192,6 +248,20 @@
 			gap: var(--spacing-sm);
 			padding-left: var(--spacing-lg);
 			list-style: disc;
+		}
+
+		.choose {
+			display: flex;
+			flex-direction: column;
+			gap: var(--spacing-sm);
+			padding: var(--spacing-md);
+			border-radius: var(--radius-md);
+			background-color: #fff1;
+
+			h2 {
+				font-family: var(--font-family-display);
+				font-size: 1.2rem;
+			}
 		}
 
 		.unverified {

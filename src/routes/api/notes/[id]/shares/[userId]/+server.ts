@@ -1,11 +1,16 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '#lib/server/db/index.js';
-import { notes, user, userNotes } from '#lib/server/db/schema.js';
-import { changeStamp, findOwnedNote } from '#lib/server/notes.js';
-import { and, eq } from 'drizzle-orm';
+import { notes, user } from '#lib/server/db/schema.js';
+import {
+	findOwnedNote,
+	removeShare,
+	upsertShare,
+	type SharePermission
+} from '#lib/server/notes.js';
+import { eq } from 'drizzle-orm';
 
-const PERMISSIONS = ['view', 'edit'] as const;
+const PERMISSIONS: SharePermission[] = ['view', 'edit'];
 
 /**
  * Shares the note with a user, or changes their permissions. Only the owner
@@ -23,7 +28,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 	}
 	const { noteKey, permissions } = body;
 	if (typeof noteKey !== 'string') throw error(400, 'noteKey is required');
-	if (!PERMISSIONS.includes(permissions as (typeof PERMISSIONS)[number])) {
+	if (!PERMISSIONS.includes(permissions as SharePermission)) {
 		throw error(400, 'permissions must be "view" or "edit"');
 	}
 
@@ -35,23 +40,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 	const [recipient] = await db.select({ id: user.id }).from(user).where(eq(user.id, params.userId));
 	if (!recipient) throw error(404, 'User not found');
 
-	await db
-		.insert(userNotes)
-		.values({
-			userId: recipient.id,
-			noteId: params.id,
-			noteKey,
-			permissions: permissions as (typeof PERMISSIONS)[number],
-			changedAt: changeStamp()
-		})
-		.onConflictDoUpdate({
-			target: [userNotes.userId, userNotes.noteId],
-			set: {
-				noteKey,
-				permissions: permissions as (typeof PERMISSIONS)[number],
-				changedAt: changeStamp()
-			}
-		});
+	upsertShare(db, params.id, recipient.id, noteKey, permissions as SharePermission);
 
 	return new Response(null, { status: 204 });
 };
@@ -71,9 +60,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 	if (isOwner && isSelf) throw error(400, 'The owner can delete the note instead');
 	if (!isOwner && !isSelf) throw error(404, 'Not found');
 
-	await db
-		.delete(userNotes)
-		.where(and(eq(userNotes.noteId, params.id), eq(userNotes.userId, params.userId)));
+	removeShare(db, params.id, params.userId);
 
 	return new Response(null, { status: 204 });
 };

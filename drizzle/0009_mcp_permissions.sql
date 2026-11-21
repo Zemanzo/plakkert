@@ -1,0 +1,2 @@
+ALTER TABLE `oauth_grants` ADD `permissions` text DEFAULT '{"read":true,"readHidden":true,"tagMode":"exclude","create":false,"edit":false,"delete":false,"organize":false,"share":false}' NOT NULL;--> statement-breakpoint
+ALTER TABLE `oauth_grants` ADD `tag_filter` blob;

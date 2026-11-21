@@ -27,7 +27,19 @@ export const variables = defineEnvVars({
 			throw new Error('MCP must be "on" or "off"');
 		},
 		description:
-			'Whether users can let MCP clients (e.g. AI assistants) read their notes: "on" or "off" (default)'
+			'Whether users can let MCP clients (e.g. AI assistants) use their notes: "on" or "off" (default)'
+	},
+	MCP_REGISTRATIONS_PER_HOUR: {
+		schema: (value) => {
+			if (!value) return 20;
+			const limit = Number(value);
+			if (!Number.isInteger(limit) || limit < 1) {
+				throw new Error('MCP_REGISTRATIONS_PER_HOUR must be a whole number, at least 1');
+			}
+			return limit;
+		},
+		description:
+			'How many MCP clients can register from one IP address per hour (default 20), e.g. more when many users share one'
 	},
 	DATABASE_URL: {
 		schema: (value) => {

@@ -1,7 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { fromApp, json, origin } from '#lib/server/mcp/http.js';
-import { approve, checkAuthorizeRequest, isMcpEnabled } from '#lib/server/mcp/oauth.js';
+import {
+	approve,
+	checkAuthorizeRequest,
+	isMcpEnabled,
+	parseGrantAccess
+} from '#lib/server/mcp/oauth.js';
 
 export const prerender = false;
 
@@ -29,8 +34,9 @@ const SECRET_HASH = /^[A-Za-z0-9_-]{43}$/;
 const WRAPPED_KEY_LENGTH = 24 + 32 + 16;
 
 /**
- * Approves the request. The body has the query string again, which is checked again, and the
- * user's private key, encrypted by their browser with a secret that only ends up in the code.
+ * Approves the request. The body has the query string again, which is checked again, the user's
+ * private key, encrypted by their browser with a secret that only ends up in the code, and what
+ * the user lets the client do, with the tags of its filter encrypted with their public key.
  */
 export const POST: RequestHandler = async ({ locals, request }) => {
 	if (!locals.user) throw error(401, 'Unauthorized');
@@ -39,6 +45,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		query?: unknown;
 		wrappedKey?: unknown;
 		secretHash?: unknown;
+		permissions?: unknown;
+		tagFilter?: unknown;
 	} | null;
 	if (
 		typeof body?.query !== 'string' ||
@@ -50,10 +58,12 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	}
 	const wrappedKey = Buffer.from(body.wrappedKey, 'base64');
 	if (wrappedKey.length !== WRAPPED_KEY_LENGTH) throw error(400, 'Invalid key');
+	const access = parseGrantAccess(body.permissions, body.tagFilter);
+	if (!access) throw error(400, 'Invalid permissions');
 
 	const result = checkAuthorizeRequest(new URLSearchParams(body.query), origin());
 	if (!result.ok) return json(result, 400);
-	const approval = approve(locals.user.id, result.request, wrappedKey, body.secretHash);
+	const approval = approve(locals.user.id, result.request, wrappedKey, body.secretHash, access);
 	if (!approval.ok) return json({ ok: false, description: approval.description }, 409);
 	return json({ ok: true, codeId: approval.codeId });
 };

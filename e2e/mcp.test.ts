@@ -10,7 +10,6 @@ import type {
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { readFile } from 'node:fs/promises';
 import Database from 'better-sqlite3';
-import type { APIRequestContext } from '@playwright/test';
 import {
 	addTag,
 	clickNoteButton,
@@ -24,50 +23,10 @@ import {
 	url,
 	waitSynced
 } from './helpers';
-import { catchRedirect, connect, MCP_URL, REDIRECT_URI } from './mcpClient';
+import { callTool, catchRedirect, connect, MCP_URL, REDIRECT_URI, rpc, titles } from './mcpClient';
 
 // What MCP clients can do with a user's notes, once connected (see oauth.test.ts): read them,
-// only theirs, and only while the user allows it.
-
-let nextId = 1;
-
-/** Calls the MCP endpoint, like an MCP client would (JSON-RPC over Streamable HTTP). */
-function rpc(
-	request: APIRequestContext,
-	accessToken: string | null,
-	method: string,
-	params: Record<string, unknown> = {},
-	headers: Record<string, string> = {}
-) {
-	return request.post(MCP_URL, {
-		headers: {
-			Accept: 'application/json, text/event-stream',
-			'Content-Type': 'application/json',
-			...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-			...headers
-		},
-		data: { jsonrpc: '2.0', id: nextId++, method, params }
-	});
-}
-
-async function callTool(
-	request: APIRequestContext,
-	accessToken: string,
-	name: string,
-	args: Record<string, unknown> = {}
-) {
-	const response = await rpc(request, accessToken, 'tools/call', { name, arguments: args });
-	expect(response.status(), await response.text()).toBe(200);
-	const body = await response.json();
-	return body.result as {
-		isError?: boolean;
-		content: { text: string }[];
-		structuredContent: Record<string, unknown>;
-	};
-}
-
-const titles = (result: { structuredContent: Record<string, unknown> }) =>
-	(result.structuredContent.notes as { title: string }[]).map((note) => note.title).sort();
+// only theirs, and only while the user allows it. Changing them: see mcpWrite.test.ts.
 
 test('an MCP client can search and read the user’s notes, and nothing else', async ({
 	app,
@@ -179,7 +138,9 @@ test('search results have colours and dates, can be sorted and paged, and report
 	await closeNote(page);
 	await addTag(page, 'Boerenkoolstamppot', 'Recepten');
 	await waitSynced(page);
-	const { access_token } = await connect(page, request);
+	// With hidden notes, so it still sees the note whose tags get damaged below.
+	const { access_token } = await connect(page, request, { hidden: true });
+	const withoutHidden = await connect(page, request, {}, 'Without hidden notes');
 	const search = (args: Record<string, unknown>) =>
 		callTool(request, access_token, 'search_notes', args);
 
@@ -265,6 +226,10 @@ test('search results have colours and dates, can be sorted and paged, and report
 		expect(unreadable.content[0].text).toContain("couldn't be decrypted");
 		const tags = await callTool(request, access_token, 'list_tags');
 		expect(tags.structuredContent).toEqual({ tags: [], skipped: 1 });
+
+		// Its tags might have hidden it, so an app that may not see hidden notes doesn't get it.
+		const notHidden = await callTool(request, withoutHidden.access_token, 'search_notes');
+		expect(titles(notHidden)).toEqual(['Groceries for Sunday']);
 	});
 });
 
@@ -281,7 +246,9 @@ test('the official MCP client can connect and use it', async ({ app, request }) 
 		})
 	);
 	expect(client.getServerVersion()?.name).toBe('plakkert');
-	expect(client.getInstructions()).toContain('Read only');
+	expect(client.getInstructions()).toContain(
+		'The user chose what you may do: search and read notes.'
+	);
 	const result = await client.callTool({ name: 'search_notes', arguments: { query: 'sdk' } });
 	expect(JSON.stringify(result.structuredContent)).toContain('Note for the SDK');
 	await client.close();
@@ -345,7 +312,7 @@ test('the settings turn MCP access on and off, and show connected apps', async (
 }) => {
 	const { page } = await app.register(uniqueName('mcpsettings'));
 	await page.goto(url('/settings'));
-	const toggle = page.getByLabel('Let MCP clients read your notes');
+	const toggle = page.getByLabel('Let MCP clients use your notes');
 	await expect(toggle).not.toBeChecked();
 	await expect(page.getByText('Server address')).toHaveCount(0);
 	await toggle.check();
@@ -371,7 +338,7 @@ test('the settings turn MCP access on and off, and show connected apps', async (
 	// Turning it off with an app connected asks first.
 	const second = await connect(page, request);
 	await page.goto(url('/settings'));
-	await page.getByLabel('Let MCP clients read your notes').uncheck();
+	await page.getByLabel('Let MCP clients use your notes').uncheck();
 	await expect(page.locator('dialog[open]')).toContainText('“Test client” will be disconnected');
 	await page.locator('dialog[open]').getByRole('button', { name: 'Turn off' }).click();
 	await expect(page.getByText('Server address')).toHaveCount(0);
@@ -400,7 +367,7 @@ test('MCP requests need a valid, current token of a user who allows it', async (
 		const response = await search(null);
 		expect(response.status()).toBe(401);
 		expect(response.headers()['www-authenticate']).toBe(
-			`Bearer resource_metadata="${url('/.well-known/oauth-protected-resource/mcp')}", scope="notes:read"`
+			`Bearer resource_metadata="${url('/.well-known/oauth-protected-resource/mcp')}", scope="notes"`
 		);
 	});
 

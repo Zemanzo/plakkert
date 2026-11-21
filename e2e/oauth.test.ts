@@ -20,7 +20,7 @@ test('MCP clients can discover how to sign in', async ({ request }) => {
 	expect(await resource.json()).toMatchObject({
 		resource: MCP_URL,
 		authorization_servers: [url('/').replace(/\/$/, '')],
-		scopes_supported: ['notes:read']
+		scopes_supported: ['notes']
 	});
 	expect(resource.headers()['cache-control']).toBe('no-store');
 
@@ -44,7 +44,7 @@ test('a user can connect a client, which gets tokens that rotate', async ({ app,
 		await page.goto(authorizeUrl(clientId, pkcePair().challenge));
 		// The name is shown as text, never as markup.
 		await expect(page.locator('.authorize h1')).toHaveText(
-			'Let “My <b>assistant</b>” read your notes?'
+			'Let “My <b>assistant</b>” use your notes?'
 		);
 		await expect(page.getByText('You’ll go back to http://127.0.0.1:9')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Allow' })).toHaveCount(0);
@@ -53,7 +53,7 @@ test('a user can connect a client, which gets tokens that rotate', async ({ app,
 	});
 
 	const tokens = await connect(page, request);
-	expect(tokens).toMatchObject({ token_type: 'Bearer', expires_in: 3600, scope: 'notes:read' });
+	expect(tokens).toMatchObject({ token_type: 'Bearer', expires_in: 3600, scope: 'notes' });
 
 	await test.step('refresh tokens rotate, and reusing one revokes the client', async () => {
 		const refresh = () =>
@@ -222,6 +222,11 @@ test('other sites can’t approve clients or change MCP access with the user’s
 		form: { enabled: 'true' }
 	});
 	expect(form.status()).toBe(403);
+	const permissions = await page.request.put(url('/api/mcp/clients/some-client'), {
+		headers,
+		data: { permissions: {}, tagFilter: null }
+	});
+	expect(permissions.status()).toBe(403);
 
 	// Without the session cookie, the API doesn't know who's asking at all.
 	expect((await request.get(url('/api/mcp/access'))).status()).toBe(401);

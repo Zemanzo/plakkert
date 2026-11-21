@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { MCP_PATH, MCP_SCOPE } from '#lib/mcp.js';
+import { LEGACY_MCP_SCOPE, MCP_PATH, MCP_SCOPE } from '#lib/mcp.js';
 
 // The rules of the OAuth flow that don't need the database, so they can be tested on their own.
 // OAuth 2.1 with PKCE, as the MCP specification asks for; see `oauth.ts`.
@@ -137,11 +137,14 @@ export function parseClientRegistration(
 	};
 }
 
-/** Whether a requested scope is allowed. Without one, clients get the one scope there is. */
+/**
+ * Whether a requested scope is allowed. Without one, clients get the one scope there is, also
+ * when they ask for it by its old name, from when apps could only read.
+ */
 export function parseScope(scope: string | null) {
 	if (scope === null || scope.trim() === '') return MCP_SCOPE;
 	const scopes = scope.split(' ').filter(Boolean);
-	return scopes.every((s) => s === MCP_SCOPE) ? MCP_SCOPE : null;
+	return scopes.every((s) => s === MCP_SCOPE || s === LEGACY_MCP_SCOPE) ? MCP_SCOPE : null;
 }
 
 const PKCE_VERIFIER = /^[A-Za-z0-9\-._~]{43,128}$/;

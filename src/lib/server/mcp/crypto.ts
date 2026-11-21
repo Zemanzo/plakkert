@@ -73,23 +73,47 @@ export async function forget(privateKey: Uint8Array) {
 	(await sodium()).memzero(privateKey);
 }
 
-/** Decrypts a note key that was sealed to the user's public key, like the app does. */
-export async function openNoteKey(
-	sealedKey: Uint8Array,
-	publicKey: Uint8Array,
-	privateKey: Uint8Array
-) {
-	return (await sodium()).crypto_box_seal_open(sealedKey, publicKey, privateKey);
-}
-
-/** Decrypts JSON encrypted with a note key, like the app does (nonce first, then ciphertext). */
-export async function decryptJson(encrypted: Uint8Array, noteKey: Uint8Array): Promise<unknown> {
+/**
+ * Encryption like the app's (see `src/lib/client/serialization/Serialize.ts`), synchronous once
+ * loaded, so changes can be decrypted, changed and encrypted again inside one database
+ * transaction, where nothing else can change the note in between.
+ */
+export async function loadNoteCrypto() {
 	const s = await sodium();
 	const nonceBytes = s.crypto_secretbox_NONCEBYTES;
-	const plain = s.crypto_secretbox_open_easy(
-		encrypted.slice(nonceBytes),
-		encrypted.slice(0, nonceBytes),
-		noteKey
-	);
-	return JSON.parse(s.to_string(plain));
+	return {
+		/** Decrypts a note key that was sealed to the user's public key. */
+		openNoteKey: (sealedKey: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array) =>
+			s.crypto_box_seal_open(sealedKey, publicKey, privateKey),
+		/** A key for a new note. */
+		newNoteKey: () => s.crypto_secretbox_keygen(),
+		/** Seals a note key to a user's public key, so only they can decrypt it. */
+		sealNoteKey: (noteKey: Uint8Array, publicKey: Uint8Array) =>
+			s.crypto_box_seal(noteKey, publicKey),
+		/** Decrypts JSON encrypted with a note key (nonce first, then ciphertext). */
+		decryptJson(encrypted: Uint8Array, noteKey: Uint8Array): unknown {
+			const plain = s.crypto_secretbox_open_easy(
+				encrypted.slice(nonceBytes),
+				encrypted.slice(0, nonceBytes),
+				noteKey
+			);
+			return JSON.parse(s.to_string(plain));
+		},
+		/** Encrypts JSON with a note key, with a new nonce in front. */
+		encryptJson(value: unknown, noteKey: Uint8Array) {
+			const nonce = s.randombytes_buf(nonceBytes);
+			const ciphertext = s.crypto_secretbox_easy(JSON.stringify(value), nonce, noteKey);
+			const combined = new Uint8Array(nonce.length + ciphertext.length);
+			combined.set(nonce);
+			combined.set(ciphertext, nonce.length);
+			return combined;
+		},
+		/** Decrypts JSON the app encrypted for the user, with their public key. */
+		openForUser(encrypted: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array): unknown {
+			return JSON.parse(s.to_string(s.crypto_box_seal_open(encrypted, publicKey, privateKey)));
+		},
+		forget: (bytes: Uint8Array) => s.memzero(bytes)
+	};
 }
+
+export type NoteCrypto = Awaited<ReturnType<typeof loadNoteCrypto>>;

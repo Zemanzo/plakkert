@@ -10,11 +10,13 @@
 	import UndoIcon from '@iconify-svelte/lucide/undo-2';
 	import CloseIcon from '@iconify-svelte/lucide/x';
 	import Button from '../components/Button.svelte';
+	import { confirmation } from '../components/Confirmation.svelte';
 	import type { NoteStore } from '../note/NoteStore.svelte';
 	import { updateSyncedSettings } from '../settings/SyncedSettings';
 	import type { RuntimeUser } from '#lib/types.js';
 	import { planTagEdits, type TagRow } from './TagEdits';
 	import { hasTag, MAX_TAG_LENGTH, withChangedTags } from './Tags';
+	import { renameTagsInMcpFilters } from '../mcp/Permissions';
 	import { updateTagsOfNotes } from './TagsCRUD';
 	import { tagHref } from './TagLinks';
 
@@ -183,6 +185,24 @@
 		errorMessage = null;
 		try {
 			if (changes.size > 0) {
+				// First, so connected apps' tag filters keep meaning the same notes: once the notes
+				// have the new names, an app excluding the old ones could see them.
+				try {
+					await renameTagsInMcpFilters(changes, {
+						publicKey: user.publicKeyUint8,
+						privateKey: user.decodedPrivateKey
+					});
+				} catch (error) {
+					console.warn('Could not rename tags in MCP filters', error);
+					const renameAnyway = await confirmation.ask({
+						title: 'Rename the tags anyway?',
+						message:
+							'The tag filters of apps connected with MCP couldn’t be updated: this needs a connection to the server. An app that may not see notes with these tags could see them under their new names, until you change its permissions in the settings.',
+						confirmLabel: 'Rename anyway',
+						danger: true
+					});
+					if (!renameAnyway) return;
+				}
 				const noteKeys = new Map(
 					(store.entries ?? [])
 						.filter((entry) => [...changes.keys()].some((tag) => hasTag(entry.tags, tag)))

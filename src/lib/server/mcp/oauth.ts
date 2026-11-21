@@ -1,9 +1,19 @@
 import { and, count, eq, lt, notExists } from 'drizzle-orm';
 import { MCP } from '$app/env/private';
+import {
+	DEFAULT_MCP_PERMISSIONS,
+	MAX_TAG_FILTER_BYTES,
+	MCP_SCOPE,
+	parseMcpPermissions,
+	parseMcpTagFilter,
+	type McpPermissions,
+	type McpTagFilter
+} from '#lib/mcp.js';
 import { db } from '../db/index';
 import { mcpAccess, oauthClients, oauthCodes, oauthGrants, oauthTokens, user } from '../db/schema';
 import {
 	forget,
+	loadNoteCrypto,
 	parseSecretToken,
 	randomToken,
 	sameHash,
@@ -22,6 +32,7 @@ import {
 	redirectUriMatches,
 	resourceMatches
 } from './rules';
+import type { McpScope } from './scope';
 
 // OAuth 2.1 for MCP clients, with this server as the authorization server. A user approves a
 // client in the app, whose browser encrypts the user's private key with a new secret. That secret
@@ -57,20 +68,72 @@ export function setMcpEnabled(userId: string, enabled: boolean) {
 	});
 }
 
-/** The clients a user approved, newest first. */
+/** Permissions that can't be read allow nothing, rather than everything. */
+const NO_PERMISSIONS: McpPermissions = { ...DEFAULT_MCP_PERMISSIONS, read: false };
+
+function storedPermissions(json: string): McpPermissions {
+	try {
+		return parseMcpPermissions(JSON.parse(json)) ?? NO_PERMISSIONS;
+	} catch {
+		return NO_PERMISSIONS;
+	}
+}
+
+/**
+ * The clients a user approved, newest first, with what they may do. The tag filter stays
+ * encrypted: the user's browser decrypts it.
+ */
 export function listGrants(userId: string) {
 	return db
 		.select({
 			id: oauthGrants.id,
 			clientName: oauthClients.name,
 			createdAt: oauthGrants.createdAt,
-			lastUsedAt: oauthGrants.lastUsedAt
+			lastUsedAt: oauthGrants.lastUsedAt,
+			permissions: oauthGrants.permissions,
+			tagFilter: oauthGrants.tagFilter
 		})
 		.from(oauthGrants)
 		.innerJoin(oauthClients, eq(oauthGrants.clientId, oauthClients.id))
 		.where(eq(oauthGrants.userId, userId))
 		.all()
-		.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+		.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+		.map((grant) => ({
+			...grant,
+			permissions: storedPermissions(grant.permissions),
+			tagFilter: grant.tagFilter ? grant.tagFilter.toString('base64') : null
+		}));
+}
+
+export interface GrantAccess {
+	permissions: McpPermissions;
+	/** The tags of the filter, encrypted by the user's browser with their public key. */
+	tagFilter: Buffer | null;
+}
+
+/** Checks what the user's browser sent as a grant's permissions and tag filter, or null. */
+export function parseGrantAccess(permissions: unknown, tagFilter: unknown): GrantAccess | null {
+	const parsed = parseMcpPermissions(permissions);
+	if (!parsed) return null;
+	if (tagFilter === null || tagFilter === undefined)
+		return { permissions: parsed, tagFilter: null };
+	if (typeof tagFilter !== 'string') return null;
+	const bytes = Buffer.from(tagFilter, 'base64');
+	if (bytes.length === 0 || bytes.length > MAX_TAG_FILTER_BYTES) return null;
+	return { permissions: parsed, tagFilter: bytes };
+}
+
+/**
+ * Changes what one of the user's clients may do, from its next request on. Only their own:
+ * another user's grant id does nothing.
+ */
+export function updateGrantAccess(userId: string, grantId: string, access: GrantAccess) {
+	const result = db
+		.update(oauthGrants)
+		.set({ permissions: JSON.stringify(access.permissions), tagFilter: access.tagFilter })
+		.where(and(eq(oauthGrants.id, grantId), eq(oauthGrants.userId, userId)))
+		.run();
+	return result.changes > 0;
 }
 
 /** Revokes one of the user's grants. Only their own: another user's grant id does nothing. */
@@ -210,7 +273,7 @@ export function checkAuthorizeRequest(
 		return fail('invalid_request', 'PKCE with S256 is required');
 	}
 	const scope = parseScope(params.get('scope'));
-	if (!scope) return fail('invalid_scope', 'Only the notes:read scope is available');
+	if (!scope) return fail('invalid_scope', `Only the ${MCP_SCOPE} scope is available`);
 	if (!resourceMatches(params.get('resource'), origin)) {
 		return fail('invalid_target', 'Tokens can only be issued for this server’s MCP endpoint');
 	}
@@ -234,13 +297,15 @@ export function checkAuthorizeRequest(
  *
  * @param wrappedKey The user's private key, encrypted by their browser with the grant's secret.
  * @param secretHash SHA-256 of that secret, which the browser puts in the code it gives the client.
+ * @param access What the user lets the client do, from `parseGrantAccess`.
  * @returns The code's id, or an error.
  */
 export function approve(
 	userId: string,
 	request: AuthorizeRequest,
 	wrappedKey: Uint8Array,
-	secretHash: string
+	secretHash: string,
+	access: GrantAccess
 ) {
 	if (!isMcpEnabled(userId))
 		return { ok: false as const, description: 'MCP access is turned off.' };
@@ -258,6 +323,8 @@ export function approve(
 				clientId: request.clientId,
 				wrappedKey: Buffer.from(wrappedKey),
 				scope: request.scope,
+				permissions: JSON.stringify(access.permissions),
+				tagFilter: access.tagFilter,
 				resource: request.resource,
 				createdAt: now
 			})
@@ -449,6 +516,8 @@ export interface McpCaller {
 	publicKey: Uint8Array;
 	/** The user's private key, for this request only. Forget it afterwards (see `forget`). */
 	privateKey: Uint8Array;
+	/** Which notes the client may see, and what it may do with them. */
+	scope: McpScope;
 }
 
 /** How often a grant's "last used" time is updated, at most. */
@@ -485,6 +554,20 @@ export async function authenticate(
 	const privateKey = await unwrapPrivateKey(row.grant.wrappedKey, token.secret, publicKey);
 	if (!privateKey) return null;
 
+	// The tag filter is encrypted for the user, so it can only be read now. One that can't be read
+	// leaves no note in reach (see `scope.ts`), as it can't be told what it lets through.
+	let tags: McpTagFilter | null = [];
+	if (row.grant.tagFilter) {
+		try {
+			const crypto = await loadNoteCrypto();
+			tags = parseMcpTagFilter(
+				crypto.openForUser(new Uint8Array(row.grant.tagFilter), publicKey, privateKey)
+			);
+		} catch {
+			tags = null;
+		}
+	}
+
 	const now = Date.now();
 	if (!row.grant.lastUsedAt || now - row.grant.lastUsedAt.getTime() > LAST_USED_RESOLUTION_MS) {
 		db.update(oauthGrants)
@@ -492,5 +575,11 @@ export async function authenticate(
 			.where(eq(oauthGrants.id, row.grant.id))
 			.run();
 	}
-	return { userId: row.grant.userId, grantId: row.grant.id, publicKey, privateKey };
+	return {
+		userId: row.grant.userId,
+		grantId: row.grant.id,
+		publicKey,
+		privateKey,
+		scope: { permissions: storedPermissions(row.grant.permissions), tags }
+	};
 }

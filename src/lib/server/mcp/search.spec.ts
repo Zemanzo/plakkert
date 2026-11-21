@@ -20,6 +20,8 @@ const note = (extra: Partial<McpNote> = {}): McpNote => ({
 	createdAt: new Date('2026-01-01'),
 	updatedAt: new Date('2026-01-01'),
 	sharedBy: null,
+	canEdit: true,
+	owned: true,
 	...extra
 });
 

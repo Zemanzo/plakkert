@@ -20,6 +20,8 @@ Object.assign(process.env, {
 	INVITE_CODE: 'e2e-invite-code',
 	// Off by default; on for the MCP tests.
 	MCP: 'on',
+	// The tests all come from one address, and register many clients.
+	MCP_REGISTRATIONS_PER_HOUR: '1000',
 	PORT: port,
 	HOST: '127.0.0.1'
 });

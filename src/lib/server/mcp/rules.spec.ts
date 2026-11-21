@@ -77,10 +77,12 @@ describe('client registration', () => {
 });
 
 describe('scope, PKCE and resource', () => {
-	it('only has the read scope', () => {
-		expect(parseScope(null)).toBe('notes:read');
-		expect(parseScope('notes:read')).toBe('notes:read');
-		expect(parseScope('notes:read notes:write')).toBeNull();
+	it('only has the notes scope, also by its old name', () => {
+		expect(parseScope(null)).toBe('notes');
+		expect(parseScope('notes')).toBe('notes');
+		// From when apps could only read.
+		expect(parseScope('notes:read')).toBe('notes');
+		expect(parseScope('notes notes:write')).toBeNull();
 	});
 
 	it('checks the PKCE verifier against the S256 challenge', () => {

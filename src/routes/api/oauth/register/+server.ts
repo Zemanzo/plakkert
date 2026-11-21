@@ -1,3 +1,4 @@
+import { MCP_REGISTRATIONS_PER_HOUR } from '$app/env/private';
 import type { RequestHandler } from './$types';
 import { json, tooManyRequests } from '#lib/server/mcp/http.js';
 import { registerClient } from '#lib/server/mcp/oauth.js';
@@ -7,7 +8,7 @@ export const prerender = false;
 
 // Anyone can register a client, which can't do anything until a user approves it. Limited, so
 // nobody can fill the database with them.
-const allowed = rateLimiter(20, 60 * 60 * 1000);
+const allowed = rateLimiter(MCP_REGISTRATIONS_PER_HOUR, 60 * 60 * 1000);
 
 /** Dynamic Client Registration (RFC 7591), which MCP clients such as Claude use. */
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
