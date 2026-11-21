@@ -51,8 +51,10 @@
 			}
 		}
 
+		/* Less room around checklists on narrow screens, but keep enough on the left for the drag
+		   handles, which sit left of the items (see RichTextComposer.svelte). */
 		@media (max-width: 420px) {
-			padding: var(--spacing-sm) 0;
+			padding: 0.5rem 0 0.5rem 1rem;
 		}
 
 		p {

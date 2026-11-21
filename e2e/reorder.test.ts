@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, newNote, note, openedNote, syncNow, test, uniqueName } from './helpers';
+import { expect, newNote, note, openNote, openedNote, syncNow, test, uniqueName } from './helpers';
 
 const notes = (page: Page) => page.locator('[data-note-id]');
 
@@ -118,5 +118,44 @@ test('notes can be reordered by dragging them, and the order syncs', async ({ ap
 		await syncNow(page);
 		const other = await app.login(username);
 		await expect(notes(other.page)).toHaveText([/Fourth/, /First/, /Second/, /Third/]);
+	});
+});
+
+test('on a narrow screen, checklist items can still be reordered by their handles', async ({
+	app
+}) => {
+	const { page } = await app.register(uniqueName('checklist'), {
+		viewport: { width: 375, height: 700 }
+	});
+	await newNote(page, '[ ] Apples\nPears\nMilk');
+	await openNote(page, 'Apples');
+	const items = page.locator('.isFocused ul[data-type="taskList"] > li');
+	await expect(items).toHaveText([/Apples/, /Pears/, /Milk/]);
+
+	await test.step('the handles are inside the note', async () => {
+		const editor = (await page.locator('.isFocused .ProseMirror').boundingBox())!;
+		const card = (await openedNote(page).boundingBox())!;
+		const handles = openedNote(page).getByRole('button', { name: 'Drag to reorder' });
+		await expect(handles).toHaveCount(3);
+		for (const handle of await handles.all()) {
+			await expect(handle).toBeInViewport({ ratio: 1 });
+			const box = (await handle.boundingBox())!;
+			expect(box.x).toBeGreaterThanOrEqual(Math.max(card.x, editor.x - 1));
+			expect(box.x + box.width).toBeLessThanOrEqual(card.x + card.width);
+		}
+	});
+
+	await test.step('dragging a handle moves the item', async () => {
+		const handle = (await items
+			.nth(2)
+			.getByRole('button', { name: 'Drag to reorder' })
+			.boundingBox())!;
+		const target = (await items.nth(0).boundingBox())!;
+		await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(handle.x + handle.width / 2, target.y + 2, { steps: 15 });
+		await page.waitForTimeout(300);
+		await page.mouse.up();
+		await expect(items).toHaveText([/Milk/, /Apples/, /Pears/]);
 	});
 });
