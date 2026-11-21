@@ -114,6 +114,22 @@ export type WriteResult =
 /** Tags are a short encrypted list, so anything much bigger is a mistake or abuse. */
 const MAX_TAGS_BYTES = 64 * 1024;
 
+/** How far ahead of the server's clock a client's may be. */
+export const MAX_CLOCK_AHEAD_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Checks a time from a client, in milliseconds. Changes win when they're newer, so a time far
+ * ahead would make a note's text unchangeable, also for its owner when someone it's shared with
+ * sets it. Some leeway is left for clocks that are ahead.
+ */
+export function isClientTime(value: unknown, now = Date.now()): value is number {
+	return (
+		Number.isSafeInteger(value) &&
+		(value as number) >= 0 &&
+		(value as number) <= now + MAX_CLOCK_AHEAD_MS
+	);
+}
+
 /**
  * Creates or updates a note. Updates follow last-write-wins on `updatedAt`: an
  * update that is not newer than the stored note is rejected with 409, along
@@ -128,7 +144,7 @@ export function writeNote(
 	{ content, noteKey, createdAt, updatedAt }: Record<string, unknown>
 ): WriteResult {
 	if (typeof content !== 'string') return { status: 400, message: 'content is required' };
-	if (typeof updatedAt !== 'number') return { status: 400, message: 'updatedAt is required' };
+	if (!isClientTime(updatedAt)) return { status: 400, message: 'updatedAt is required' };
 	const updatedAtDate = new Date(updatedAt);
 	const contentBuffer = Buffer.from(content, 'base64');
 
@@ -140,7 +156,7 @@ export function writeNote(
 		if (typeof noteKey !== 'string') {
 			return { status: 400, message: 'noteKey is required when creating a note' };
 		}
-		if (typeof createdAt !== 'number') return { status: 400, message: 'createdAt is required' };
+		if (!isClientTime(createdAt)) return { status: 400, message: 'createdAt is required' };
 
 		const created = tx
 			.insert(notes)
@@ -187,7 +203,7 @@ export function writeTags(
 	{ tags, updatedAt }: Record<string, unknown>
 ): WriteResult {
 	if (typeof tags !== 'string') return { status: 400, message: 'tags is required' };
-	if (typeof updatedAt !== 'number') return { status: 400, message: 'updatedAt is required' };
+	if (!isClientTime(updatedAt)) return { status: 400, message: 'updatedAt is required' };
 	const tagsBuffer = Buffer.from(tags, 'base64');
 	if (tagsBuffer.length > MAX_TAGS_BYTES) return { status: 413, message: 'Too many tags' };
 	const updatedAtDate = new Date(updatedAt);

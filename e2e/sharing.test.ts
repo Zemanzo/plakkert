@@ -15,6 +15,7 @@ import {
 	syncStatus,
 	test,
 	uniqueName,
+	url,
 	waitSynced
 } from './helpers';
 
@@ -173,4 +174,33 @@ test('the share form can be used right after opening it', async ({ app }) => {
 
 	await expect(input).toHaveValue('somebody');
 	await expect(page.locator('.isFocused .ProseMirror')).not.toContainText('somebody');
+});
+
+test('someone a note is shared with can’t stop its owner from editing it', async ({ app }) => {
+	const bob = uniqueName('bob');
+	const a = await app.register(uniqueName('alice'));
+	const b = await app.register(bob);
+	await newNote(a.page, 'Owned note');
+	await openSharing(a.page, 'Owned note');
+	await share(a.page, bob, 'edit');
+	await expect(a.page.locator('#shareOptions li', { hasText: bob })).toBeVisible();
+	await closeNote(a.page);
+	await waitSynced(a.page);
+
+	const changes = await b.page.request.get(url('/api/notes/changes'));
+	const { notes } = (await changes.json()) as { notes: { id: string; content: string }[] };
+	const [shared] = notes;
+
+	// Changes win when they're newer, so one from the far future would win over every other.
+	for (const updatedAt of [8.64e15, 1e20, Date.now() + 2 * 24 * 60 * 60 * 1000]) {
+		const response = await b.page.request.put(url(`/api/notes/${shared.id}`), {
+			data: { content: shared.content, updatedAt }
+		});
+		expect(response.status(), String(updatedAt)).toBe(400);
+	}
+
+	await appendToNote(a.page, 'Owned note', ' still mine');
+	await waitSynced(a.page);
+	await syncNow(b.page);
+	await expect(note(b.page, 'Owned note still mine')).toBeVisible();
 });
