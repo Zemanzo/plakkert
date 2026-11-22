@@ -7,7 +7,11 @@ import { db, type Note, type NoteVersion } from '../Database';
 // They follow the same rules as on the server (see `src/lib/history.ts`), and are encrypted like
 // the notes are.
 
-/** The tables a transaction that keeps versions needs, besides what it changes itself. */
+/**
+ * The tables a transaction that keeps versions needs, besides what it changes itself. Give such a
+ * transaction an `async` function: Dexie only keeps the transaction open across the awaits in
+ * here when the function it was given is one, and it commits too early otherwise.
+ */
 export const historyTables = [db.notes, db.noteVersions, db.syncState];
 
 /** The user's versions of a note, oldest first. */

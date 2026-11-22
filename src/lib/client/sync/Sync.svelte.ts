@@ -200,18 +200,20 @@ async function applyNoteOutcome(
 	} else if (status === 409) {
 		// The server has a version that is at least as new; take it, unless the note was edited
 		// again in the meantime, in which case that newer edit is pushed next time.
-		await db.transaction('rw', NOTE_TABLES, () =>
+		await db.transaction('rw', NOTE_TABLES, async () =>
 			applyServerNote(body as ServerNote, userId, (local, server) =>
 				local && local.updatedAt > server.updatedAt ? 'keep-local' : 'take-server'
 			)
 		);
 	} else if (status === 410) {
 		// Deleted on another device.
-		await db.transaction('rw', NOTE_TABLES, () => applyServerNote(body as ServerNote, userId));
+		await db.transaction('rw', NOTE_TABLES, async () =>
+			applyServerNote(body as ServerNote, userId)
+		);
 	} else if (status === 403) {
 		// The owner made the note view-only. Drop the local edit, and take the server version.
 		const serverNote = (await (await request(`/api/notes/${note.id}`)).json()) as ServerNote;
-		await db.transaction('rw', NOTE_TABLES, () =>
+		await db.transaction('rw', NOTE_TABLES, async () =>
 			applyServerNote(serverNote, userId, () => 'take-server')
 		);
 	} else if (status === 404 && note.ownerId !== userId) {
@@ -253,7 +255,7 @@ async function applyTagsOutcome(noteKey: NoteKey, userId: string, { status, body
 	} else if (status === 409) {
 		// The server has tags that are at least as new; take them, unless they were changed again
 		// in the meantime, in which case those are pushed next time.
-		await db.transaction('rw', NOTE_TABLES, () =>
+		await db.transaction('rw', NOTE_TABLES, async () =>
 			updateAccess(body as ServerNote, userId, (local, server) =>
 				local?.tagsUpdatedAt && server.tagsUpdatedAt && local.tagsUpdatedAt > server.tagsUpdatedAt
 					? 'keep-local'
@@ -262,7 +264,9 @@ async function applyTagsOutcome(noteKey: NoteKey, userId: string, { status, body
 		);
 	} else if (status === 410) {
 		// The note was deleted, so its tags don't matter anymore.
-		await db.transaction('rw', NOTE_TABLES, () => applyServerNote(body as ServerNote, userId));
+		await db.transaction('rw', NOTE_TABLES, async () =>
+			applyServerNote(body as ServerNote, userId)
+		);
 	} else if (status === 404) {
 		const note = await db.notes.get(noteKey.noteId);
 		// An own note that hasn't reached the server yet; its tags are sent once it has.
