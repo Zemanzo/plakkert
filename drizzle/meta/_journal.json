@@ -71,6 +71,13 @@
       "when": 1795279674069,
       "tag": "0009_mcp_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795365742757,
+      "tag": "0010_note_history",
+      "breakpoints": true
     }
   ]
 }

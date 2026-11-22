@@ -1,4 +1,4 @@
-import { blob, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { blob, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { user } from './auth.schema';
 
 export const notes = sqliteTable('notes', {
@@ -73,6 +73,42 @@ export const userSettings = sqliteTable('user_settings', {
 	/** Like `notes.changedAt`. */
 	changedAt: integer('changed_at').notNull().default(0)
 });
+
+// Note history: earlier versions of notes, to go back to. See `src/lib/history.ts`.
+
+/**
+ * Users who keep the history of their notes. Turning it off removes the row and the history of
+ * all their notes. A note's history follows its owner's setting, also for the people it's shared
+ * with.
+ */
+export const noteHistory = sqliteTable('note_history', {
+	userId: text('user_id')
+		.primaryKey()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	/**
+	 * When the user turned it on, as a `changeStamp`. Versions are made with it, so that versions
+	 * from before history was last turned off are refused, if a device still has them.
+	 */
+	enabledAt: integer('enabled_at').notNull()
+});
+
+/** Earlier versions of notes: the encrypted content as it was stored, like `notes.content`. */
+export const noteVersions = sqliteTable(
+	'note_versions',
+	{
+		noteId: text('note_id')
+			.notNull()
+			.references(() => notes.id, { onDelete: 'cascade' }),
+		/** The `updatedAt` the note had with this content, which tells versions apart. */
+		updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+		content: blob('content').notNull(),
+		/** When the server stored it. */
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(table) => [primaryKey({ columns: [table.noteId, table.updatedAt] })]
+);
 
 // MCP: AI assistants and other MCP clients reading a user's notes, with their permission. See
 // `src/lib/server/mcp/`. Clients sign in with OAuth, with this server as authorization server.

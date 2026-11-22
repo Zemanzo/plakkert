@@ -139,10 +139,17 @@ function store(
 ): Outcome<Changed> {
 	const { row, noteKey } = note;
 	if (changes.data) {
-		const result = writeNote(tx, caller.userId, row.id, {
-			content: base64(crypto.encryptJson(changes.data, noteKey)),
-			updatedAt: after(row.updatedAt)
-		});
+		// An app may replace the whole text, so what the user had is always kept in the history.
+		const result = writeNote(
+			tx,
+			caller.userId,
+			row.id,
+			{
+				content: base64(crypto.encryptJson(changes.data, noteKey)),
+				updatedAt: after(row.updatedAt)
+			},
+			{ keepPrevious: 'always' }
+		);
 		const problem = writeProblem(result);
 		if (problem) throw new WriteFailure(problem);
 	}

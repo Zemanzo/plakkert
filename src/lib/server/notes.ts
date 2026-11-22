@@ -1,6 +1,7 @@
 import { and, eq, gte, max, ne, or } from 'drizzle-orm';
 import { db } from './db/index';
-import { notes, user, userNotes, userSettings } from './db/schema';
+import { noteHistory, notes, noteVersions, user, userNotes, userSettings } from './db/schema';
+import { keepPreviousVersion } from './history';
 
 let lastStamp: number | undefined;
 
@@ -64,11 +65,14 @@ export function selectUserNotes(
 			tagsUpdatedAt: userNotes.tagsUpdatedAt,
 			createdAt: notes.createdAt,
 			updatedAt: notes.updatedAt,
-			deletedAt: notes.deletedAt
+			deletedAt: notes.deletedAt,
+			/** Since when the owner keeps the note's history (see `historySince`), or null. */
+			historySince: noteHistory.enabledAt
 		})
 		.from(userNotes)
 		.innerJoin(notes, eq(userNotes.noteId, notes.id))
 		.innerJoin(user, eq(notes.owner, user.id))
+		.leftJoin(noteHistory, eq(notes.owner, noteHistory.userId))
 		.where(
 			and(
 				eq(userNotes.userId, userId),
@@ -136,12 +140,16 @@ export function isClientTime(value: unknown, now = Date.now()): value is number 
  * with the stored note so the client can take it instead. Run it in a
  * transaction, so the checks and the write can't interleave with another
  * request for the same note (better-sqlite3 transactions are synchronous).
+ *
+ * If the owner keeps history, the note as it was stored is kept as a version when a session of
+ * editing starts, or always with `keepPrevious: 'always'`. See `keepPreviousVersion`.
  */
 export function writeNote(
 	tx: Transaction,
 	userId: string,
 	noteId: string,
-	{ content, noteKey, createdAt, updatedAt }: Record<string, unknown>
+	{ content, noteKey, createdAt, updatedAt }: Record<string, unknown>,
+	{ keepPrevious = 'auto' }: { keepPrevious?: 'auto' | 'always' } = {}
 ): WriteResult {
 	if (typeof content !== 'string') return { status: 400, message: 'content is required' };
 	if (!isClientTime(updatedAt)) return { status: 400, message: 'updatedAt is required' };
@@ -180,6 +188,7 @@ export function writeNote(
 	if (userNote.permissions !== 'edit') return { status: 403, message: 'Forbidden' };
 	if (updatedAtDate <= userNote.updatedAt) return { status: 409, note: userNote };
 
+	keepPreviousVersion(tx, userNote, updatedAtDate, keepPrevious);
 	const updated = tx
 		.update(notes)
 		.set({ content: contentBuffer, updatedAt: updatedAtDate, changedAt: changeStamp() })
@@ -313,5 +322,7 @@ export function deleteNote(
 		.set({ tags: null, tagsUpdatedAt: null, changedAt })
 		.where(eq(userNotes.noteId, noteId))
 		.run();
+	// And so is its history.
+	tx.delete(noteVersions).where(eq(noteVersions.noteId, noteId)).run();
 	return { status: 204 };
 }

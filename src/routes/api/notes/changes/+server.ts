@@ -3,13 +3,15 @@ import type { RequestHandler } from './$types';
 import { db } from '#lib/server/db/index.js';
 import { changeStamp, selectUserNoteIds, selectUserNotes, toNoteJson } from '#lib/server/notes.js';
 import { selectSettings } from '#lib/server/settings.js';
+import { historySince } from '#lib/server/history.js';
 
 /**
  * Lists what changed in the user's notes since `since`, a `cursor` from an
  * earlier response, or all notes without it. Deleted notes are listed as
  * tombstones. Since notes that were unshared can't be listed, it also returns
  * the ids of all notes the user still has. The user's settings come along
- * when they changed (or are null).
+ * when they changed (or are null), and so does since when the user keeps the history of their
+ * notes (null when they don't).
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.user) throw error(401, 'Unauthorized');
@@ -33,7 +35,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 			cursor,
 			notes: rows.map(toNoteJson),
 			ids: selectUserNoteIds(userId, tx),
-			settings: selectSettings(userId, since, tx)
+			settings: selectSettings(userId, since, tx),
+			history: historySince(userId, tx)
 		};
 	});
 

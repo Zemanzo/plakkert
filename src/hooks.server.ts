@@ -1,7 +1,8 @@
-import type { Handle } from '@sveltejs/kit/hooks';
+import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
 import { building, dev } from '$app/env';
 import { MCP, ORIGIN } from '$app/env/private';
 import { auth } from '#lib/server/auth.js';
+import { startThinningOut } from '#lib/server/history.js';
 import { isMcpPath } from '#lib/server/mcp/paths.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 
@@ -22,6 +23,11 @@ function isCrossSiteForm(request: Request, pathname: string) {
 	const origin = request.headers.get('origin');
 	return origin !== (ORIGIN || new URL(request.url).origin);
 }
+
+// Versions of notes that aren't changed anymore still have to expire.
+export const init: ServerInit = () => {
+	if (!building) startThinningOut();
+};
 
 // Pages are prerendered and served as static files, so this only runs for the API, the MCP
 // endpoint and the OAuth metadata. Those check `locals.user` themselves, or a bearer token for
