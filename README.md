@@ -41,6 +41,21 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
     settings can hide their tags as well.
   - Tags, archive, trash, order and hidden notes are per user: on a shared note, everyone organises it their own
     way, and only deleting it forever from the trash deletes it for everyone
+- Note history, if you turn it on in the settings: earlier versions of notes, to go back to if
+  something was changed or removed by mistake. An open note shows when it was last edited, with a
+  button for its history, where versions can be looked at and restored. Restoring keeps what it
+  replaces, so it can be undone too.
+  - A version is kept each time you start changing a note after a break of 10 minutes or more,
+    and at least every hour while you keep at it; also when an edit loses to a newer one from
+    another device, and before an MCP app changes a note. All versions are kept for a day, then
+    one a day for a month, then one a week, up to 90 days, and at most 5 MB per note.
+  - Versions are kept on the server and on the devices that made them, so the history also works
+    offline. It's only fetched from the server when you open it, so syncing stays as quick.
+  - A note's history follows its owner: people a note is shared with only see it if the owner
+    keeps it (and they have history on themselves), and then only versions from after it was
+    shared with them.
+  - Turning it off deletes the history of all your notes, on the server and on all your devices.
+    Deleting a note forever deletes its history too.
 - Search through the text and tags of notes (`/` jumps to the search field)
 - Ten note colours
 - Basic input
@@ -82,6 +97,12 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   so a note that was restored on another device isn't deleted by mistake.
 - Settings that sync across devices, such as the order of your tags, are encrypted with your own
   public key, so only you can read them.
+- Note history keeps earlier versions encrypted with the note key, like the notes. So while it's
+  on, the server keeps ciphertext it would otherwise have overwritten: text removed from a note
+  stays in its history until it expires, or history is turned off. Which versions to keep is
+  decided by their times and sizes, which the server sees anyway, so it can thin them out without
+  reading them. Whether a user keeps history is stored as is, so the server knows which notes to
+  keep versions of.
 - Searching happens in the browser, on the decrypted notes, so it also works offline.
 - Sharing a note encrypts its note key with the recipient's public key, so the server never sees it.
   The recipient's public key is fetched from the server and not verified, so this relies on the
