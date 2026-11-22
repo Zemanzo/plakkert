@@ -3,7 +3,11 @@
 	import ArrowLeftIcon from '@iconify-svelte/lucide/arrow-left';
 	import CheckIcon from '@iconify-svelte/lucide/check';
 	import EyeOffIcon from '@iconify-svelte/lucide/eye-off';
+	import HistoryIcon from '@iconify-svelte/lucide/history';
 	import type { NoteData } from '../Database';
+	import type { HistoryVersion } from '../history/NoteHistory';
+	import NoteHistoryDialog from '../history/NoteHistoryDialog.svelte';
+	import { formatEdited, formatFullTime, formatVersionTime } from './EditedTime';
 	import NotePreview from '../editor/NotePreview.svelte';
 	import RichTextComposer from '../editor/RichTextComposer.svelte';
 	import { toasts } from '../components/ToastStore.svelte';
@@ -74,6 +78,8 @@
 	const hideTags = preferencesOf(user).hideTagsOfHiddenNotes;
 	const shownTags = $derived(showsHidden && hideTags ? [] : tagNames);
 	const allTags = $derived(store.tags.map((tag) => tag.name));
+	const keepsHistory = $derived(store.keepsHistory(note));
+	let historyOpen = $state(false);
 
 	const isTouchScreen = matchMedia('(pointer: coarse)').matches;
 
@@ -113,13 +119,41 @@
 		}
 	}
 
+	/** Always after the version saved last, so a save right after another isn't lost to it. */
+	const nextUpdatedAt = () => new Date(Math.max(Date.now(), (ownVersions.at(-1) ?? 0) + 1));
+
 	function saveNow() {
 		clearTimeout(saveTimeout);
 		if (!hasUnsavedChanges) return;
 		hasUnsavedChanges = false;
-		const updatedAt = new Date();
+		const updatedAt = nextUpdatedAt();
 		ownVersions.push(updatedAt.getTime());
-		updateNoteData(id, currentData, noteKey, { updatedAt, userId: user.id });
+		return updateNoteData(id, currentData, noteKey, { updatedAt, userId: user.id });
+	}
+
+	/**
+	 * Brings back an earlier version of the note. What it was until now is kept in the history
+	 * first, so this can be undone the same way.
+	 */
+	async function restoreVersion(version: HistoryVersion) {
+		await saveNow();
+		const updatedAt = nextUpdatedAt();
+		ownVersions.push(updatedAt.getTime());
+		currentData = version.data;
+		color = version.data.meta.color;
+		editorContent = version.data.content;
+		editorRevision++;
+		try {
+			await updateNoteData(id, version.data, noteKey, {
+				updatedAt,
+				userId: user.id,
+				keepPrevious: 'always'
+			});
+			toasts.show(`Restored the version of ${formatVersionTime(version.updatedAt)}.`);
+		} catch (error) {
+			console.error(error);
+			toasts.show('The version couldn’t be restored.');
+		}
 	}
 
 	// Nothing typed is left unsaved when the note is closed, or the app is left or closed.
@@ -333,9 +367,39 @@
 			</span>
 		{/if}
 		{#if isFocused}
-			<button class="back" aria-label="Back to notes" title="Back" onclick={closeNote}>
-				<ArrowLeftIcon width="24px" />
-			</button>
+			<div class="noteHeader">
+				<button class="back" aria-label="Back to notes" title="Back" onclick={closeNote}>
+					<ArrowLeftIcon width="24px" />
+				</button>
+				<span class="edited">
+					Edited
+					<time datetime={note.updatedAt.toISOString()} title={formatFullTime(note.updatedAt)}>
+						{formatEdited(note.updatedAt)}
+					</time>
+				</span>
+				{#if keepsHistory}
+					<button
+						class="historyButton"
+						aria-label="View history"
+						title="View history"
+						onclick={() => (historyOpen = true)}
+					>
+						<HistoryIcon width="20px" />
+					</button>
+					<NoteHistoryDialog
+						bind:open={historyOpen}
+						noteId={id}
+						{noteKey}
+						userId={user.id}
+						current={{
+							data: { content: editorContent, meta: { color } },
+							updatedAt: note.updatedAt
+						}}
+						{canEdit}
+						onRestore={restoreVersion}
+					/>
+				{/if}
+			</div>
 		{/if}
 		<!-- Only the open note gets an editor. With hundreds of notes, editors for all of them would
 		     make the app slow. -->
@@ -576,10 +640,42 @@
 		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 	}
 
+	/* At the top of the open note: when it was edited, and its history. */
+	.noteHeader {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: var(--spacing-xs);
+		flex-shrink: 0;
+		min-height: 40px;
+		margin-right: calc(-1 * var(--spacing-md));
+		font-size: 0.8rem;
+		color: #1119;
+	}
+
+	.edited {
+		white-space: nowrap;
+	}
+
+	.historyButton {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		cursor: pointer;
+
+		&:hover {
+			color: #161616;
+			background-color: #00000016;
+		}
+	}
+
 	/* Only on narrow screens; elsewhere, clicking next to the note closes it. */
 	.back {
 		display: none;
-		align-self: flex-start;
+		margin-right: auto;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;

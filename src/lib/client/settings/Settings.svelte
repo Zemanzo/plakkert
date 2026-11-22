@@ -10,6 +10,7 @@
 	import type { ImportPlan } from '../import/ImportPlan';
 	import { tagHref } from '../tags/TagLinks';
 	import ExportAll from './ExportAll.svelte';
+	import HistorySettings from './HistorySettings.svelte';
 	import McpSettings from './McpSettings.svelte';
 	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
@@ -170,6 +171,10 @@
 							bind:checked={settings.stayLoggedIn}
 						/>
 					</div>
+				</div>
+				<div class="preferencesList">
+					<h2>Note history</h2>
+					<HistorySettings userId={localUser.data.id} />
 				</div>
 				<div class="preferencesList">
 					<h2>Import</h2>
