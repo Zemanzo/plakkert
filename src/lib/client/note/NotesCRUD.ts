@@ -1,6 +1,7 @@
 import { db, type NoteData, type NoteKey, type Note as NoteType } from '../Database';
 import { encryptNote, encryptTags, getNoteKey } from '../serialization/Serialize';
 import { syncEngine } from '../sync/Sync.svelte';
+import { forgetHistory, historyTables, keepVersion } from '../history/LocalHistory';
 import type { NoteTags } from '../tags/Tags';
 import { DEFAULT_NOTE_COLOR } from './NoteColors';
 import type { RuntimeUser } from '#lib/types.js';
@@ -84,15 +85,26 @@ export const createNote = async (
 /**
  * Updates the content of an existing note. Encrypts the new content using the
  * provided decrypted note key and updates the note in the database.
+ *
+ * With `userId`, the note as it was is kept in the user's history when a session of editing
+ * starts, or always with `keepPrevious: 'always'`, if they keep history. See `keepVersion`.
  */
 export const updateNoteData = async (
 	noteId: string,
 	newData: NoteData,
 	decryptedNoteKey: Uint8Array,
-	updatedAt = new Date()
+	{
+		updatedAt = new Date(),
+		userId,
+		keepPrevious = 'auto'
+	}: { updatedAt?: Date; userId?: string; keepPrevious?: 'auto' | 'always' } = {}
 ) => {
 	const { encryptedData: encryptedNote } = await encryptNote(newData, decryptedNoteKey);
-	await db.notes.update(noteId, { data: encryptedNote, updatedAt, dirty: 1 });
+	await db.transaction('rw', historyTables, async () => {
+		const stored = await db.notes.get(noteId);
+		if (stored && userId) await keepVersion(stored, userId, updatedAt, keepPrevious);
+		await db.notes.update(noteId, { data: encryptedNote, updatedAt, dirty: 1 });
+	});
 	syncEngine.requestSync();
 };
 
@@ -106,7 +118,8 @@ export const updateNoteData = async (
  */
 export async function updateNotesColor(
 	entries: { note: NoteType; noteKey: Uint8Array }[],
-	color: string
+	color: string,
+	userId?: string
 ) {
 	const updatedAt = new Date();
 	const changes = await Promise.all(
@@ -118,10 +131,11 @@ export async function updateNotesColor(
 			})
 	);
 	let changed = 0;
-	await db.transaction('rw', db.notes, async () => {
+	await db.transaction('rw', historyTables, async () => {
 		for (const { note, encryptedData } of changes) {
 			const current = await db.notes.get(note.id);
 			if (current?.updatedAt.getTime() !== note.updatedAt.getTime()) continue;
+			if (userId) await keepVersion(current, userId, updatedAt);
 			await db.notes.update(note.id, { data: encryptedData, updatedAt, dirty: 1 });
 			changed++;
 		}
@@ -133,8 +147,9 @@ export async function updateNotesColor(
 /** Deletes notes the user owns, all in one transaction. They're deleted on the server on sync. */
 export const deleteNotes = async (noteIds: string[]) => {
 	const deletedAt = new Date();
-	await db.transaction('rw', [db.notes, db.noteKeys], async () => {
+	await db.transaction('rw', [db.notes, db.noteKeys, db.noteVersions], async () => {
 		await db.noteKeys.where('noteId').anyOf(noteIds).delete();
+		await forgetHistory(noteIds);
 		for (const noteId of noteIds) {
 			await db.notes.update(noteId, {
 				data: new Uint8Array(),

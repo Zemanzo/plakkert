@@ -1,6 +1,16 @@
 import { liveQuery } from 'dexie';
-import { db, type Note, type NoteKey, type NotePermission } from '../Database';
+import { db, type Note, type NoteKey, type NotePermission, type NoteVersion } from '../Database';
 import { ApiError, fetchOrOffline, OfflineError, request, toApiError } from '../Api';
+import {
+	forgetHistory,
+	forgetOtherHistory,
+	forgetUserHistory,
+	getUnsentVersions,
+	historyTables,
+	keepVersion,
+	markVersionsSent,
+	thinOutAll
+} from '../history/LocalHistory';
 import { signInUsername } from '../auth/AuthApi';
 import { getUnlockedSession } from '../auth/Session';
 import { mergeServerNote, mergeServerTags, type MergeAction, type TagsMergeAction } from './Merge';
@@ -26,6 +36,8 @@ interface ServerNote {
 	createdAt: string;
 	updatedAt: string;
 	deletedAt: string | null;
+	/** Since when the owner keeps the note's history, or null when they don't. */
+	historySince?: number | null;
 }
 
 /** The user's synced settings, as returned by the server. The content is base64 encoded. */
@@ -52,13 +64,18 @@ const isUnauthorized = (error: unknown) => error instanceof ApiError && error.st
  * has access to it.
  */
 export async function forgetNote(noteId: string, userId: string) {
-	await db.transaction('rw', db.notes, db.noteKeys, async () => {
+	await db.transaction('rw', db.notes, db.noteKeys, db.noteVersions, async () => {
 		await db.noteKeys.where({ noteId, userId }).delete();
+		await forgetUserHistory(userId, noteId);
 		if ((await db.noteKeys.where({ noteId }).count()) === 0) {
 			await db.notes.delete(noteId);
+			await forgetHistory([noteId]);
 		}
 	});
 }
+
+/** The tables to change a note from the server in, along with its history on this device. */
+const NOTE_TABLES = [db.noteKeys, ...historyTables];
 
 /**
  * Stores the user's note key and permission, which can change when the owner
@@ -107,11 +124,13 @@ async function applyServerNote(
 	const createdAt = new Date(serverNote.createdAt);
 	const updatedAt = new Date(serverNote.updatedAt);
 	const deletedAt = serverNote.deletedAt ? new Date(serverNote.deletedAt) : null;
+	const historySince = serverNote.historySince ?? null;
 	const local = await db.notes.get(serverNote.id);
 	const action = choose(local, { updatedAt, deletedAt });
 
 	if (action === 'delete-local') {
 		await db.noteKeys.where({ noteId: serverNote.id }).delete();
+		await forgetHistory([serverNote.id]);
 		await db.notes.update(serverNote.id, {
 			data: new Uint8Array(),
 			deletedAt: deletedAt ?? updatedAt,
@@ -124,6 +143,9 @@ async function applyServerNote(
 	if (deletedAt || local?.deletedAt) return;
 
 	if (action === 'take-server' && serverNote.content !== null) {
+		// A change that wasn't sent yet loses to a newer one from elsewhere. It stays in the history,
+		// so it can be brought back.
+		if (local?.dirty) await keepVersion(local, userId, new Date(), 'always');
 		await db.notes.put({
 			id: serverNote.id,
 			ownerId: serverNote.owner,
@@ -131,10 +153,19 @@ async function applyServerNote(
 			data: Uint8Array.fromBase64(serverNote.content),
 			createdAt,
 			updatedAt,
-			dirty: 0
+			dirty: 0,
+			historySince
 		});
-	} else if (local && local.ownerUsername !== serverNote.ownerUsername) {
-		await db.notes.update(serverNote.id, { ownerUsername: serverNote.ownerUsername });
+	} else if (
+		local &&
+		(local.ownerUsername !== serverNote.ownerUsername ||
+			(local.historySince ?? null) !== historySince)
+	) {
+		await db.notes.update(serverNote.id, { ownerUsername: serverNote.ownerUsername, historySince });
+	}
+	// The owner turned history off, or off and on again: what was kept before goes.
+	if ((local?.historySince ?? null) !== historySince) {
+		await forgetOtherHistory(serverNote.id, historySince);
 	}
 	await updateAccess(serverNote, userId);
 }
@@ -169,20 +200,18 @@ async function applyNoteOutcome(
 	} else if (status === 409) {
 		// The server has a version that is at least as new; take it, unless the note was edited
 		// again in the meantime, in which case that newer edit is pushed next time.
-		await db.transaction('rw', db.notes, db.noteKeys, () =>
+		await db.transaction('rw', NOTE_TABLES, () =>
 			applyServerNote(body as ServerNote, userId, (local, server) =>
 				local && local.updatedAt > server.updatedAt ? 'keep-local' : 'take-server'
 			)
 		);
 	} else if (status === 410) {
 		// Deleted on another device.
-		await db.transaction('rw', db.notes, db.noteKeys, () =>
-			applyServerNote(body as ServerNote, userId)
-		);
+		await db.transaction('rw', NOTE_TABLES, () => applyServerNote(body as ServerNote, userId));
 	} else if (status === 403) {
 		// The owner made the note view-only. Drop the local edit, and take the server version.
 		const serverNote = (await (await request(`/api/notes/${note.id}`)).json()) as ServerNote;
-		await db.transaction('rw', db.notes, db.noteKeys, () =>
+		await db.transaction('rw', NOTE_TABLES, () =>
 			applyServerNote(serverNote, userId, () => 'take-server')
 		);
 	} else if (status === 404 && note.ownerId !== userId) {
@@ -224,7 +253,7 @@ async function applyTagsOutcome(noteKey: NoteKey, userId: string, { status, body
 	} else if (status === 409) {
 		// The server has tags that are at least as new; take them, unless they were changed again
 		// in the meantime, in which case those are pushed next time.
-		await db.transaction('rw', db.notes, db.noteKeys, () =>
+		await db.transaction('rw', NOTE_TABLES, () =>
 			updateAccess(body as ServerNote, userId, (local, server) =>
 				local?.tagsUpdatedAt && server.tagsUpdatedAt && local.tagsUpdatedAt > server.tagsUpdatedAt
 					? 'keep-local'
@@ -233,9 +262,7 @@ async function applyTagsOutcome(noteKey: NoteKey, userId: string, { status, body
 		);
 	} else if (status === 410) {
 		// The note was deleted, so its tags don't matter anymore.
-		await db.transaction('rw', db.notes, db.noteKeys, () =>
-			applyServerNote(body as ServerNote, userId)
-		);
+		await db.transaction('rw', NOTE_TABLES, () => applyServerNote(body as ServerNote, userId));
 	} else if (status === 404) {
 		const note = await db.notes.get(noteKey.noteId);
 		// An own note that hasn't reached the server yet; its tags are sent once it has.
@@ -283,12 +310,19 @@ interface PushItem {
 	deletion?: Note<Uint8Array>;
 	note?: { local: Note<Uint8Array>; body: Record<string, unknown> };
 	tags?: { local: NoteKey; body: Record<string, unknown> };
+	/** Versions this device kept for the note's history. */
+	versions?: { local: NoteVersion[]; body: Record<string, unknown>[] };
 	/** Roughly how many bytes it adds to the request. */
 	size: number;
 }
 
-/** What to send for the given changes to notes and tags. */
-async function getPushItems(userId: string, notes: Note<Uint8Array>[], noteKeys: NoteKey[]) {
+/** What to send for the given changes to notes, tags and their history. */
+async function getPushItems(
+	userId: string,
+	notes: Note<Uint8Array>[],
+	noteKeys: NoteKey[],
+	versions: NoteVersion[] = []
+) {
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local, never rendered
 	const items = new Map<string, PushItem>();
 	const itemFor = (id: string) => {
@@ -331,6 +365,19 @@ async function getPushItems(userId: string, notes: Note<Uint8Array>[], noteKeys:
 		};
 		item.size += tags.length + 100;
 	}
+	// After the note too, so it exists by then if it's new.
+	for (const version of versions) {
+		const content = version.data.toBase64();
+		const item = itemFor(version.noteId);
+		item.versions ??= { local: [], body: [] };
+		item.versions.local.push(version);
+		item.versions.body.push({
+			content,
+			updatedAt: version.updatedAt.getTime(),
+			since: version.since
+		});
+		item.size += content.length + 100;
+	}
 	return [...items.values()];
 }
 
@@ -364,15 +411,31 @@ async function pushBatch(batch: PushItem[], userId: string, attempt: Attempt) {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({
-			notes: batch.map(({ id, note, tags, deletion }) =>
-				deletion ? { id, delete: true } : { id, note: note?.body, tags: tags?.body }
+			notes: batch.map(({ id, note, tags, versions, deletion }) =>
+				deletion
+					? { id, delete: true }
+					: { id, note: note?.body, tags: tags?.body, versions: versions?.body }
 			)
 		})
 	});
 	if (!response.ok) throw await toApiError(response);
 	const { results } = (await response.json()) as {
-		results: { id: string; note?: PushOutcome; tags?: PushOutcome; deleted?: PushOutcome }[];
+		results: {
+			id: string;
+			note?: PushOutcome;
+			tags?: PushOutcome;
+			deleted?: PushOutcome;
+			versions?: { status: number }[];
+		}[];
 	};
+
+	// Versions are only sent once, whatever the server made of them: it refuses them when the
+	// owner doesn't keep history, or when the user may only view the note, and then they stay on
+	// this device only. That also means versions the server thinned out never come back.
+	const answered = batch.flatMap(
+		({ versions }, i) => versions?.local.filter((_, j) => results[i]?.versions?.[j]) ?? []
+	);
+	if (answered.length > 0) await markVersionsSent(answered);
 
 	// What was stored is marked as synced all at once. Every transaction updates the notes that
 	// are shown, which would take long for hundreds of them one by one.
@@ -420,8 +483,12 @@ async function pushChanges(userId: string) {
 		}
 	};
 
-	const [notes, noteKeys] = await Promise.all([getPushableNotes(userId), getPushableTags(userId)]);
-	const items = await getPushItems(userId, notes, noteKeys);
+	const [notes, noteKeys, versions] = await Promise.all([
+		getPushableNotes(userId),
+		getPushableTags(userId),
+		getUnsentVersions(userId)
+	]);
+	const items = await getPushItems(userId, notes, noteKeys, versions);
 	for (const batch of inBatches(items)) {
 		await attempt(batch[0].id, () => pushBatch(batch, userId, attempt));
 	}
@@ -501,17 +568,20 @@ async function pullChanges(userId: string) {
 		notes: serverNotes,
 		ids,
 		cursor,
-		settings
+		settings,
+		history = null
 	} = (await response.json()) as {
 		notes: ServerNote[];
 		ids: string[];
 		cursor: number;
 		/** Only when they changed. */
 		settings?: ServerSettings | null;
+		/** Since when the user keeps the history of their notes, or null when they don't. */
+		history?: number | null;
 	};
 
 	// The cursor is only stored along with the changes, so none can be skipped.
-	const tables = [db.notes, db.noteKeys, db.syncState, db.syncedSettings];
+	const tables = [...NOTE_TABLES, db.syncedSettings];
 	await db.transaction('rw', tables, async () => {
 		if (settings) await applyServerSettings(userId, settings);
 
@@ -528,7 +598,10 @@ async function pullChanges(userId: string) {
 			if (note?.ownerId === userId) continue;
 			await forgetNote(noteKey.noteId, userId);
 		}
-		await db.syncState.put({ userId, cursor });
+		// History was turned off, maybe on another device: nothing of it is kept here either, also
+		// of notes others shared, which follow their owner's setting but the user's too.
+		if (history === null && state?.historySince !== null) await forgetUserHistory(userId);
+		await db.syncState.put({ userId, cursor, historySince: history });
 	});
 }
 
@@ -637,7 +710,13 @@ class SyncEngine {
 				pushed = false;
 			}
 			await pullChanges(user.id);
-			if (this.#user?.id === user.id) this.lastPulledAt = new Date();
+			if (this.#user?.id === user.id) {
+				// Versions expire, also of notes that aren't changed anymore. Once a session is enough.
+				if (!this.lastPulledAt) {
+					thinOutAll().catch((error) => console.error('Failed to thin out the history', error));
+				}
+				this.lastPulledAt = new Date();
+			}
 			status = pushed ? 'idle' : 'error';
 		} catch (error) {
 			if (error instanceof OfflineError) {

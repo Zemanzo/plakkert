@@ -119,7 +119,7 @@
 		hasUnsavedChanges = false;
 		const updatedAt = new Date();
 		ownVersions.push(updatedAt.getTime());
-		updateNoteData(id, currentData, noteKey, updatedAt);
+		updateNoteData(id, currentData, noteKey, { updatedAt, userId: user.id });
 	}
 
 	// Nothing typed is left unsaved when the note is closed, or the app is left or closed.

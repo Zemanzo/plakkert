@@ -101,9 +101,9 @@ export const setHidden = (entries: NoteEntry[], userId: string, hidden: boolean)
 	toggleTagOfMany(entries, userId, HIDDEN_TAG, hidden, hidden ? 'hidden' : 'shown');
 
 /** Changes the colour of several notes at once. Notes the user may only view keep theirs. */
-export async function setColor(entries: NoteEntry[], color: string) {
+export async function setColor(entries: NoteEntry[], userId: string, color: string) {
 	const editable = entries.filter((entry) => entry.permission === 'edit');
-	await updateNotesColor(editable, color);
+	await updateNotesColor(editable, color, userId);
 	const viewOnly = entries.length - editable.length;
 	if (viewOnly > 0) {
 		toasts.show(

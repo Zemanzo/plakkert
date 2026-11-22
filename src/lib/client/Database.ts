@@ -33,6 +33,28 @@ export interface Note<TData extends NoteData | Uint8Array = NoteData> {
 	deletedAt?: Date;
 	/** 1 when the note has local changes that haven't been sent to the server yet. */
 	dirty?: 0 | 1;
+	/**
+	 * Since when the note's owner keeps its history, as the server told (see `history.ts`), or
+	 * null when they don't. Missing until the note came from the server since there's history.
+	 */
+	historySince?: number | null;
+}
+
+/**
+ * An earlier version of a note, for the user's history of it. See `history/LocalHistory.ts`.
+ * Each device keeps the versions it made, and those it fetched from the server to show them.
+ */
+export interface NoteVersion {
+	userId: string;
+	noteId: string;
+	/** The `updatedAt` the note had with this content, which tells versions apart. */
+	updatedAt: Date;
+	/** The note's data as it was stored then, encrypted with the note key. */
+	data: Uint8Array;
+	/** Since when the owner kept history when it was made, so it can go when that changes. */
+	since: number;
+	/** 1 when it hasn't been sent to the server yet. */
+	unsent: 0 | 1;
 }
 
 export interface NoteKey {
@@ -57,6 +79,11 @@ export interface SyncState {
 	userId: string;
 	/** From the server: changes from this point on haven't been pulled yet. */
 	cursor: number;
+	/**
+	 * Since when the user keeps the history of their notes, as the server told on the last pull,
+	 * or null when they don't. Missing before the first pull since there's history.
+	 */
+	historySince?: number | null;
 }
 
 /** The user's settings that sync across devices, such as the order of their tags. */
@@ -79,6 +106,8 @@ const db = new Dexie(PUBLIC_APP_NAME) as Dexie & {
 	noteKeys: EntityTable<NoteKey, 'id'>;
 	syncState: EntityTable<SyncState, 'userId'>;
 	syncedSettings: EntityTable<SyncedSettingsRecord, 'userId'>;
+	// The primary key is [userId+noteId+updatedAt]; "noteId" is a placeholder for the typings.
+	noteVersions: EntityTable<NoteVersion, 'noteId'>;
 };
 
 // Indexed columns
@@ -137,6 +166,11 @@ db.version(6).stores({
 // Settings that sync across devices, such as the order of the tags.
 db.version(7).stores({
 	syncedSettings: 'userId'
+});
+
+// Note history: earlier versions of notes.
+db.version(8).stores({
+	noteVersions: '[userId+noteId+updatedAt], noteId, unsent'
 });
 
 export { db };

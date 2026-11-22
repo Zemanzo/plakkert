@@ -67,6 +67,11 @@ export class NoteStore {
 	settings = $state.raw<SyncedSettings>(defaultSyncedSettings);
 	/** Compares tag names, to sort them in the user's own order. */
 	compareTags = $derived(tagOrderComparator(this.settings.tagOrder));
+	/**
+	 * Since when the user keeps the history of their notes, as last heard from the server, or null
+	 * when they don't. See `history/LocalHistory.ts`.
+	 */
+	historySince = $state<number | null>(null);
 
 	/** The tags the user has, in their own order. */
 	tags: TagSummary[] = $derived.by(() => {
@@ -136,10 +141,21 @@ export class NoteStore {
 			}
 		});
 		const settings = this.#followSettings();
+		const history = liveQuery(() => db.syncState.get(userId)).subscribe({
+			next: (state) => (this.historySince = state?.historySince ?? null),
+			error: (error) => console.error(error)
+		});
 		return () => {
 			subscription.unsubscribe();
 			settings.unsubscribe();
+			history.unsubscribe();
 		};
+	}
+
+	/** Whether the user keeps the history of a note: theirs, or one of someone who keeps it too. */
+	keepsHistory(note: Note) {
+		if (this.historySince === null) return false;
+		return note.ownerId === this.#user.id || note.historySince != null;
 	}
 
 	#followSettings() {
@@ -171,7 +187,8 @@ export class NoteStore {
 
 			const updatedAt = row.note.updatedAt.getTime();
 			const cached = this.#notes.get(id);
-			if (cached?.updatedAt === updatedAt) {
+			// Whether its owner keeps history can change without the note changing.
+			if (cached?.updatedAt === updatedAt && cached.note.historySince === row.note.historySince) {
 				({ note, normalizedText } = cached);
 			} else {
 				note = { ...row.note, data: await decryptNoteData(row.note.data, noteKey) };

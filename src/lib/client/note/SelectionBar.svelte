@@ -211,7 +211,7 @@
 		<ColorPicker
 			name="selectionColor"
 			{color}
-			onChange={(newColor) => run((notes) => setColor(notes, newColor))}
+			onChange={(newColor) => run((notes) => setColor(notes, user.id, newColor))}
 		/>
 	</div>
 {/if}
