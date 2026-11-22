@@ -63,6 +63,14 @@
 	}
 }
 
+/* Drag handles only show while the note can be edited; otherwise, on any screen, checklists don't
+   keep room for them and line up with the text. */
+.tipex-editor.isDisabled .ProseMirror ul[data-type='taskList'],
+.tipex-editor .ProseMirror[contenteditable='false'] ul[data-type='taskList'] {
+	margin-left: 0;
+	padding-left: 0;
+}
+
 .isFocused .tipex-editor-section .ProseMirror {
 	p.is-empty {
 		visibility: visible;

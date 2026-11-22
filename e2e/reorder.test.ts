@@ -1,5 +1,15 @@
 import type { Page } from '@playwright/test';
-import { expect, newNote, note, openNote, openedNote, syncNow, test, uniqueName } from './helpers';
+import {
+	closeNote,
+	expect,
+	newNote,
+	note,
+	openNote,
+	openedNote,
+	syncNow,
+	test,
+	uniqueName
+} from './helpers';
 
 const notes = (page: Page) => page.locator('[data-note-id]');
 
@@ -157,5 +167,16 @@ test('on a narrow screen, checklist items can still be reordered by their handle
 		await page.waitForTimeout(300);
 		await page.mouse.up();
 		await expect(items).toHaveText([/Milk/, /Apples/, /Pears/]);
+	});
+
+	await test.step('closed, the items keep no room for handles, on any screen', async () => {
+		await closeNote(page);
+		const closed = note(page, 'Milk');
+		for (const width of [375, 1280]) {
+			await page.setViewportSize({ width, height: 700 });
+			const editor = (await closed.locator('.ProseMirror').boundingBox())!;
+			const checkbox = (await closed.locator('li label').first().boundingBox())!;
+			expect(checkbox.x - editor.x).toBeLessThan(2);
+		}
 	});
 });
