@@ -41,6 +41,12 @@ export interface McpPermissions {
 	organize: boolean;
 	/** Share notes the user owns with other users, and stop sharing them. */
 	share: boolean;
+	/**
+	 * Download backups, and restore them. A backup has all of the user's notes, so this goes past
+	 * `read` and its rules, though encrypted: the app can't read it. But it holds the user's
+	 * private key, encrypted with their password, which someone could try to guess offline.
+	 */
+	backup: boolean;
 }
 
 /** The tags of a grant's filter, before they're encrypted. Empty for no filter. */
@@ -55,7 +61,8 @@ export const DEFAULT_MCP_PERMISSIONS: McpPermissions = {
 	edit: false,
 	delete: false,
 	organize: false,
-	share: false
+	share: false,
+	backup: false
 };
 
 /** The permissions that need `read`. */
@@ -71,6 +78,8 @@ export function parseMcpPermissions(value: unknown): McpPermissions | null {
 	const flags = ['read', 'readHidden', 'create', ...READ_DEPENDENT_PERMISSIONS] as const;
 	if (!flags.every((flag) => typeof input[flag] === 'boolean')) return null;
 	if (input.tagMode !== 'include' && input.tagMode !== 'exclude') return null;
+	// Grants from before backups don't have it, and can't make them.
+	if (input.backup !== undefined && typeof input.backup !== 'boolean') return null;
 	const read = input.read as boolean;
 	return {
 		read,
@@ -80,7 +89,8 @@ export function parseMcpPermissions(value: unknown): McpPermissions | null {
 		edit: read && (input.edit as boolean),
 		delete: read && (input.delete as boolean),
 		organize: read && (input.organize as boolean),
-		share: read && (input.share as boolean)
+		share: read && (input.share as boolean),
+		backup: input.backup === true
 	};
 }
 

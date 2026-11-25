@@ -118,7 +118,8 @@
 			permissions.edit ||
 			permissions.delete ||
 			permissions.organize ||
-			permissions.share
+			permissions.share ||
+			permissions.backup
 	);
 
 	async function allow() {

@@ -8,7 +8,8 @@ import {
 	KDF_ITERATIONS,
 	LEGACY_KDF_ITERATIONS
 } from '../cryptography/PrivateKey';
-import { generateUserKeys } from '../serialization/Serialize';
+import type { BackupManifest } from '#lib/backup.js';
+import { generateUserKeys, publicKeyOf } from '../serialization/Serialize';
 import { defaultPreferences } from '../settings/Preferences';
 import { ApiError, OfflineError } from '../Api';
 import { syncEngine } from '../sync/Sync.svelte';
@@ -194,8 +195,47 @@ export async function login(rawUsername: string, password: string) {
  * @param inviteCode Needed when registration is invite only.
  */
 export async function register(rawUsername: string, password: string, inviteCode?: string) {
+	return createAccount(rawUsername, password, inviteCode, await generateUserKeys());
+}
+
+/**
+ * Creates a new account from a backup, with the backup's key pair, so its notes can be restored
+ * into it (see `restoreBackup` in `../backup/Backup`). The password must be the one the backup
+ * was made with, as its private key is encrypted with it.
+ */
+export async function registerFromBackup(
+	rawUsername: string,
+	password: string,
+	inviteCode: string | undefined,
+	manifest: BackupManifest
+) {
+	const { user: backupUser } = manifest;
+	let privateKey: Uint8Array;
+	try {
+		privateKey = await decryptPrivateKey(
+			decodeKey(backupUser.privateKey),
+			password,
+			decodeKey(backupUser.salt),
+			decodeKey(backupUser.nonce),
+			backupUser.kdfIterations
+		);
+	} catch {
+		throw new WrongPasswordError('That isn’t the password this backup was made with.');
+	}
+	const publicKey = decodeKey(backupUser.publicKey);
+	if (encodeKey(await publicKeyOf(privateKey)) !== encodeKey(publicKey)) {
+		throw new Error('This backup is damaged: its keys don’t belong together.');
+	}
+	return createAccount(rawUsername, password, inviteCode, { publicKey, privateKey });
+}
+
+async function createAccount(
+	rawUsername: string,
+	password: string,
+	inviteCode: string | undefined,
+	keys: { publicKey: Uint8Array; privateKey: Uint8Array }
+) {
 	const username = normalizeUsername(rawUsername);
-	const keys = await generateUserKeys();
 	const [{ encryptedKey, salt, nonce, iterations }, authKey] = await Promise.all([
 		encryptPrivateKey(keys.privateKey, password),
 		deriveAuthKey(password, username)

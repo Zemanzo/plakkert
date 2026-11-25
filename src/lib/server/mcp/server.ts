@@ -1,6 +1,16 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { BACKUP_CHUNK_BYTES, describeRestore } from '#lib/backup.js';
 import { compareTags } from '#lib/client/tags/Tags.js';
+import { restoreUpload } from '../backup';
+import {
+	downloadUrl,
+	startDownload,
+	startUpload,
+	TRANSFER_MS,
+	uploadUrl
+} from '../backupTransfers';
+import { origin } from './http';
 import { loadNoteCrypto } from './crypto';
 import { instructions } from './instructions';
 import { markdownToHtml } from './markdown';
@@ -103,6 +113,23 @@ const changes = (destructive: boolean, idempotent = false) => ({
 	idempotentHint: idempotent,
 	openWorldHint: false
 });
+
+/**
+ * A shell command that uploads the zip at $FILE to an upload link, in pieces the server takes, each
+ * at the offset it starts at. It stops at the first piece that fails.
+ */
+function uploadCommand(url: string) {
+	return [
+		'dir=$(mktemp -d)',
+		`split -b ${BACKUP_CHUNK_BYTES} -a 4 "$FILE" "$dir/part-"`,
+		'offset=0',
+		'for part in "$dir"/part-*; do',
+		`  curl -fsS -X PUT -H 'Content-Type: application/octet-stream' --data-binary @"$part" "${url}?offset=$offset" || break`,
+		'  offset=$((offset + $(wc -c < "$part")))',
+		'done',
+		'rm -r "$dir"'
+	].join('\n');
+}
 
 const MAX_MARKDOWN_LENGTH = 100_000;
 const MAX_TAGS = 20;
@@ -287,6 +314,103 @@ export function createMcpServer(caller: McpCaller) {
 		);
 	}
 	if (permissions.share) registerShareTools();
+	if (permissions.backup) registerBackupTools();
+
+	function registerBackupTools() {
+		const expiresAt = () => new Date(Date.now() + TRANSFER_MS).toISOString();
+		server.registerTool(
+			'export_backup',
+			{
+				title: 'Back up all notes',
+				description:
+					'Gives a link to download a backup of all the user’s notes: a zip with everything of ' +
+					'theirs on the server, still encrypted, to restore with start_backup_import and ' +
+					'restore_backup. Download it with your own tools, e.g. the curl command given; the ' +
+					'link works for 30 minutes. The backup can’t be read without the user’s password, ' +
+					'but keep it as safe as the notes themselves.',
+				inputSchema: {},
+				outputSchema: { url: z.string(), expires_at: z.string(), command: z.string() },
+				annotations: { ...READ_ONLY, idempotentHint: false }
+			},
+			async () => {
+				const url = downloadUrl(origin(), startDownload(caller.userId, caller.grantId));
+				const date = new Date().toISOString().slice(0, 10);
+				return result({
+					url,
+					expires_at: expiresAt(),
+					command: `curl -fsS -o plakkert-backup-${date}.zip '${url}'`
+				});
+			}
+		);
+		server.registerTool(
+			'start_backup_import',
+			{
+				title: 'Start restoring a backup',
+				description:
+					'Gives a link to upload a backup zip to, made by export_backup or the app, before ' +
+					`restore_backup. Upload it with your own tools, in pieces of at most ${BACKUP_CHUNK_BYTES} ` +
+					'bytes, each with a PUT to the link with ?offset= the bytes sent before it, e.g. with ' +
+					'the shell command given, after setting FILE to the zip’s path. The link works for 30 minutes.',
+				inputSchema: {},
+				outputSchema: {
+					upload_id: z.string(),
+					url: z.string(),
+					chunk_size: z.number(),
+					expires_at: z.string(),
+					command: z.string()
+				},
+				annotations: { ...changes(false), openWorldHint: false }
+			},
+			async () => {
+				const token = startUpload(caller.userId);
+				const url = uploadUrl(origin(), token);
+				return result({
+					upload_id: token,
+					url,
+					chunk_size: BACKUP_CHUNK_BYTES,
+					expires_at: expiresAt(),
+					command: uploadCommand(url)
+				});
+			}
+		);
+		server.registerTool(
+			'restore_backup',
+			{
+				title: 'Restore a backup',
+				description:
+					'Restores an uploaded backup into the user’s account, by merging: notes that are ' +
+					'missing or were deleted come back, notes that are older than in the backup get its ' +
+					'text (the text they had is kept in their history, if the user keeps history), and ' +
+					'nothing is deleted. Only a backup of this same account can be restored. Only do this ' +
+					'when the user asks.',
+				inputSchema: { upload_id: z.string().min(1).max(100).describe('From start_backup_import') },
+				outputSchema: {
+					message: z.string(),
+					restored: z.number(),
+					updated: z.number(),
+					retagged: z.number(),
+					versions: z.number(),
+					shares: z.number(),
+					settings: z.boolean(),
+					skipped_deleted: z
+						.number()
+						.describe('Notes that were deleted when the backup was made, and stay deleted')
+				},
+				annotations: changes(false, true)
+			},
+			async ({ upload_id }) => {
+				loaded = undefined;
+				const outcome = restoreUpload(upload_id, caller.userId);
+				if (outcome.status !== 200) return failure(outcome.message);
+				const { skippedDeleted, ...summary } = outcome.summary;
+				return result({
+					message: describeRestore(outcome.summary),
+					...summary,
+					skipped_deleted: skippedDeleted
+				});
+			}
+		);
+	}
 
 	function registerShareTools() {
 		const shares = {

@@ -15,7 +15,8 @@ describe('MCP permissions', () => {
 		edit: true,
 		delete: true,
 		organize: true,
-		share: true
+		share: true,
+		backup: true
 	} as const;
 
 	it('are taken as they are when consistent', () => {
@@ -23,7 +24,7 @@ describe('MCP permissions', () => {
 		expect(parseMcpPermissions(DEFAULT_MCP_PERMISSIONS)).toEqual(DEFAULT_MCP_PERMISSIONS);
 	});
 
-	it('allow nothing that needs read without it, but creating', () => {
+	it('allow nothing that needs read without it, but creating and backups', () => {
 		expect(parseMcpPermissions({ ...all, read: false })).toEqual({
 			read: false,
 			readHidden: false,
@@ -32,14 +33,22 @@ describe('MCP permissions', () => {
 			edit: false,
 			delete: false,
 			organize: false,
-			share: false
+			share: false,
+			backup: true
 		});
+	});
+
+	it('don’t allow backups for grants from before there were backups', () => {
+		const { backup: _, ...before } = all;
+		void _;
+		expect(parseMcpPermissions(before)).toEqual({ ...all, backup: false });
 	});
 
 	it('refuse anything else', () => {
 		expect(parseMcpPermissions(null)).toBeNull();
 		expect(parseMcpPermissions({ ...all, tagMode: 'only' })).toBeNull();
 		expect(parseMcpPermissions({ ...all, share: 'yes' })).toBeNull();
+		expect(parseMcpPermissions({ ...all, backup: 'yes' })).toBeNull();
 		const { edit: _, ...withoutEdit } = all;
 		void _;
 		expect(parseMcpPermissions(withoutEdit)).toBeNull();

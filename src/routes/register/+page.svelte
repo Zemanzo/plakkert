@@ -3,10 +3,16 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { register } from '#lib/client/auth/Account.js';
+	import { register, registerFromBackup } from '#lib/client/auth/Account.js';
 	import { fetchRegistrationMode } from '#lib/client/auth/AuthApi.js';
 	import { ApiError, OfflineError } from '#lib/client/Api.js';
+	import {
+		readBackupManifest,
+		restoreBackup,
+		restoreErrorMessage
+	} from '#lib/client/backup/Backup.js';
 	import Button from '#lib/client/components/Button.svelte';
+	import type { BackupManifest } from '#lib/backup.js';
 	import type { RegistrationMode } from '#lib/registration.js';
 
 	let username = $state('');
@@ -16,6 +22,25 @@
 	let mode = $state<RegistrationMode | 'loading' | 'offline'>('loading');
 	let isCreating = $state(false);
 	let errorMessage = $state<string | null>(null);
+	let progress = $state<string | null>(null);
+	/** A backup to create the account from: it gets the backup's keys, and then its notes. */
+	let backup = $state<{ zip: Uint8Array; manifest: BackupManifest } | null>(null);
+	/** Set when the account was made, but its backup couldn't be restored. */
+	let restoreFailed = $state(false);
+	let backupInput = $state<HTMLInputElement>();
+
+	async function chooseBackup(file: File) {
+		errorMessage = null;
+		try {
+			const zip = new Uint8Array(await file.arrayBuffer());
+			const manifest = readBackupManifest(zip);
+			backup = { zip, manifest };
+			if (!username) username = manifest.user.username;
+		} catch (error) {
+			backup = null;
+			errorMessage = restoreErrorMessage(error);
+		}
+	}
 
 	onMount(async () => {
 		try {
@@ -35,8 +60,23 @@
 		event.preventDefault();
 		isCreating = true;
 		errorMessage = null;
+		const code = mode === 'invite' ? inviteCode : undefined;
 		try {
-			await register(username, password, mode === 'invite' ? inviteCode : undefined);
+			if (backup) {
+				await registerFromBackup(username, password, code, backup.manifest);
+				try {
+					await restoreBackup(backup.zip, (sent, total) => {
+						progress = `Restoring the backup… ${Math.floor((sent / total) * 100)}%`;
+					});
+				} catch (error) {
+					console.error('Restoring the backup failed', error);
+					restoreFailed = true;
+					errorMessage = restoreErrorMessage(error);
+					return;
+				}
+			} else {
+				await register(username, password, code);
+			}
 			await goto(resolve('/(notes)'), { replace: true });
 		} catch (error) {
 			console.error('Registration failed', error);
@@ -49,6 +89,7 @@
 			}
 		} finally {
 			isCreating = false;
+			progress = null;
 		}
 	}
 </script>
@@ -60,6 +101,11 @@
 {:else if mode === 'closed'}
 	<p class="status">
 		Registration is closed. Already have an account? <a href={resolve('/login')}>Log in</a>.
+	</p>
+{:else if restoreFailed}
+	<p class="status error">
+		Your account was made, but its backup couldn’t be restored: {errorMessage} You can try again in the
+		<a href={resolve('/settings')}>settings</a>.
 	</p>
 {:else}
 	<form {onsubmit}>
@@ -73,7 +119,7 @@
 			disabled={isCreating}
 			required
 		/>
-		<label for="password"> Password </label>
+		<label for="password">{backup ? 'Backup’s password' : 'Password'}</label>
 		<input
 			id="password"
 			type="password"
@@ -96,8 +142,41 @@
 				required
 			/>
 		{/if}
-		<Button type="submit" disabled={isCreating} class="submitButton">Register</Button>
+		<Button type="submit" disabled={isCreating} class="submitButton">
+			{backup ? 'Register and restore' : 'Register'}
+		</Button>
 	</form>
+	<div class="fromBackup">
+		{#if backup}
+			<p>
+				From the backup of {backup.manifest.user.username}, made {new Date(
+					backup.manifest.exportedAt
+				).toLocaleString()}. Use the password it was made with; you can change it later.
+			</p>
+			<button type="button" disabled={isCreating} onclick={() => (backup = null)}>
+				Don’t use the backup
+			</button>
+		{:else}
+			<button type="button" disabled={isCreating} onclick={() => backupInput?.click()}>
+				Create the account from a backup
+			</button>
+		{/if}
+		<input
+			bind:this={backupInput}
+			id="backup"
+			type="file"
+			accept=".zip,application/zip"
+			hidden
+			onchange={(event) => {
+				const file = event.currentTarget.files?.[0];
+				event.currentTarget.value = '';
+				if (file) chooseBackup(file);
+			}}
+		/>
+	</div>
+	{#if progress}
+		<p aria-live="polite">{progress}</p>
+	{/if}
 	{#if !isCreating && errorMessage}
 		<p class="error">{errorMessage}</p>
 	{/if}
@@ -127,6 +206,25 @@
 	label {
 		text-align: right;
 		white-space: nowrap;
+	}
+
+	.fromBackup {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--spacing-sm);
+		margin: 0 auto 1em;
+		max-width: 40ch;
+		text-align: center;
+
+		p {
+			font-size: 1rem;
+		}
+
+		button {
+			text-decoration: underline;
+			color: var(--color-text-muted);
+		}
 	}
 
 	p {

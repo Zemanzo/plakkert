@@ -85,9 +85,10 @@ export interface Access {
 	delete?: boolean;
 	organize?: boolean;
 	share?: boolean;
+	backup?: boolean;
 }
 
-/** Everything there is. */
+/** Everything there is, but backups, which are a world of their own. */
 export const FULL_ACCESS: Access = {
 	read: true,
 	hidden: true,
@@ -105,7 +106,8 @@ const LABELS: Record<Exclude<keyof Access, 'tagMode' | 'tags'>, RegExp> = {
 	edit: /^Edit/,
 	delete: /^Delete/,
 	organize: /^Tag, colour, archive and hide/,
-	share: /^Share/
+	share: /^Share/,
+	backup: /^Backups/
 };
 
 /** Sets the permissions editor in `within` (the page, or a settings row) to `access`. */

@@ -9,6 +9,7 @@
 	import { prepareImport, saveImport } from '../import/ImportNotes';
 	import type { ImportPlan } from '../import/ImportPlan';
 	import { tagHref } from '../tags/TagLinks';
+	import BackupSettings from './BackupSettings.svelte';
 	import ExportAll from './ExportAll.svelte';
 	import HistorySettings from './HistorySettings.svelte';
 	import McpSettings from './McpSettings.svelte';
@@ -291,6 +292,10 @@
 				<div class="preferencesList">
 					<h2>Export</h2>
 					<ExportAll getUser={importingUser} />
+				</div>
+				<div class="preferencesList">
+					<h2>Backup</h2>
+					<BackupSettings />
 				</div>
 			</div>
 			<!-- A second column where there's room, otherwise at the bottom. Only when the server

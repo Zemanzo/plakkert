@@ -224,6 +224,20 @@
 			{/each}
 		</div>
 	</div>
+
+	<div class="group">
+		<label class="main">
+			<input class="themedCheckbox" type="checkbox" bind:checked={permissions.backup} />
+			<span>
+				<span class="name">Backups</span>
+				<span class="hint"
+					>Download and restore backups of all your notes, also hidden ones and ones the tags above
+					leave out. It can’t read them, but they hold your private key, locked with your password,
+					which it could try to guess.</span
+				>
+			</span>
+		</label>
+	</div>
 </fieldset>
 
 <style>

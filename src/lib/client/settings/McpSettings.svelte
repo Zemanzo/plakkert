@@ -58,6 +58,7 @@
 			p.share && 'share'
 		].filter(Boolean);
 		if (writes.length > 0) parts.push(`${parts.length > 0 ? 'w' : 'W'}rite: ${writes.join(', ')}`);
+		if (p.backup) parts.push('Backups');
 		return parts.length > 0 ? parts.join(' · ') : 'Nothing';
 	}
 

@@ -12,7 +12,8 @@ export function instructions(permissions: McpPermissions, scope: string) {
 		permissions.edit && 'change the text of notes',
 		permissions.delete && 'move notes to the trash and restore them',
 		permissions.organize && 'tag and untag notes, change their colour, and archive or hide them',
-		permissions.share && 'share the user’s own notes with other users'
+		permissions.share && 'share the user’s own notes with other users',
+		permissions.backup && 'download and restore backups of all of the user’s notes'
 	].filter(Boolean);
 	const cannot = [
 		!permissions.create && 'create notes',
@@ -42,7 +43,9 @@ export function instructions(permissions: McpPermissions, scope: string) {
 			`Notes are written as Markdown: headings, paragraphs, lists, checklists (- [ ] and - [x]), quotes, code, links, bold, italic and strikethrough. Each line is a paragraph of its own.` +
 				(permissions.edit
 					? ` Other formatting the app has, such as underlining, is lost when you replace a note's text.`
-					: '')
+					: ''),
+		permissions.backup &&
+			`Backups (export_backup, start_backup_import and restore_backup) hold all of the user's own notes, also ones out of your reach otherwise, but still encrypted: you can't read them. They move as zip files through links, which you download from and upload to with your own tools, such as curl.`
 	].filter(Boolean);
 
 	const intro = `The user's notes in Plakkert, an end-to-end encrypted notes app. The user chose what you may do: ${can.length > 0 ? can.join('; ') : 'nothing'}.${cannot.length > 0 ? ` You can't ${cannot.join(', ')}.` : ''} ${scope}`;

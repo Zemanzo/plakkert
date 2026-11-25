@@ -8,6 +8,12 @@ async function initCrypto() {
 	return _sodium;
 }
 
+/** The public key that belongs to a private key. */
+export async function publicKeyOf(privateKey: Uint8Array) {
+	const sodium = await initCrypto();
+	return sodium.crypto_scalarmult_base(privateKey);
+}
+
 /** Generates the asymmetric key pair that note keys are encrypted with. */
 export async function generateUserKeys() {
 	const sodium = await initCrypto();

@@ -80,6 +80,15 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   archive and the trash, with their tags, colour and dates as front matter. The zip can be
   encrypted with a password (AES-256); its files are then named after when each note was created,
   since a zip's file names aren't encrypted. The notes are decrypted and zipped in the browser.
+- Backups (in the settings): a zip with everything of a user's on the server, exactly as it's
+  stored there, so still encrypted: their notes, also deleted ones, with their history, their tags,
+  settings, and who they shared notes with, but not notes others shared with them. Restoring one
+  merges it: notes that are missing or were deleted come back, also on the user's other devices,
+  and notes that are older than in the backup get its text, keeping what they had in their history.
+  Nothing is deleted, so restoring twice, or an old backup, loses nothing. A backup of another
+  account, e.g. from another server, can be restored into a new account, made from it on the
+  register page with the password the backup was made with. Uploads go in pieces, so the server's
+  request size limit (adapter-node's `BODY_SIZE_LIMIT`) can stay as it is.
 - Invite-only registration (see below)
 - MCP, for AI assistants and other MCP clients to search, read and change your notes, as far as you
   allow each one, if the server allows it and you turn it on (see below)
@@ -95,6 +104,12 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   key, and replaces the auth key and the encrypted private key together, so they can't get out of
   step and lock the user out. That's the only way to change them: Better Auth's update-user is
   turned off, so a stolen session alone can't replace a user's keys or username.
+- Backups are the database's rows as they are, so the server can't read them either. They do hold
+  the private key, encrypted with the password, as the server does. Restoring only takes a backup
+  with the account's own public key, as everything in it is encrypted for that key. A new account
+  made from a backup gets the backup's key pair: the browser decrypts the private key with the
+  password first, checks it belongs to the public key, and encrypts it again for the new account.
+  Notes are shared again only with people who still have the key they were shared with.
 - Every note has its own key, which is encrypted with the owner's public key. Note contents are
   encrypted with that note key, so the server only ever stores ciphertext.
 - Tags are encrypted with the note key as well, and stored per user. Archiving and trashing a note
@@ -136,6 +151,12 @@ What an app may do is chosen when connecting it, and can be changed later in the
   that's excluded from its reach. Notes are written as Markdown, and turned into what the editor
   stores; formatting Markdown doesn't have, such as underlining, is lost when an app replaces a
   note's text.
+- **Backups**: download and restore backups (see below), off unless chosen. These go past Read and
+  its tags: a backup has all of the user's notes, though still encrypted, so the app can't read
+  them. But it does hold the private key, encrypted with the password, which the app could try to
+  guess offline. Backups move through links that work for 30 minutes, which the app downloads from
+  and uploads to with its own tools, such as curl; uploads go in pieces of 256 KB, and the tool
+  gives the shell command for it. An app can only restore a backup of the same account.
 
 The tools an app gets follow its permissions, so it isn't offered what it may not do. Apps
 connected before there were permissions can still read everything, as before, and nothing else.
