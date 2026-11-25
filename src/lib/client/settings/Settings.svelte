@@ -17,6 +17,10 @@
 	import PasswordSettings from './PasswordSettings.svelte';
 	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
+	// The AGPL asks that people using a changed version of the app can get its source: point this at
+	// yours if you change it.
+	const SOURCE_URL = 'https://github.com/Zemanzo/plakkert';
+
 	let settings = $state<Preferences>(
 		localUser.data ? preferencesOf(localUser.data) : { ...defaultPreferences }
 	);
@@ -105,6 +109,7 @@
 	let sectionEl = $state<HTMLElement>();
 	let mainEl = $state<HTMLElement>();
 	let probeEl = $state<HTMLElement>();
+	let footerEl = $state<HTMLElement>();
 	/** The size of the sections' container, or null for one column, as tall as it is. */
 	let layout = $state<{ height: number; width: number } | null>(null);
 
@@ -122,9 +127,13 @@
 			mainEl.getBoundingClientRect().top -
 			sectionEl.getBoundingClientRect().top +
 			sectionEl.scrollTop;
+		// The footer goes below the columns, and should fit on the screen with them.
+		const footer = footerEl
+			? footerEl.offsetHeight + parseFloat(getComputedStyle(footerEl).marginTop)
+			: 0;
 		const height = columnHeight(heights, {
 			gap,
-			available: sectionEl.clientHeight - top,
+			available: sectionEl.clientHeight - top - footer,
 			columns
 		});
 		if (height === null) {
@@ -361,6 +370,12 @@
 				</div>
 			</div>
 		</div>
+		<footer bind:this={footerEl}>
+			<a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source code</a>
+			<span aria-hidden="true">·</span>
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file the build writes, not a page -->
+			<a href="/licenses.txt" target="_blank" rel="noopener noreferrer">Open-source licenses</a>
+		</footer>
 	{/if}
 </section>
 
@@ -397,6 +412,17 @@
 				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
+		}
+
+		/* Not shrinking, like the save state. `arrange` leaves room for it below the columns. */
+		footer {
+			flex: none;
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--spacing-sm);
+			margin-top: var(--spacing-xxl);
+			color: var(--color-text-muted);
+			font-size: 0.875rem;
 		}
 
 		/* Columns of a fixed width, as many as fit; see `arrange`. With room for one, MCP is at the

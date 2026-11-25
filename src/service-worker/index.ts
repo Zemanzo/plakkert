@@ -44,7 +44,8 @@ self.addEventListener('fetch', (event) => {
 		(async () => {
 			const cache = await caches.open(CACHE_NAME);
 
-			if (request.mode === 'navigate') {
+			// Opening a file, such as /licenses.txt, isn't a page of the app.
+			if (request.mode === 'navigate' && !/\.\w+$/.test(url.pathname)) {
 				// Every page is the same client-rendered shell, so any cached page can render any route.
 				const page = PAGES.includes(url.pathname) ? url.pathname : '/';
 				const cachedPage = await cache.match(page);

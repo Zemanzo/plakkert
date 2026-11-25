@@ -212,3 +212,32 @@ test('the settings go on in another column, rather than scroll, where there’s 
 		expect(await top('MCP')).toBeGreaterThan(await top('Backup'));
 	});
 });
+
+test('the settings link to the source code, and the licenses of the packages in the app', async ({
+	app
+}) => {
+	const { context, page } = await app.register(uniqueName('licenses'));
+	await page.goto(url('/settings'));
+	await expect(page.getByRole('link', { name: 'Source code' })).toHaveAttribute(
+		'href',
+		'https://github.com/Zemanzo/plakkert'
+	);
+
+	// Once the service worker serves the app, which serves pages from its cache.
+	await page.evaluate(() => navigator.serviceWorker.ready);
+	await page.reload();
+	expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+
+	const [tab] = await Promise.all([
+		context.waitForEvent('page'),
+		page.getByRole('link', { name: 'Open-source licenses' }).click()
+	]);
+	await tab.waitForLoadState();
+	expect(new URL(tab.url()).pathname).toBe('/licenses.txt');
+	const text = (await tab.locator('body').textContent()) ?? '';
+	expect(text).toContain('This app includes the following open-source packages');
+	expect(text).toContain('svelte ');
+	// With its NOTICE file, which Apache-2.0 asks for.
+	expect(text).toMatch(/dexie [\d.]+ \(Apache-2\.0\)/);
+	expect(text).toContain('Copyright (c) 2014-2017 David Fahlander');
+});

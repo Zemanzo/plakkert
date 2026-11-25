@@ -5,6 +5,13 @@
 		"sourceMap": true,
 		"strict": true
 	},
-	"include": ["src", "e2e", "vite.config.ts", "drizzle.config.ts", "playwright.config.ts"],
+	"include": [
+		"src",
+		"e2e",
+		"vite.config.ts",
+		"vite-plugin-licenses.ts",
+		"drizzle.config.ts",
+		"playwright.config.ts"
+	],
 	"exclude": ["src/service-worker"]
 }

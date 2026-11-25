@@ -4,6 +4,12 @@ Plakkert is a single Node.js server with a SQLite database, so one small contain
 The server only ever stores encrypted notes (see [How encryption works](encryption.md)), but it does
 serve the app's code, so it should still be one you trust.
 
+Plakkert is licensed under the [GNU AGPLv3](../LICENSE) or later. If you run a changed version,
+the people using it must be able to get its source: point `SOURCE_URL` in
+`src/lib/client/settings/Settings.svelte`, which the settings link to, at yours. The licenses of
+the packages bundled into the app are served at `/licenses.txt`, written by
+`vite-plugin-licenses.ts` when building.
+
 ## Docker
 
 ```sh

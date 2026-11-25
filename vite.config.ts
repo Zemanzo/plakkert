@@ -5,6 +5,7 @@ import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { licenses } from './vite-plugin-licenses';
 
 export default defineConfig(({ mode }) => {
 	// adapter-node no longer reads ORIGIN at runtime, so it is baked in at build time instead.
@@ -12,6 +13,8 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		plugins: [
+			// Served at /licenses.txt, and linked to from the settings.
+			licenses('licenses.txt'),
 			tailwindcss(),
 			sveltekit({
 				preprocess: vitePreprocess(),
