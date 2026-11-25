@@ -43,10 +43,20 @@ describe('mergeServerNote', () => {
 	it('keeps a local deletion that has not been pushed yet', () => {
 		expect(
 			mergeServerNote(
-				{ updatedAt: earlier, deletedAt: earlier },
+				{ updatedAt: earlier, deletedAt: earlier, dirty: 1 },
 				{ updatedAt: later, deletedAt: null }
 			)
 		).toBe('keep-local');
+	});
+
+	it('brings back a note whose deletion was pushed, when the server has it again', () => {
+		// As after restoring a backup, which keeps the note's own time, from before the deletion.
+		expect(
+			mergeServerNote(
+				{ updatedAt: later, deletedAt: later, dirty: 0 },
+				{ updatedAt: earlier, deletedAt: null }
+			)
+		).toBe('take-server');
 	});
 });
 

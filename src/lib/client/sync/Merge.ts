@@ -12,17 +12,20 @@ export type MergeAction =
 /**
  * Decides how to merge a note from the server into the local database. Edits
  * follow last-write-wins on `updatedAt`, and deletions always win over edits.
+ *
+ * Once a deletion has reached the server, the server only has the note again if it was brought
+ * back, by restoring a backup: then the note comes back here too.
  */
 export function mergeServerNote(
-	local: Pick<Note<Uint8Array>, 'updatedAt' | 'deletedAt'> | undefined,
+	local: Pick<Note<Uint8Array>, 'updatedAt' | 'deletedAt' | 'dirty'> | undefined,
 	server: { updatedAt: Date; deletedAt: Date | null }
 ): MergeAction {
 	if (server.deletedAt) {
 		return local && !local.deletedAt ? 'delete-local' : 'keep-local';
 	}
 	if (!local) return 'take-server';
-	// A local deletion that hasn't been pushed yet.
-	if (local.deletedAt) return 'keep-local';
+	// A local deletion that hasn't been pushed yet wins; one that has, was undone on the server.
+	if (local.deletedAt) return local.dirty === 0 ? 'take-server' : 'keep-local';
 	return server.updatedAt > local.updatedAt ? 'take-server' : 'keep-local';
 }
 

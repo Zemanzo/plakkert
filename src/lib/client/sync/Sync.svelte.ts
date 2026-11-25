@@ -139,8 +139,9 @@ async function applyServerNote(
 		});
 		return;
 	}
-	// Deleted on the server and locally, or a local deletion that still has to be pushed.
-	if (deletedAt || local?.deletedAt) return;
+	// Deleted on the server and locally, or a local deletion that still has to be pushed. (One
+	// that was pushed comes back with `take-server`, when a backup brought the note back.)
+	if (deletedAt || (local?.deletedAt && action !== 'take-server')) return;
 
 	if (action === 'take-server' && serverNote.content !== null) {
 		// A change that wasn't sent yet loses to a newer one from elsewhere. It stays in the history,
