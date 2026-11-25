@@ -12,6 +12,7 @@
 	import ExportAll from './ExportAll.svelte';
 	import HistorySettings from './HistorySettings.svelte';
 	import McpSettings from './McpSettings.svelte';
+	import PasswordSettings from './PasswordSettings.svelte';
 	import { defaultPreferences, preferencesOf, type Preferences } from './Preferences';
 
 	let settings = $state<Preferences>(
@@ -171,6 +172,7 @@
 							bind:checked={settings.stayLoggedIn}
 						/>
 					</div>
+					<PasswordSettings username={localUser.data.username} />
 				</div>
 				<div class="preferencesList">
 					<h2>Note history</h2>

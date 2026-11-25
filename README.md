@@ -68,6 +68,8 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
 - Authentication server
   - Notes are locked again when the app is closed, unless "Stay logged in" is turned on in the
     settings. It then stays unlocked on that device until it hasn't been used for 30 days.
+  - Changing your password (in the settings), which logs out your other devices. A forgotten
+    password can't be reset, as it's what unlocks your notes.
 - Two notes side by side on phones, if you prefer (in the settings)
 - Importing notes from Google Keep, from a Google Takeout zip (in the settings). Text, checklists,
   colours and dates come along, labels become tags, and archived notes go to the archive;
@@ -88,6 +90,10 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
   (PBKDF2, 600k iterations, random salt) before it is sent to the server.
 - The password itself is never sent to the server. Instead, the client derives a separate auth key
   from it (PBKDF2 with the username as salt), which the server uses as the account password.
+- Changing the password encrypts the same private key with the new password, so the key pair, and
+  with it every note and share, stays as it is. The server only accepts it with the current auth
+  key, and replaces the auth key and the encrypted private key together, so they can't get out of
+  step and lock the user out.
 - Every note has its own key, which is encrypted with the owner's public key. Note contents are
   encrypted with that note key, so the server only ever stores ciphertext.
 - Tags are encrypted with the note key as well, and stored per user. Archiving and trashing a note

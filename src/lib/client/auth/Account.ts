@@ -14,6 +14,7 @@ import { ApiError, OfflineError } from '../Api';
 import { syncEngine } from '../sync/Sync.svelte';
 import {
 	changePassword,
+	changePasswordAndKey,
 	fetchServerUser,
 	signInUsername,
 	signOut,
@@ -21,7 +22,16 @@ import {
 	updateEncryptedPrivateKey,
 	type ServerUser
 } from './AuthApi';
-import { clearUnlockedSession, setLastUsername, storeUnlockedSession } from './Session';
+import {
+	clearUnlockedSession,
+	getUnlockedSession,
+	setLastUsername,
+	storeUnlockedSession,
+	updateSessionAuthKey
+} from './Session';
+
+/** Thrown when changing the password, if the current password that was entered is wrong. */
+export class WrongPasswordError extends Error {}
 
 /** The server normalizes usernames to lowercase, so we do the same locally. */
 export function normalizeUsername(username: string) {
@@ -215,6 +225,64 @@ export async function register(rawUsername: string, password: string, inviteCode
 
 	unlock(user, keys.privateKey, authKey);
 	return user;
+}
+
+/**
+ * Changes the password of the logged-in user. This requires a connection to the server.
+ *
+ * The private key stays the same, so notes and shares are unaffected; it's only encrypted with
+ * the new password instead. The server password, the auth key, changes along with it. Other
+ * devices are logged out and have to log in with the new password; this one stays logged in.
+ */
+export async function changeAccountPassword(currentPassword: string, newPassword: string) {
+	const session = getUnlockedSession();
+	if (!session) throw new Error('Log in again to change your password.');
+
+	// The server's copy, as this device's may be outdated. Decrypting it checks the password,
+	// before anything is sent; the server checks it as well.
+	const user = await storeServerUser(await fetchServerUser());
+	if (user.id !== session.userId) throw new Error('Log in again to change your password.');
+	let privateKey: Uint8Array;
+	try {
+		privateKey = await decryptPrivateKey(
+			user.privateKey,
+			currentPassword,
+			user.salt,
+			user.nonce,
+			kdfIterationsOf(user)
+		);
+	} catch {
+		throw new WrongPasswordError('The current password is wrong.');
+	}
+
+	const [currentAuthKey, newAuthKey, encrypted] = await Promise.all([
+		deriveAuthKey(currentPassword, user.username),
+		deriveAuthKey(newPassword, user.username),
+		encryptPrivateKey(privateKey, newPassword)
+	]);
+	try {
+		await changePasswordAndKey({
+			currentAuthKey,
+			newAuthKey,
+			privateKey: encodeKey(encrypted.encryptedKey),
+			salt: encodeKey(encrypted.salt),
+			nonce: encodeKey(encrypted.nonce),
+			kdfIterations: encrypted.iterations
+		});
+	} catch (error) {
+		if (error instanceof ApiError && error.code === 'INVALID_PASSWORD') {
+			throw new WrongPasswordError('The current password is wrong.');
+		}
+		throw error;
+	}
+
+	await db.users.update(user.id, {
+		privateKey: encrypted.encryptedKey,
+		salt: encrypted.salt,
+		nonce: encrypted.nonce,
+		kdfIterations: encrypted.iterations
+	});
+	updateSessionAuthKey(newAuthKey);
 }
 
 /**

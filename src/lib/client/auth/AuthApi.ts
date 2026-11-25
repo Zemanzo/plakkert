@@ -68,6 +68,25 @@ export function changePassword(currentPassword: string, newPassword: string) {
 	return postAuth('change-password', { currentPassword, newPassword, revokeOtherSessions: false });
 }
 
+/**
+ * Changes the password: the server password becomes the new auth key, and the private key is
+ * replaced with the one encrypted with the new password. Other sessions are ended.
+ */
+export async function changePasswordAndKey(body: {
+	currentAuthKey: string;
+	newAuthKey: string;
+	privateKey: string;
+	salt: string;
+	nonce: string;
+	kdfIterations: number;
+}) {
+	await request('/api/user/password', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+}
+
 /** Replaces the encrypted private key, e.g. after re-encrypting it with stronger settings. */
 export function updateEncryptedPrivateKey(body: {
 	privateKey: string;

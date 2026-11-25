@@ -87,6 +87,23 @@ export function keepUnlockedSession(session: UnlockedSession, remember: boolean)
 	}
 }
 
+/**
+ * Replaces the auth key of the unlocked session, wherever it's kept, e.g. after changing the
+ * password, so the sync engine can still sign in with it.
+ */
+export function updateSessionAuthKey(authKey: string) {
+	const replaceIn = (storage: Storage, key: string) => {
+		const stored = storage.getItem(key);
+		if (stored) storage.setItem(key, JSON.stringify({ ...JSON.parse(stored), authKey }));
+	};
+	replaceIn(sessionStorage, SESSION_STORAGE_KEY);
+	try {
+		replaceIn(localStorage, REMEMBERED_SESSION_STORAGE_KEY);
+	} catch {
+		// Then nothing was remembered either.
+	}
+}
+
 export function clearUnlockedSession() {
 	sessionStorage.removeItem(SESSION_STORAGE_KEY);
 	try {
