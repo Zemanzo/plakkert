@@ -158,8 +158,9 @@
 			{#if hasChanges}
 				<Button onclick={saveChanges}>Save Changes</Button>
 			{:else}
-				<p>All changes saved.</p>
+				<p class="saved">All changes saved.</p>
 			{/if}
+			<p class="loggedInAs">Logged in as {localUser.data.username}</p>
 		</div>
 		<div class="columns">
 			<div class="probe" bind:this={probeEl} aria-hidden="true"></div>
@@ -372,11 +373,30 @@
 		/* So a scrollbar coming or going doesn't change how many columns fit. */
 		scrollbar-gutter: stable;
 
-		/* As high as the button, so the page doesn't shift when it shows up. */
+		/* As high as the button, so the page doesn't shift when it shows up. Not shrinking, as the
+		   section's other content may be taller than the section. */
 		.saveState {
+			flex: none;
 			display: flex;
 			align-items: center;
+			justify-content: space-between;
+			gap: var(--spacing-md);
 			height: 2.75rem;
+
+			p {
+				color: var(--color-text-muted);
+			}
+
+			.saved {
+				font-style: italic;
+			}
+
+			.loggedInAs {
+				margin-left: auto;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
 		}
 
 		/* Columns of a fixed width, as many as fit; see `arrange`. With room for one, MCP is at the

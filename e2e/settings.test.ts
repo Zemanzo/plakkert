@@ -139,6 +139,32 @@ test('on a narrow screen, notes can be shown two side by side', async ({ app }) 
 	});
 });
 
+test('the save button shows up without moving the settings', async ({ app }) => {
+	const username = uniqueName('saving');
+	const { page } = await app.register(username);
+
+	for (const size of [
+		{ width: 600, height: 700 },
+		{ width: 1920, height: 900 }
+	]) {
+		await page.setViewportSize(size);
+		await page.goto(url('/settings'));
+		await expect(page.getByText(`Logged in as ${username.toLowerCase()}`)).toBeVisible();
+		const heading = page.getByRole('heading', { name: 'Preferences', exact: true });
+		const before = await heading.boundingBox();
+
+		await page.getByLabel('Theme').selectOption('dark');
+		await expect(page.getByRole('button', { name: 'Save Changes' })).toBeVisible();
+		expect(await heading.boundingBox(), `at ${size.width}×${size.height}`).toEqual(before);
+
+		await page.getByRole('button', { name: 'Save Changes' }).click();
+		await expect(page.getByText('All changes saved.')).toBeVisible();
+		expect(await heading.boundingBox()).toEqual(before);
+		await page.getByLabel('Theme').selectOption('system');
+		await page.getByRole('button', { name: 'Save Changes' }).click();
+	}
+});
+
 test('the settings go on in another column, rather than scroll, where there’s room', async ({
 	app
 }) => {
