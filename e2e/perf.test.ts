@@ -68,6 +68,21 @@ async function longTasks(page: Page, action: () => Promise<void>) {
 	});
 }
 
+/** The page's JS heap after garbage collection, and how many DOM nodes and listeners it has. */
+async function memory(page: Page) {
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('HeapProfiler.collectGarbage');
+	await cdp.send('Performance.enable');
+	const { metrics } = await cdp.send('Performance.getMetrics');
+	await cdp.detach();
+	const metric = (name: string) => metrics.find((m) => m.name === name)?.value ?? 0;
+	return {
+		heapMB: Math.round(metric('JSHeapUsedSize') / 1024 / 102.4) / 10,
+		domNodes: metric('Nodes'),
+		listeners: metric('JSEventListeners')
+	};
+}
+
 test('many notes', async ({ app }) => {
 	test.setTimeout(1_800_000);
 	const results = new Proxy({} as Record<string, unknown>, {
@@ -79,6 +94,8 @@ test('many notes', async ({ app }) => {
 	});
 	const username = uniqueName('perf');
 	const { page } = await app.register(username);
+	await waitSynced(page);
+	results['memory without notes'] = await memory(page);
 
 	await page.goto(url('/settings'));
 	await page.locator('#import-keep').setInputFiles({
@@ -113,6 +130,32 @@ test('many notes', async ({ app }) => {
 	results['notes rendered'] = await page.locator('[data-note-id]').count();
 	results['editors rendered'] = await page.locator('.ProseMirror[contenteditable]').count();
 	await waitSynced(page);
+	results['memory with notes'] = await memory(page);
+
+	start = Date.now();
+	results['long tasks while searching, with one page shown (ms)'] = await longTasks(
+		page,
+		async () => {
+			await page.getByRole('searchbox').fill('note 999');
+			await expect(page.locator('[data-note-id]', { hasText: 'Perf note 999' })).toBeVisible();
+		}
+	);
+	results['search, with one page shown (ms)'] = Date.now() - start;
+	await page.getByRole('searchbox').fill('');
+	await expect(page.locator('[data-note-id]')).toHaveCount(50);
+
+	// Scroll to the end, so every page of notes is shown, then back.
+	let shown = 0;
+	while (shown < (await page.locator('[data-note-id]').count())) {
+		shown = await page.locator('[data-note-id]').count();
+		await page.locator('.scroll-container').evaluate((element) => {
+			element.scrollTop = element.scrollHeight;
+		});
+		await page.waitForTimeout(500);
+	}
+	results['notes rendered after scrolling'] = await page.locator('[data-note-id]').count();
+	results['memory after scrolling to the end'] = await memory(page);
+	await page.locator('.scroll-container').evaluate((element) => (element.scrollTop = 0));
 
 	const first = page.locator('[data-note-id]').first();
 	await first.click();
@@ -131,12 +174,14 @@ test('many notes', async ({ app }) => {
 	results['sync after typing'] = await countRequests(page, () => syncNow(page));
 
 	start = Date.now();
-	results['long tasks while searching (ms)'] = await longTasks(page, async () => {
-		await page.getByRole('searchbox').fill('note 999');
-		await expect(page.locator('[data-note-id]', { hasText: 'Perf note 999' })).toBeVisible();
-	});
-	results['search (ms)'] = Date.now() - start;
-
+	results['long tasks while searching, with all notes shown (ms)'] = await longTasks(
+		page,
+		async () => {
+			await page.getByRole('searchbox').fill('note 999');
+			await expect(page.locator('[data-note-id]', { hasText: 'Perf note 999' })).toBeVisible();
+		}
+	);
+	results['search, with all notes shown (ms)'] = Date.now() - start;
 	// Escape also leaves the search field, where Ctrl+A would select its text instead.
 	await page.getByRole('searchbox').press('Escape');
 	await expect(page.locator('[data-note-id]')).toHaveCount(50);
