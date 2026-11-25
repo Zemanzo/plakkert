@@ -62,7 +62,8 @@ export type PasswordChangeResult =
  * change together, as one without the other would lock the user out of their notes.
  *
  * Other sessions are ended, so devices that are logged in elsewhere have to log in with the new
- * password. The session that made the change stays.
+ * password. The session that made the change stays. With the same auth key, only the private key
+ * is replaced, e.g. when it's encrypted again with stronger settings, and sessions stay.
  */
 export async function changePassword(
 	userId: string,
@@ -89,7 +90,8 @@ export async function changePassword(
 			body: { message: 'The current password is wrong', code: 'INVALID_PASSWORD' }
 		};
 	}
-	const newHash = await password.hash(change.newAuthKey);
+	const isNewPassword = change.newAuthKey !== change.currentAuthKey;
+	const newHash = isNewPassword ? await password.hash(change.newAuthKey) : credential.password;
 
 	const changed = db.transaction((tx) => {
 		// Only if the password is still the one that was checked, in case it changed meanwhile.
@@ -105,9 +107,11 @@ export async function changePassword(
 			.set({ privateKey, salt, nonce, kdfIterations })
 			.where(eq(user.id, userId))
 			.run();
-		tx.delete(session)
-			.where(and(eq(session.userId, userId), ne(session.id, currentSessionId)))
-			.run();
+		if (isNewPassword) {
+			tx.delete(session)
+				.where(and(eq(session.userId, userId), ne(session.id, currentSessionId)))
+				.run();
+		}
 		return true;
 	});
 	if (!changed) {

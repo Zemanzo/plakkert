@@ -19,7 +19,6 @@ import {
 	signInUsername,
 	signOut,
 	signUpEmail,
-	updateEncryptedPrivateKey,
 	type ServerUser
 } from './AuthApi';
 import {
@@ -118,11 +117,21 @@ async function signIn(username: string, password: string, authKey: string, local
 	await changePassword(password, authKey);
 }
 
-/** Re-encrypts the private key with the current (stronger) key derivation settings. */
-async function upgradePrivateKeyEncryption(user: User, privateKey: Uint8Array, password: string) {
+/**
+ * Re-encrypts the private key with the current (stronger) key derivation settings. The password
+ * stays the same, so the server keeps the other sessions.
+ */
+async function upgradePrivateKeyEncryption(
+	user: User,
+	privateKey: Uint8Array,
+	password: string,
+	authKey: string
+) {
 	const { encryptedKey, salt, nonce, iterations } = await encryptPrivateKey(privateKey, password);
 	try {
-		await updateEncryptedPrivateKey({
+		await changePasswordAndKey({
+			currentAuthKey: authKey,
+			newAuthKey: authKey,
 			privateKey: encodeKey(encryptedKey),
 			salt: encodeKey(salt),
 			nonce: encodeKey(nonce),
@@ -172,7 +181,7 @@ export async function login(rawUsername: string, password: string) {
 		kdfIterationsOf(user)
 	);
 	if (kdfIterationsOf(user) < KDF_ITERATIONS) {
-		user = await upgradePrivateKeyEncryption(user, privateKey, password);
+		user = await upgradePrivateKeyEncryption(user, privateKey, password, authKey);
 	}
 
 	unlock(user, privateKey, authKey);

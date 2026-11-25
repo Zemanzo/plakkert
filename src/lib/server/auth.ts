@@ -21,6 +21,16 @@ export const auth = betterAuth({
 		// sign-up endpoint directly. Better Auth also rate limits sign-up attempts, which makes
 		// guessing the invite code impractical.
 		before: createAuthMiddleware(async (ctx) => {
+			// With only a session, update-user could replace the keys, which would lock the user out
+			// of their notes or have shares encrypted for someone else, or change the username, which
+			// the auth key is derived from. The app doesn't use it: the keys change, along with the
+			// password, at /api/user/password, which needs the current password.
+			if (ctx.path === '/update-user') {
+				throw new APIError('FORBIDDEN', {
+					message: 'Users can’t be changed here',
+					code: 'UPDATE_USER_DISABLED'
+				});
+			}
 			if (!ctx.path.startsWith('/sign-up')) return;
 			const problem = checkSignUp(
 				registrationMode,

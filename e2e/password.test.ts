@@ -1,6 +1,8 @@
+import { generateKeyPairSync, webcrypto } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import {
 	expect,
+	INVITE_CODE,
 	logIn,
 	newNote,
 	PASSWORD,
@@ -76,4 +78,144 @@ test('changing the password keeps the notes, and logs out other devices', async 
 		await expect(b.page.getByText('Written after the new password')).toBeVisible();
 		await waitSynced(b.page);
 	});
+});
+
+/** Sends a request from the app's page, as the app would, with its cookies. */
+function fetchFromPage(page: Page, path: string, init: { method?: string; body?: unknown } = {}) {
+	return page.evaluate(
+		async ({ path, method, body }) => {
+			const response = await fetch(path, {
+				method,
+				headers: body === undefined ? {} : { 'content-type': 'application/json' },
+				body: body === undefined ? undefined : JSON.stringify(body)
+			});
+			return { status: response.status, body: await response.json().catch(() => null) };
+		},
+		{ path, method: init.method ?? 'GET', body: init.body }
+	);
+}
+
+test('a session alone can’t change the keys or the username', async ({ app }) => {
+	const username = uniqueName('keys');
+	const { page } = await app.register(username);
+	await newNote(page, 'Still readable after the attempt');
+	await waitSynced(page);
+	const before = (await fetchFromPage(page, '/api/user')).body;
+
+	for (const change of [
+		{ privateKey: 'AAAA', salt: 'AAAA', nonce: 'AAAA', kdfIterations: 100_000 },
+		{ publicKey: 'AAAA' },
+		{ username: uniqueName('renamed') }
+	]) {
+		const response = await fetchFromPage(page, '/api/auth/update-user', {
+			method: 'POST',
+			body: change
+		});
+		expect(response.status).toBe(403);
+		expect(response.body.code).toBe('UPDATE_USER_DISABLED');
+	}
+
+	expect((await fetchFromPage(page, '/api/user')).body).toEqual(before);
+	await signOut(page);
+	await logIn(page, username);
+	await expect(page.getByText('Still readable after the attempt')).toBeVisible();
+});
+
+const LEGACY_KDF_ITERATIONS = 100_000;
+const KDF_ITERATIONS = 600_000;
+
+const base64 = (bytes: Uint8Array | ArrayBuffer) =>
+	Buffer.from(bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes).toString('base64');
+
+async function pbkdf2(password: string, salt: Uint8Array, iterations: number) {
+	const key = await webcrypto.subtle.importKey(
+		'raw',
+		new TextEncoder().encode(password),
+		'PBKDF2',
+		false,
+		['deriveBits']
+	);
+	return webcrypto.subtle.deriveBits(
+		{ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+		key,
+		256
+	);
+}
+
+/**
+ * The sign-up of an account from before the private key was encrypted with stronger settings, as
+ * the app does it (see src/lib/client/cryptography/PrivateKey.ts), but with fewer iterations.
+ */
+async function legacySignUp(username: string, password: string) {
+	// What libsodium's crypto_box_keypair makes: raw X25519 keys.
+	const jwk = generateKeyPairSync('x25519').privateKey.export({ format: 'jwk' });
+	const privateKey = Buffer.from(jwk.d!, 'base64url');
+	const publicKey = Buffer.from(jwk.x!, 'base64url');
+
+	const salt = webcrypto.getRandomValues(new Uint8Array(16));
+	const nonce = webcrypto.getRandomValues(new Uint8Array(12));
+	const aesKey = await webcrypto.subtle.importKey(
+		'raw',
+		await pbkdf2(password, salt, LEGACY_KDF_ITERATIONS),
+		'AES-GCM',
+		false,
+		['encrypt']
+	);
+	const encryptedKey = await webcrypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv: nonce },
+		aesKey,
+		privateKey
+	);
+	const authKey = await pbkdf2(
+		password,
+		new TextEncoder().encode('plakkert-auth:' + username),
+		KDF_ITERATIONS
+	);
+
+	return {
+		email: webcrypto.randomUUID() + '@example.com',
+		name: '',
+		username,
+		password: base64(authKey),
+		publicKey: base64(publicKey),
+		privateKey: base64(encryptedKey),
+		salt: base64(salt),
+		nonce: base64(nonce),
+		kdfIterations: LEGACY_KDF_ITERATIONS,
+		rememberMe: true
+	};
+}
+
+test('an older account’s key is encrypted again at login, without logging out other devices', async ({
+	app
+}) => {
+	const username = uniqueName('legacy');
+	const first = await app.open('first device');
+	await first.page.goto(url('/login'));
+	const body = await legacySignUp(username, PASSWORD);
+	const signUpStatus = await first.page.evaluate(
+		async ({ body, inviteCode }) => {
+			const response = await fetch('/api/auth/sign-up/email', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', 'x-invite-code': inviteCode },
+				body: JSON.stringify(body)
+			});
+			return response.status;
+		},
+		{ body, inviteCode: INVITE_CODE }
+	);
+	expect(signUpStatus).toBe(200);
+
+	const { page } = await app.login(username);
+	await expect
+		.poll(async () => (await fetchFromPage(page, '/api/user')).body.kdfIterations)
+		.toBe(KDF_ITERATIONS);
+	// The first device's session, from signing up, is still there.
+	expect((await fetchFromPage(first.page, '/api/user')).status).toBe(200);
+
+	await newNote(page, 'Written with the upgraded key');
+	await waitSynced(page);
+	await signOut(page);
+	await logIn(page, username);
+	await expect(page.getByText('Written with the upgraded key')).toBeVisible();
 });

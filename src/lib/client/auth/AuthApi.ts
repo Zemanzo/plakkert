@@ -70,7 +70,8 @@ export function changePassword(currentPassword: string, newPassword: string) {
 
 /**
  * Changes the password: the server password becomes the new auth key, and the private key is
- * replaced with the one encrypted with the new password. Other sessions are ended.
+ * replaced with the one encrypted with the new password. Other sessions are ended. With the same
+ * auth key, only the private key is replaced, e.g. after encrypting it with stronger settings.
  */
 export async function changePasswordAndKey(body: {
 	currentAuthKey: string;
@@ -85,16 +86,6 @@ export async function changePasswordAndKey(body: {
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify(body)
 	});
-}
-
-/** Replaces the encrypted private key, e.g. after re-encrypting it with stronger settings. */
-export function updateEncryptedPrivateKey(body: {
-	privateKey: string;
-	salt: string;
-	nonce: string;
-	kdfIterations: number;
-}) {
-	return postAuth('update-user', body);
 }
 
 export function signOut() {

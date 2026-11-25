@@ -93,7 +93,8 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
 - Changing the password encrypts the same private key with the new password, so the key pair, and
   with it every note and share, stays as it is. The server only accepts it with the current auth
   key, and replaces the auth key and the encrypted private key together, so they can't get out of
-  step and lock the user out.
+  step and lock the user out. That's the only way to change them: Better Auth's update-user is
+  turned off, so a stolen session alone can't replace a user's keys or username.
 - Every note has its own key, which is encrypted with the owner's public key. Note contents are
   encrypted with that note key, so the server only ever stores ciphertext.
 - Tags are encrypted with the note key as well, and stored per user. Archiving and trashing a note
