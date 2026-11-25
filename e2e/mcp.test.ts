@@ -313,6 +313,8 @@ test('the settings turn MCP access on and off, and show connected apps', async (
 	const { page } = await app.register(uniqueName('mcpsettings'));
 	await page.goto(url('/settings'));
 	const toggle = page.getByLabel('Let MCP clients use your notes');
+	// Until the settings have loaded, the toggle is unchecked and disabled, whatever they are.
+	await expect(toggle).toBeEnabled();
 	await expect(toggle).not.toBeChecked();
 	await expect(page.getByText('Server address')).toHaveCount(0);
 	await toggle.check();
@@ -338,7 +340,9 @@ test('the settings turn MCP access on and off, and show connected apps', async (
 	// Turning it off with an app connected asks first.
 	const second = await connect(page, request);
 	await page.goto(url('/settings'));
-	await page.getByLabel('Let MCP clients use your notes').uncheck();
+	// Otherwise unchecking it while it loads does nothing, as it's unchecked until then.
+	await expect(toggle).toBeChecked();
+	await toggle.uncheck();
 	await expect(page.locator('dialog[open]')).toContainText('“Test client” will be disconnected');
 	await page.locator('dialog[open]').getByRole('button', { name: 'Turn off' }).click();
 	await expect(page.getByText('Server address')).toHaveCount(0);
