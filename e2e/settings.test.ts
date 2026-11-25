@@ -138,3 +138,51 @@ test('on a narrow screen, notes can be shown two side by side', async ({ app }) 
 			.toEqual([0, 0, 390, 760]);
 	});
 });
+
+test('the settings go on in another column, rather than scroll, where there’s room', async ({
+	app
+}) => {
+	const { page } = await app.register(uniqueName('columns'));
+	const section = (name: string) =>
+		page.locator('.preferencesList', { has: page.getByRole('heading', { name, exact: true }) });
+	const left = async (name: string) => Math.round((await section(name).boundingBox())!.x);
+	const shot = async (name: string) => {
+		if (process.env.SHOT_DIR) {
+			await page.screenshot({ path: `${process.env.SHOT_DIR}/settings-${name}.png` });
+		}
+	};
+
+	await test.step('wide and low: as many columns as needed, and MCP in one of its own', async () => {
+		await page.setViewportSize({ width: 1920, height: 900 });
+		await page.goto(url('/settings'));
+		await expect(section('MCP')).toBeVisible();
+		await shot('wide');
+		const columns = new Set([
+			await left('Preferences'),
+			await left('Security'),
+			await left('Import'),
+			await left('Backup')
+		]);
+		expect(columns.size).toBeGreaterThan(1);
+		expect(await left('MCP')).toBeGreaterThan(Math.max(...columns));
+		const scroller = page.locator('main section');
+		expect(
+			await scroller.evaluate((el) => el.scrollHeight <= el.clientHeight),
+			'the page doesn’t scroll'
+		).toBe(true);
+	});
+
+	await test.step('wide and tall: one column, as everything fits in it', async () => {
+		await page.setViewportSize({ width: 1920, height: 4000 });
+		await expect.poll(() => left('Backup')).toBe(await left('Preferences'));
+		expect(await left('MCP')).toBeGreaterThan(await left('Preferences'));
+	});
+
+	await test.step('narrow: one column, with MCP at the bottom', async () => {
+		await page.setViewportSize({ width: 600, height: 900 });
+		await expect.poll(() => left('MCP')).toBe(await left('Preferences'));
+		await shot('narrow');
+		const top = async (name: string) => (await section(name).boundingBox())!.y;
+		expect(await top('MCP')).toBeGreaterThan(await top('Backup'));
+	});
+});

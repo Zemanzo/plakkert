@@ -10,6 +10,7 @@
 	import type { ImportPlan } from '../import/ImportPlan';
 	import { tagHref } from '../tags/TagLinks';
 	import BackupSettings from './BackupSettings.svelte';
+	import { columnHeight, columnsNeeded, columnsThatFit } from './Columns';
 	import ExportAll from './ExportAll.svelte';
 	import HistorySettings from './HistorySettings.svelte';
 	import McpSettings from './McpSettings.svelte';
@@ -99,9 +100,55 @@
 	const notesCount = (count: number) => (count === 1 ? '1 note' : `${count} notes`);
 	const were = (count: number) => (count === 1 ? 'was' : 'were');
 	const MAX_FAILED_NAMES = 3;
+
+	// The sections fill as many columns as fit, MCP one of its own; see Columns.ts.
+	let sectionEl = $state<HTMLElement>();
+	let mainEl = $state<HTMLElement>();
+	let probeEl = $state<HTMLElement>();
+	/** The size of the sections' container, or null for one column, as tall as it is. */
+	let layout = $state<{ height: number; width: number } | null>(null);
+
+	function arrange() {
+		if (!sectionEl || !mainEl || !probeEl) return;
+		const style = getComputedStyle(mainEl);
+		const gap = parseFloat(style.rowGap) || 0;
+		const columnGap = parseFloat(style.columnGap) || 0;
+		const columnWidth = probeEl.offsetWidth;
+		const fit = columnsThatFit(mainEl.parentElement!.clientWidth, columnWidth, columnGap);
+		const columns = mcpAvailable && fit > 1 ? fit - 1 : fit;
+
+		const heights = [...mainEl.children].map((section) => (section as HTMLElement).offsetHeight);
+		const top =
+			mainEl.getBoundingClientRect().top -
+			sectionEl.getBoundingClientRect().top +
+			sectionEl.scrollTop;
+		const height = columnHeight(heights, {
+			gap,
+			available: sectionEl.clientHeight - top,
+			columns
+		});
+		if (height === null) {
+			layout = null;
+			return;
+		}
+		const used = columnsNeeded(heights, gap, height);
+		layout = { height, width: used * columnWidth + (used - 1) * columnGap };
+	}
+
+	$effect(() => {
+		if (!sectionEl || !mainEl || !probeEl) return;
+		void mcpAvailable;
+		// Again when the window changes, and when a section does, e.g. while importing.
+		const observer = new ResizeObserver(() => arrange());
+		observer.observe(sectionEl);
+		observer.observe(probeEl);
+		for (const section of mainEl.children) observer.observe(section);
+		arrange();
+		return () => observer.disconnect();
+	});
 </script>
 
-<section>
+<section bind:this={sectionEl}>
 	{#if localUser.isLoading}
 		<p>Loading settings...</p>
 	{:else if !localUser.data}
@@ -115,7 +162,13 @@
 			{/if}
 		</div>
 		<div class="columns">
-			<div class="column">
+			<div class="probe" bind:this={probeEl} aria-hidden="true"></div>
+			<div
+				class="column main"
+				bind:this={mainEl}
+				style:height={layout ? `${layout.height}px` : null}
+				style:width={layout ? `${layout.width}px` : null}
+			>
 				<div class="preferencesList">
 					<h2>Preferences</h2>
 					<div class="preferenceItem">
@@ -298,8 +351,8 @@
 					<BackupSettings />
 				</div>
 			</div>
-			<!-- A second column where there's room, otherwise at the bottom. Only when the server
-			     offers MCP, which it finds out itself. -->
+			<!-- A column of its own where there's room for more than one, otherwise at the bottom. Only
+			     when the server offers MCP, which it finds out itself. -->
 			<div class="column" hidden={!mcpAvailable}>
 				<div class="preferencesList">
 					<h2>MCP</h2>
@@ -316,6 +369,8 @@
 		flex-direction: column;
 		flex: 1;
 		overflow: auto;
+		/* So a scrollbar coming or going doesn't change how many columns fit. */
+		scrollbar-gutter: stable;
 
 		/* As high as the button, so the page doesn't shift when it shows up. */
 		.saveState {
@@ -324,20 +379,44 @@
 			height: 2.75rem;
 		}
 
-		/* Two columns where there's room for both, otherwise one, with the second at the bottom. */
+		/* Columns of a fixed width, as many as fit; see `arrange`. With room for one, MCP is at the
+		   bottom. */
 		.columns {
+			--column-width: 60ch;
+			--column-gap: calc(var(--spacing-xxl) * 2);
+			position: relative;
 			display: flex;
 			flex-wrap: wrap;
 			align-items: flex-start;
-			gap: var(--spacing-xxl) calc(var(--spacing-xxl) * 2);
+			gap: var(--spacing-xxl) var(--column-gap);
+		}
+
+		/* Measures the column width in pixels. */
+		.probe {
+			position: absolute;
+			visibility: hidden;
+			width: var(--column-width);
+			height: 0;
 		}
 
 		.column {
-			flex: 0 1 60ch;
-			min-width: min(36ch, 100%);
+			width: min(var(--column-width), 100%);
 
 			&[hidden] {
 				display: none;
+			}
+		}
+
+		/* The sections go down a column, and on in the next where `arrange` gave it a height. */
+		.main {
+			display: flex;
+			flex-direction: column;
+			flex-wrap: wrap;
+			align-content: flex-start;
+			gap: var(--spacing-xxl) var(--column-gap);
+
+			> .preferencesList {
+				width: min(var(--column-width), 100%);
 			}
 		}
 
@@ -346,10 +425,6 @@
 			flex-direction: column;
 			max-width: min(60ch, 100%);
 			gap: var(--spacing-sm);
-
-			&:not(:first-child) {
-				margin-top: var(--spacing-xxl);
-			}
 
 			.preferenceItem {
 				display: flex;
