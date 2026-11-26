@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { Plugin } from 'vite';
+import type { Plugin, Rolldown } from 'vite';
 
 // Writes the licenses of the packages bundled into the app to a text file next to it, which the
 // settings link to: MIT, BSD, ISC and Apache all ask for their notices to go along with the code.
@@ -87,45 +87,65 @@ function entryOf(dir: string): Entry {
 	};
 }
 
+/** The folders of the packages in node_modules that a bundle contains. */
+function packagesIn(bundle: Rolldown.OutputBundle) {
+	const cache = new Map<string, string | null>();
+	const dirs = new Set<string>();
+	for (const chunk of Object.values(bundle)) {
+		if (chunk.type !== 'chunk') continue;
+		for (const id of chunk.moduleIds) {
+			const file = id.split('?')[0];
+			if (file.startsWith('\0') || !file.includes('node_modules')) continue;
+			const dir = packageOf(file, cache);
+			if (dir) dirs.add(dir);
+		}
+	}
+	return dirs;
+}
+
+/** The licenses of the packages in these folders, by name. */
+function licenseTexts(dirs: Iterable<string>) {
+	const entries = new Map<string, Entry>();
+	for (const dir of dirs) {
+		const entry = entryOf(dir);
+		entries.set(`${entry.name}@${entry.version}`, entry);
+	}
+	const rule = '-'.repeat(80);
+	return [...entries.values()]
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((entry) =>
+			[
+				rule,
+				`${entry.name} ${entry.version}${entry.license ? ` (${entry.license})` : ''}`,
+				rule,
+				...entry.texts.map((text) => `\n${text}`)
+			].join('\n')
+		)
+		.join('\n\n');
+}
+
+/**
+ * The server is bundled too (adapter-node bundles everything but `dependencies`), so its packages
+ * are listed as well. SvelteKit builds the server first, so the file is written with the app.
+ */
 export function licenses(fileName: string): Plugin {
+	let serverPackages = new Set<string>();
 	return {
 		name: 'plakkert:licenses',
-		// Only the app itself: the service worker is built into the same folder afterwards.
-		applyToEnvironment: (environment) => environment.name === 'client',
+		// Not the service worker, which is built into the app's folder afterwards.
+		applyToEnvironment: (environment) => ['ssr', 'client'].includes(environment.name),
 		generateBundle(_, bundle) {
-			const cache = new Map<string, string | null>();
-			const dirs = new Set<string>();
-			for (const chunk of Object.values(bundle)) {
-				if (chunk.type !== 'chunk') continue;
-				for (const id of chunk.moduleIds) {
-					const file = id.split('?')[0];
-					if (file.startsWith('\0') || !file.includes('node_modules')) continue;
-					const dir = packageOf(file, cache);
-					if (dir) dirs.add(dir);
-				}
+			if (this.environment.name === 'ssr') {
+				serverPackages = packagesIn(bundle);
+				return;
 			}
-
-			const entries = new Map<string, Entry>();
-			for (const dir of dirs) {
-				const entry = entryOf(dir);
-				entries.set(`${entry.name}@${entry.version}`, entry);
+			const appPackages = packagesIn(bundle);
+			const serverOnly = [...serverPackages].filter((dir) => !appPackages.has(dir));
+			let source = `This app includes the following open-source packages, under these licenses.\n\n${licenseTexts(appPackages)}\n`;
+			if (serverOnly.length) {
+				source += `\n\n${'='.repeat(80)}\n\nIts server also includes these.\n\n${licenseTexts(serverOnly)}\n`;
 			}
-			const sorted = [...entries.values()].sort((a, b) => a.name.localeCompare(b.name));
-
-			const rule = '-'.repeat(80);
-			const sections = sorted.map((entry) =>
-				[
-					rule,
-					`${entry.name} ${entry.version}${entry.license ? ` (${entry.license})` : ''}`,
-					rule,
-					...entry.texts.map((text) => `\n${text}`)
-				].join('\n')
-			);
-			this.emitFile({
-				type: 'asset',
-				fileName,
-				source: `This app includes the following open-source packages, under these licenses.\n\n${sections.join('\n\n')}\n`
-			});
+			this.emitFile({ type: 'asset', fileName, source });
 		}
 	};
 }

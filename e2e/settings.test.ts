@@ -213,7 +213,7 @@ test('the settings go on in another column, rather than scroll, where there’s 
 	});
 });
 
-test('the settings link to the source code, and the licenses of the packages in the app', async ({
+test('the settings link to the source code, and the licenses of the packages in the app and server', async ({
 	app
 }) => {
 	const { context, page } = await app.register(uniqueName('licenses'));
@@ -240,4 +240,7 @@ test('the settings link to the source code, and the licenses of the packages in 
 	// With its NOTICE file, which Apache-2.0 asks for.
 	expect(text).toMatch(/dexie [\d.]+ \(Apache-2\.0\)/);
 	expect(text).toContain('Copyright (c) 2014-2017 David Fahlander');
+	// And those bundled into the server, which aren't installed with their own license files.
+	expect(text).toContain('Its server also includes these.');
+	expect(text).toMatch(/@modelcontextprotocol\/sdk [\d.]+ \(MIT\)/);
 });

@@ -7,8 +7,9 @@ serve the app's code, so it should still be one you trust.
 Plakkert is licensed under the [GNU AGPLv3](../LICENSE) or later. If you run a changed version,
 the people using it must be able to get its source: point `SOURCE_URL` in
 `src/lib/client/settings/Settings.svelte`, which the settings link to, at yours. The licenses of
-the packages bundled into the app are served at `/licenses.txt`, written by
-`vite-plugin-licenses.ts` when building.
+the packages bundled into the app and its server are served at `/licenses.txt`, written by
+`vite-plugin-licenses.ts` when building. The one package the server loads from `node_modules`,
+`better-sqlite3`, comes with its own.
 
 ## Docker
 
