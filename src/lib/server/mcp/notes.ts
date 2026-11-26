@@ -73,17 +73,17 @@ function titleOf(markdown: string) {
 	return (line ?? '').slice(0, 100) || 'Untitled';
 }
 
-/** The colours as the app names them. Two ids differ from their names, from earlier versions. */
+/** The colors as the app names them. Two ids differ from their names, from earlier versions. */
 const COLOR_NAMES: Record<string, string> = Object.fromEntries(
 	NOTE_COLORS.map(({ id, label }) => [id, label.toLowerCase()])
 );
 export const MCP_COLORS = [...new Set(Object.values(COLOR_NAMES))];
 
-/** A note's colour as the app shows it. Notes without a known colour are yellow there too. */
+/** A note's color as the app shows it. Notes without a known color are yellow there too. */
 export const colorName = (id: unknown) =>
 	COLOR_NAMES[typeof id === 'string' ? id : ''] ?? COLOR_NAMES[DEFAULT_NOTE_COLOR];
 
-/** The colour id to store for a colour as the app names it, e.g. "blue" for "teal". */
+/** The color id to store for a color as the app names it, e.g. "blue" for "teal". */
 export function colorId(name: string) {
 	return Object.keys(COLOR_NAMES).find((id) => COLOR_NAMES[id] === name) ?? null;
 }

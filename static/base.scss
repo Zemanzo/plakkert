@@ -74,7 +74,7 @@ input {
     color: rgba(from var(--color-text-primary) r g b / 0.5);
   }
 
-  /* Made for checklists on the notes' light colours. Elsewhere, such as in popovers, use the
+  /* Made for checklists on the notes' light colors. Elsewhere, such as in popovers, use the
      themedCheckbox class below. */
   &[type='checkbox']:not(.themedCheckbox) {
     position: relative;
@@ -110,7 +110,7 @@ input {
     }
   }
 
-  /* Drawn with the theme's colours, so it shows on any background, like the dropdowns. Used in the
+  /* Drawn with the theme's colors, so it shows on any background, like the dropdowns. Used in the
      settings and in popovers. */
   &[type='checkbox'].themedCheckbox {
     position: relative;

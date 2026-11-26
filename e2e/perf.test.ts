@@ -195,13 +195,13 @@ test('many notes', async ({ app }) => {
 	results['selected'] = await selectionBar.locator('.count').textContent();
 
 	start = Date.now();
-	results['long tasks while colouring all (ms)'] = await longTasks(page, async () => {
+	results['long tasks while coloring all (ms)'] = await longTasks(page, async () => {
 		await selectionBar.getByRole('button', { name: 'Pick color' }).click();
 		await page.locator('#selectionColors label[title=Purple]').click();
 		await expect(page.locator('[data-note-id]').first()).toHaveAttribute('style', /--color-purple/);
 		await expect(page.locator('[data-note-id]').last()).toHaveAttribute('style', /--color-purple/);
 	});
-	results['colouring all (ms)'] = Date.now() - start;
+	results['coloring all (ms)'] = Date.now() - start;
 	await page.keyboard.press('Escape');
 
 	start = Date.now();

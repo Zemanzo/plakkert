@@ -57,7 +57,7 @@
 		gap: var(--spacing-md);
 		padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-lg);
 		border-radius: var(--radius-lg);
-		/* Inverted colours, so the toast stands out from the page. (light-dark() can't be used in
+		/* Inverted colors, so the toast stands out from the page. (light-dark() can't be used in
 		   components: the build rewrites it into variables that the static stylesheet doesn't set.) */
 		background: var(--color-text-secondary);
 		color: var(--color-background-header);

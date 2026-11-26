@@ -6,18 +6,18 @@ A true end-to-end encrypted notes web app, built to work both offline & online.
 
 ![Image of the main app screen](example.png)
 
-**End-to-end encryption · Works offline · Sync across devices · Sharing (view or edit) · Tags · Archive · Trash · Drag & drop ordering · Multi-select · Hidden notes · Note history · Search · Ten colours · Checklists & code blocks · Google Keep import · Markdown export · Encrypted backups · MCP for AI assistants · Installable · Self-hostable · Invite-only sign-up · No email**
+**End-to-end encryption · Works offline · Sync across devices · Sharing (view or edit) · Tags · Archive · Trash · Drag & drop ordering · Multi-select · Hidden notes · Note history · Search · Ten colors · Light & dark themes · Checklists & code blocks · Google Keep import · Markdown export · Encrypted backups · Optional MCP for AI assistants · Installable PWA · Self-hostable · Invite-only sign-up · No email**
 
 ## Your notes are yours
 
 Everything is encrypted in your browser before it leaves it, so the server only ever stores
-ciphertext. That includes more than the text: tags, colours, whether a note is archived, even where
+ciphertext. That includes more than the text: tags, colors, whether a note is archived, even where
 it sits in your order. Your password never leaves your device either.
 [How encryption works](docs/encryption.md)
 
 ## No connection? No problem
 
-Plakkert is an installable web app that keeps working offline. Create, edit, organise and search
+Plakkert is an installable web app that keeps working offline. Create, edit, organize and search
 your notes on the train or on a plane, and they sync when you're back online.
 
 ## Fast with thousands of notes

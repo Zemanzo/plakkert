@@ -14,7 +14,7 @@ What an app may do is chosen when connecting it, and can be changed later in the
   only notes with one of some tags (include), or all but notes with any of them (exclude). Notes
   out of reach are left out of every result, and can't be changed or shared either.
 - **Write**: create notes; edit their text; delete them (to the trash, from where they can be
-  restored); tag, colour, archive and hide them, and undo that; and share the user's own notes.
+  restored); tag, color, archive and hide them, and undo that; and share the user's own notes.
   All but creating need Read, and only reach the notes Read does. An app can't give notes a tag
   that's excluded from its reach. Notes are written as Markdown, and turned into what the editor
   stores; formatting Markdown doesn't have, such as underlining, is lost when an app replaces a

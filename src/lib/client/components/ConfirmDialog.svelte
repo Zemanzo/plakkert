@@ -8,7 +8,7 @@
 	$effect(() => {
 		if (!dialog) return;
 		if (request && !dialog.open) {
-			// Cancelling with Escape leaves the previous value in place.
+			// Canceling with Escape leaves the previous value in place.
 			dialog.returnValue = '';
 			dialog.showModal();
 		} else if (!request && dialog.open) {
@@ -17,7 +17,7 @@
 	});
 </script>
 
-<!-- Closing with Escape fires "close" too, which counts as cancelling. -->
+<!-- Closing with Escape fires "close" too, which counts as canceling. -->
 <dialog
 	bind:this={dialog}
 	aria-labelledby="confirmTitle"

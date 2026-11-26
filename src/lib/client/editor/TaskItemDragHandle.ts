@@ -136,7 +136,7 @@ function startDrag(view: EditorView, itemPos: number, downEvent: PointerEvent) {
 		const dy = pointerY - startY + (scroller.scrollTop - startScroll);
 		dragged.el.style.transform = `translateY(${dy}px)`;
 
-		// Target index = how many *other* items have their midpoint above the dragged item's centre.
+		// Target index = how many *other* items have their midpoint above the dragged item's center.
 		const center = dragged.mid + dy;
 		target = slots.reduce((n, s, i) => (i !== from && s.mid < center ? n + 1 : n), 0);
 

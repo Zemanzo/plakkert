@@ -109,7 +109,7 @@ export const updateNoteData = async (
 };
 
 /**
- * Changes the colour of several notes at once, all in one transaction: every
+ * Changes the color of several notes at once, all in one transaction: every
  * write updates the notes that are shown, which would take long for hundreds
  * of notes one by one. A note that changed in the meantime, e.g. by sync, is
  * left out.

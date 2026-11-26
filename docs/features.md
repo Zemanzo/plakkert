@@ -2,7 +2,7 @@
 
 ## End-to-end encryption
 
-Notes, tags, colours, the order of notes and settings are encrypted in the browser, so the server
+Notes, tags, colors, the order of notes and settings are encrypted in the browser, so the server
 only ever stores ciphertext. See [How encryption works](encryption.md).
 
 ## Works offline
@@ -25,7 +25,7 @@ Notes can be shared with other users, who can view or edit them.
   note from their own notes.
 - Changing who a note is shared with needs a connection; editing shared notes works offline.
 
-## Organising notes
+## Organizing notes
 
 - **Tags**, to find notes back quickly. In "Edit tags", tags can be renamed, merged (e.g. "recipe"
   into "recipes"), deleted and put in your own order, for all notes at once. Nothing changes until
@@ -39,14 +39,14 @@ Notes can be shared with other users, who can view or edit them.
   turn on selecting with the button next to "New note", which also works on touch screens. While
   selecting, clicking a note selects it, Shift+click (or Shift+Space) also selects the notes
   between it and the one selected last, and Ctrl+A (⌘A on a Mac) selects all notes in the view,
-  also those further down. The selected notes can be tagged, coloured, archived and moved to the
+  also those further down. The selected notes can be tagged, colored, archived and moved to the
   trash all at once, or in the trash, restored and deleted forever.
 - **Hidden notes**: for when someone looks along, a note's text can be hidden until you open it,
   with a crossed-out eye and optionally a short message of your own in its place. Hide notes by
   selecting them, or from the eye button of an open note, where the message is set too. The
   settings can hide their tags as well.
 
-Tags, archive, trash, order and hidden notes are per user: on a shared note, everyone organises it
+Tags, archive, trash, order and hidden notes are per user: on a shared note, everyone organizes it
 their own way, and only deleting it forever from the trash deletes it for everyone.
 
 ## Note history
@@ -75,7 +75,7 @@ the browser, so it also works offline.
 
 ## Editing
 
-Ten note colours, and plain text, bold, italics, inline code, code blocks and checklists.
+Ten note colors, and plain text, bold, italics, inline code, code blocks and checklists.
 
 ## Accounts
 
@@ -91,7 +91,7 @@ Two notes side by side on phones, if you prefer (in the settings).
 
 ## Importing from Google Keep
 
-From a Google Takeout zip (in the settings). Text, checklists, colours and dates come along, labels
+From a Google Takeout zip (in the settings). Text, checklists, colors and dates come along, labels
 become tags, and archived notes go to the archive; formatting and images don't come along.
 Imported notes get the tag "Keep import". What will be imported is shown first, to confirm, and
 notes that were imported before are skipped.
@@ -99,7 +99,7 @@ notes that were imported before are skipped.
 ## Exporting
 
 All notes as a zip of Markdown files (in the settings), in folders for the notes, the archive and
-the trash, with their tags, colour and dates as front matter. The zip can be encrypted with a
+the trash, with their tags, color and dates as front matter. The zip can be encrypted with a
 password (AES-256); its files are then named after when each note was created, since a zip's file
 names aren't encrypted. The notes are decrypted and zipped in the browser.
 

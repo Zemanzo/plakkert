@@ -54,7 +54,7 @@
 			p.create && 'create',
 			p.edit && 'edit',
 			p.delete && 'delete',
-			p.organize && 'organise',
+			p.organize && 'organize',
 			p.share && 'share'
 		].filter(Boolean);
 		if (writes.length > 0) parts.push(`${parts.length > 0 ? 'w' : 'W'}rite: ${writes.join(', ')}`);

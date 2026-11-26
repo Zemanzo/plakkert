@@ -227,13 +227,13 @@ test('notes in the trash for 30 days are deleted forever, on every device', asyn
 	await expect(note(a.page, 'Keep me')).toBeVisible();
 });
 
-test('notes have colours', async ({ app }) => {
+test('notes have colors', async ({ app }) => {
 	const { page } = await app.register(uniqueName('colors'));
-	await newNote(page, 'Colourful note');
-	await openNote(page, 'Colourful note');
+	await newNote(page, 'Colorful note');
+	await openNote(page, 'Colorful note');
 	await clickNoteButton(page, 'Pick color');
 	await expect(page.locator('#colorSelection label')).toHaveCount(10);
 	await page.locator('#colorSelection label[title=Purple]').click();
 	await closeNote(page);
-	await expect(note(page, 'Colourful note')).toHaveCSS('background-color', 'rgb(176, 140, 242)');
+	await expect(note(page, 'Colorful note')).toHaveCSS('background-color', 'rgb(176, 140, 242)');
 });

@@ -1,7 +1,7 @@
 /**
  * The tags a user gave a note, mapped to when each was added (milliseconds
  * since the epoch). Tags are per user: everyone a note is shared with
- * organises it their own way.
+ * organizes it their own way.
  *
  * Archiving and trashing a note are special tags as well. They start with a
  * `$`, which tags typed by the user can't. So is the note's place in the

@@ -11,7 +11,7 @@ export function instructions(permissions: McpPermissions, scope: string) {
 		permissions.create && 'create notes',
 		permissions.edit && 'change the text of notes',
 		permissions.delete && 'move notes to the trash and restore them',
-		permissions.organize && 'tag and untag notes, change their colour, and archive or hide them',
+		permissions.organize && 'tag and untag notes, change their color, and archive or hide them',
 		permissions.share && 'share the user’s own notes with other users',
 		permissions.backup && 'download and restore backups of all of the user’s notes'
 	].filter(Boolean);
@@ -24,8 +24,8 @@ export function instructions(permissions: McpPermissions, scope: string) {
 	].filter(Boolean);
 
 	const about = [
-		`Each note has a colour (${MCP_COLORS.join(', ')}), which users often use to group notes, e.g. red for grocery lists.` +
-			(read ? ' search_notes can filter on it; list_colors shows which colours are used.' : ''),
+		`Each note has a color (${MCP_COLORS.join(', ')}), which users often use to group notes, e.g. red for grocery lists.` +
+			(read ? ' search_notes can filter on it; list_colors shows which colors are used.' : ''),
 		`Tags are the user's own labels${read ? '; list_tags lists them' : ''}. A note can have several.`,
 		read &&
 			'Archived notes are put away by the user but kept; search_notes includes them unless include_archived is false.',
@@ -34,7 +34,7 @@ export function instructions(permissions: McpPermissions, scope: string) {
 		read &&
 			'Hidden notes are ones the user hides in the app until opened, to keep them from people looking along. Be discreet with them.',
 		read &&
-			`Notes shared with the user by someone else have shared_by set. Only the owner can share a note; a note shared to view only can't have its text or colour changed.`,
+			`Notes shared with the user by someone else have shared_by set. Only the owner can share a note; a note shared to view only can't have its text or color changed.`,
 		read &&
 			`Only what has synced to the server is here: changes made on a device that hasn't synced yet are missing. Notes imported from Google Keep keep their dates from Keep.`,
 		read &&

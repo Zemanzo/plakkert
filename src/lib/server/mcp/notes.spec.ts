@@ -14,7 +14,7 @@ describe('notes as Markdown', () => {
 		).toBe('# Groceries\n\nFor **Sunday**\n\n- [x] Milk\n- [ ] Eggs\n\n```js\nlet a = 1;\n```');
 	});
 
-	it('names colours as the app does', () => {
+	it('names colors as the app does', () => {
 		expect(colorName('red')).toBe('red');
 		// Stored as "blue" by earlier versions, but shown as teal; "sky" is the blue.
 		expect(colorName('blue')).toBe('teal');

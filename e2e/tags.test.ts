@@ -31,7 +31,7 @@ test('tags can be renamed, merged, deleted and reordered, on saving', async ({ a
 	}
 	await expect(navTags(page)).toHaveText(['home', 'ideas', 'recipe', 'recipes', 'work']);
 
-	await test.step('cancelling leaves everything as it was', async () => {
+	await test.step('canceling leaves everything as it was', async () => {
 		await openTagsDialog(page);
 		await dialog(page).getByRole('textbox', { name: 'Name of work' }).fill('Job');
 		await dialog(page).getByRole('button', { name: 'Delete home' }).click();

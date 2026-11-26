@@ -1,5 +1,5 @@
 /**
- * Colours a note can have. The id is stored in the note and maps to the
+ * Colors a note can have. The id is stored in the note and maps to the
  * `--color-<id>` CSS variable, so ids must never change. All of them keep the
  * dark note text readable (contrast of at least 5:1).
  */

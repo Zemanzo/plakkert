@@ -124,7 +124,7 @@ test('an MCP client can search and read the user’s notes, and nothing else', a
 	});
 });
 
-test('search results have colours and dates, can be sorted and paged, and report skipped notes', async ({
+test('search results have colors and dates, can be sorted and paged, and report skipped notes', async ({
 	app,
 	request
 }) => {
@@ -144,7 +144,7 @@ test('search results have colours and dates, can be sorted and paged, and report
 	const search = (args: Record<string, unknown>) =>
 		callTool(request, access_token, 'search_notes', args);
 
-	await test.step('summaries have the colour and when notes were created', async () => {
+	await test.step('summaries have the color and when notes were created', async () => {
 		const result = await search({ color: 'red' });
 		expect(result.structuredContent).toMatchObject({
 			total: 1,
@@ -254,7 +254,7 @@ test('the official MCP client can connect and use it', async ({ app, request }) 
 	await client.close();
 });
 
-test('the official MCP client can sign in on its own, from the 401 onwards', async ({ app }) => {
+test('the official MCP client can sign in on its own, from the 401 onward', async ({ app }) => {
 	const { page } = await app.register(uniqueName('sdkauth'));
 	await newNote(page, 'Found after signing in');
 	await waitSynced(page);

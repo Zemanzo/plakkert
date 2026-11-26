@@ -87,7 +87,7 @@ test('notes can be imported from a Google Keep takeout', async ({ app }) => {
 		await expect(note(page, 'Groceries')).toHaveCount(0);
 	});
 
-	await test.step('cancelling imports nothing', async () => {
+	await test.step('canceling imports nothing', async () => {
 		await chooseFile(page, 'takeout-20261116.zip', takeout);
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await expect(importStatus(page)).toHaveCount(0);
@@ -117,7 +117,7 @@ test('notes can be imported from a Google Keep takeout', async ({ app }) => {
 		await expect(page.locator('[data-note-id]')).toHaveText([/Groceries/]);
 	});
 
-	await test.step('with their text, checklists and colour, but no formatting', async () => {
+	await test.step('with their text, checklists and color, but no formatting', async () => {
 		await goTo(page, 'Notes');
 		const groceries = note(page, 'Groceries');
 		await expect(groceries.locator('h1')).toHaveText('Groceries');

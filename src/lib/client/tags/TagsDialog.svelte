@@ -76,7 +76,7 @@
 
 	function stopMerging() {
 		merging = null;
-		announcement = 'Merging cancelled';
+		announcement = 'Merging canceled';
 	}
 
 	function mergeInto(target: TagRow) {

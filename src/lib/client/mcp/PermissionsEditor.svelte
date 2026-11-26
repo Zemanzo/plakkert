@@ -35,14 +35,14 @@
 		{ flag: 'delete', label: 'Delete', hint: 'Move notes to the trash, and restore them' },
 		{
 			flag: 'organize',
-			label: 'Tag, colour, archive and hide',
+			label: 'Tag, color, archive and hide',
 			hint: 'And untag, unarchive and unhide'
 		},
 		{ flag: 'share', label: 'Share', hint: 'Share your own notes with others, and stop sharing' }
 	];
 
 	const writeCount = $derived(WRITES.filter(({ flag }) => permissions[flag]).length);
-	// Read can still be turned on later, so only what's possible counts towards "all".
+	// Read can still be turned on later, so only what's possible counts toward "all".
 	const possibleWrites = $derived(
 		WRITES.filter(({ flag }) => flag === 'create' || permissions.read)
 	);

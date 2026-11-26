@@ -132,7 +132,7 @@ export function licenses(fileName: string): Plugin {
 	let serverPackages = new Set<string>();
 	return {
 		name: 'plakkert:licenses',
-		// Not the service worker, which is built into the app's folder afterwards.
+		// Not the service worker, which is built into the app's folder afterward.
 		applyToEnvironment: (environment) => ['ssr', 'client'].includes(environment.name),
 		generateBundle(_, bundle) {
 			if (this.environment.name === 'ssr') {

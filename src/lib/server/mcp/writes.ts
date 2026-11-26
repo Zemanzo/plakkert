@@ -74,7 +74,7 @@ function writeProblem(result: WriteResult) {
 		case 200:
 			return null;
 		case 403:
-			return 'The note was shared with the user to view only, so its text and colour can’t be changed.';
+			return 'The note was shared with the user to view only, so its text and color can’t be changed.';
 		case 410:
 			return 'The note was deleted.';
 		case 409:
@@ -129,7 +129,7 @@ function readInScope(
 	return { ok: true, value: note };
 }
 
-/** Encrypts and stores a note's new text or colour, and the user's new tags, as the app would. */
+/** Encrypts and stores a note's new text or color, and the user's new tags, as the app would. */
 function store(
 	tx: Transaction,
 	crypto: NoteCrypto,
@@ -325,7 +325,7 @@ export interface Organizing {
 	hidden?: boolean;
 }
 
-/** Tags and untags a note, changes its colour, and archives or hides it, or undoes that. */
+/** Tags and untags a note, changes its color, and archives or hides it, or undoes that. */
 export function organizeNote(crypto: NoteCrypto, caller: McpCaller, id: string, input: Organizing) {
 	return change(crypto, caller, id, (note) => {
 		const userData = userDataOf(note);
@@ -350,7 +350,7 @@ export function organizeNote(crypto: NoteCrypto, caller: McpCaller, id: string, 
 		if (input.color !== undefined) {
 			if (note.row.permissions !== 'edit') {
 				return fail(
-					'The note was shared with the user to view only, so its colour can’t be changed.'
+					'The note was shared with the user to view only, so its color can’t be changed.'
 				);
 			}
 			data = { ...note.data, meta: { ...note.data.meta, color: colorId(input.color) } };

@@ -1,7 +1,7 @@
 /**
  * Reads the notes from a Google Takeout of Google Keep. The zip has a JSON and
  * an HTML file for every note, in `Takeout/Keep/`; only the JSON is used. Only
- * the text, checklists, colour and labels are brought over, not formatting or
+ * the text, checklists, color and labels are brought over, not formatting or
  * images.
  */
 
@@ -25,7 +25,7 @@ interface KeepNote {
 	userEditedTimestampUsec?: number;
 }
 
-/** Keep's colours by the name in the JSON, which still uses the names of its older palette. */
+/** Keep's colors by the name in the JSON, which still uses the names of its older palette. */
 const KEEP_COLORS: Record<string, NoteColor> = {
 	RED: 'red',
 	ORANGE: 'orange',
@@ -72,7 +72,7 @@ export function convertKeepNote(json: unknown): ImportedNote | null {
 				checked: item.isChecked === true
 			}))
 		}),
-		// The default colour is white, which notes here don't have.
+		// The default color is white, which notes here don't have.
 		color: KEEP_COLORS[json.color ?? ''] ?? DEFAULT_NOTE_COLOR,
 		archived: json.isArchived === true,
 		labels: (json.labels ?? []).flatMap((label) => (label.name ? [label.name] : [])),

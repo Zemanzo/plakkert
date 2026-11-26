@@ -10,7 +10,7 @@ export const prerender = false;
 
 // The MCP endpoint (Streamable HTTP, stateless, with JSON responses). Every request needs an
 // access token; see src/lib/server/mcp/oauth.ts. The caller's notes are decrypted for that request
-// only, with the private key from their grant, which is forgotten afterwards.
+// only, with the private key from their grant, which is forgotten afterward.
 
 const allowed = rateLimiter(120, 60 * 1000);
 

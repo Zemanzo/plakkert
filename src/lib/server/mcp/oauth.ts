@@ -514,7 +514,7 @@ export interface McpCaller {
 	userId: string;
 	grantId: string;
 	publicKey: Uint8Array;
-	/** The user's private key, for this request only. Forget it afterwards (see `forget`). */
+	/** The user's private key, for this request only. Forget it afterward (see `forget`). */
 	privateKey: Uint8Array;
 	/** Which notes the client may see, and what it may do with them. */
 	scope: McpScope;

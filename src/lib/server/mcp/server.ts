@@ -58,12 +58,12 @@ const noteFields = {
 	id: z.string(),
 	title: z.string().describe('The first line of the note'),
 	tags: z.array(z.string()),
-	color: color.describe('The note’s colour, as the app names it'),
+	color: color.describe('The note’s color, as the app names it'),
 	archived: z.boolean().describe('Put away by the user, but kept'),
 	trashed: z.boolean().describe('In the trash: deleted forever 30 days after it was put there'),
 	hidden: z.boolean().describe('The app hides its text until the user opens it'),
 	created: z.string().describe('ISO 8601'),
-	updated: z.string().describe('ISO 8601: when its text or colour last changed'),
+	updated: z.string().describe('ISO 8601: when its text or color last changed'),
 	shared_by: z.string().nullable().describe('Who shared it with the user, or null if it’s theirs')
 };
 const noteSummary = z.object({
@@ -274,12 +274,12 @@ export function createMcpServer(caller: McpCaller) {
 		server.registerTool(
 			'organize_note',
 			{
-				title: 'Tag, colour, archive or hide a note',
+				title: 'Tag, color, archive or hide a note',
 				description:
-					'Changes how a note is organised: adds or removes tags, changes its colour, ' +
+					'Changes how a note is organized: adds or removes tags, changes its color, ' +
 					'archives or unarchives it, and hides or shows it (the app hides a hidden note’s ' +
 					'text until it’s opened). Leave out what shouldn’t change. Tags are the user’s ' +
-					'own, so this also works on notes shared with them, except for the colour of ' +
+					'own, so this also works on notes shared with them, except for the color of ' +
 					'notes shared to view only.',
 				inputSchema: {
 					id: noteId,
@@ -299,7 +299,7 @@ export function createMcpServer(caller: McpCaller) {
 					input.color === undefined &&
 					input.archived === undefined &&
 					input.hidden === undefined;
-				if (nothing) return failure('Nothing to change: give tags, a colour, archived or hidden.');
+				if (nothing) return failure('Nothing to change: give tags, a color, archived or hidden.');
 				const tags = await tagNames(input.add_tags);
 				if (!tags.ok) return failure(tags.message);
 				const outcome = organizeNote(await crypto, caller, input.id, {
@@ -468,7 +468,7 @@ export function createMcpServer(caller: McpCaller) {
 				title: 'Search notes',
 				description:
 					'Finds the user’s notes and returns summaries (title, the start of the text, tags, ' +
-					'colour, dates, and whether each is archived, trashed, hidden or shared), a page at a ' +
+					'color, dates, and whether each is archived, trashed, hidden or shared), a page at a ' +
 					'time. Without a query, lists all notes that pass the filters. ' +
 					'Matching: the query is split into words (letters and digits; punctuation and emoji ' +
 					'are ignored), and a note matches when every word appears somewhere in its text or ' +
@@ -483,7 +483,7 @@ export function createMcpServer(caller: McpCaller) {
 						.optional()
 						.describe('Words that must all appear in the note’s text or tags'),
 					tag: z.string().max(50).optional().describe('Only notes with this tag (any case)'),
-					color: color.optional().describe('Only notes with this colour'),
+					color: color.optional().describe('Only notes with this color'),
 					include_archived: z.boolean().default(true),
 					include_trashed: z.boolean().default(false),
 					created_after: z
@@ -556,7 +556,7 @@ export function createMcpServer(caller: McpCaller) {
 			{
 				title: 'Read a note',
 				description:
-					'Returns one whole note: its text as Markdown, with its title, tags, colour, when it ' +
+					'Returns one whole note: its text as Markdown, with its title, tags, color, when it ' +
 					'was created and last updated, and whether it’s archived, trashed, hidden or shared ' +
 					'with the user. Takes an id from search_notes.',
 				inputSchema: { id: z.string().max(100).describe('The id from search_notes') },
@@ -619,10 +619,10 @@ export function createMcpServer(caller: McpCaller) {
 		server.registerTool(
 			'list_colors',
 			{
-				title: 'List colours',
+				title: 'List colors',
 				description:
-					'Lists the colours the user’s notes have, with how many notes have each, not ' +
-					'counting the trash. Users often group notes by colour. Use a colour as ' +
+					'Lists the colors the user’s notes have, with how many notes have each, not ' +
+					'counting the trash. Users often group notes by color. Use a color as ' +
 					'search_notes’ color filter.',
 				inputSchema: {},
 				outputSchema: {

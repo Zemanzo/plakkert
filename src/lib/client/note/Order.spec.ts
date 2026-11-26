@@ -35,7 +35,7 @@ describe('byPosition', () => {
 describe('positionsAfterMove', () => {
 	const list = [entry('a', 40_000), entry('b', 30_000), entry('c', 20_000), entry('d', 10_000)];
 
-	it('only changes the moved note, placing it between its new neighbours', () => {
+	it('only changes the moved note, placing it between its new neighbors', () => {
 		const { changes, ids } = move(list, 3, 1);
 		expect(ids).toEqual(['a', 'd', 'b', 'c']);
 		expect([...changes.keys()]).toEqual(['d']);
@@ -56,7 +56,7 @@ describe('positionsAfterMove', () => {
 		expect(positionsAfterMove(list, 1, 9).size).toBe(0);
 	});
 
-	it('spaces out the list when there is no room between the neighbours', () => {
+	it('spaces out the list when there is no room between the neighbors', () => {
 		const crowded = [entry('a', 2), entry('b', 1, 1), entry('c', 1, 1), entry('d', 0)];
 		const { changes, ids } = move(crowded, 3, 2);
 		expect(ids).toEqual(['a', 'b', 'd', 'c']);

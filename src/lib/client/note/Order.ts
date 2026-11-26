@@ -2,11 +2,11 @@ import { POSITION_TAG, type NoteTags } from '../tags/Tags';
 
 // Notes are ordered by a position per user, highest first. A note that was never moved has its
 // creation time as its position, so new notes show up at the top. Moving a note gives it a
-// position between those of its new neighbours, so usually only that note changes.
+// position between those of its new neighbors, so usually only that note changes.
 
 type Orderable = { note: { id: string; createdAt: Date }; tags: NoteTags };
 
-/** How far apart notes are placed when there is no neighbour on one side, or when respacing. */
+/** How far apart notes are placed when there is no neighbor on one side, or when respacing. */
 const STEP = 1000;
 
 export function notePosition(entry: Orderable) {
@@ -30,7 +30,7 @@ export function byPosition(a: Orderable, b: Orderable) {
  * @param to The index it should end up at.
  * @returns The new position of each note that changes: usually just the moved
  *   one, but every note in the list when there is no room left between its
- *   new neighbours.
+ *   new neighbors.
  */
 export function positionsAfterMove(list: Orderable[], from: number, to: number) {
 	const changes = new Map<string, number>();
@@ -54,7 +54,7 @@ export function positionsAfterMove(list: Orderable[], from: number, to: number) 
 		return changes;
 	}
 
-	// The neighbours are too close together (or equal), so space out the whole list instead.
+	// The neighbors are too close together (or equal), so space out the whole list instead.
 	const top = Math.max(...list.map(notePosition));
 	reordered.forEach((entry, index) => {
 		const respaced = top - index * STEP;

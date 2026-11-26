@@ -72,7 +72,7 @@
 	);
 
 	const editable = $derived(entries.filter((entry) => entry.permission === 'edit'));
-	/** The colour of the notes, if they all have the same one. */
+	/** The color of the notes, if they all have the same one. */
 	const color = $derived.by(() => {
 		const colors = new Set(editable.map((entry) => entry.note.data.meta.color));
 		return colors.size === 1 ? [...colors][0] : null;

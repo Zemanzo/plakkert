@@ -100,7 +100,7 @@ export const setTrashed = (entries: NoteEntry[], userId: string, trashed: boolea
 export const setHidden = (entries: NoteEntry[], userId: string, hidden: boolean) =>
 	toggleTagOfMany(entries, userId, HIDDEN_TAG, hidden, hidden ? 'hidden' : 'shown');
 
-/** Changes the colour of several notes at once. Notes the user may only view keep theirs. */
+/** Changes the color of several notes at once. Notes the user may only view keep theirs. */
 export async function setColor(entries: NoteEntry[], userId: string, color: string) {
 	const editable = entries.filter((entry) => entry.permission === 'edit');
 	await updateNotesColor(editable, color, userId);
@@ -108,8 +108,8 @@ export async function setColor(entries: NoteEntry[], userId: string, color: stri
 	if (viewOnly > 0) {
 		toasts.show(
 			viewOnly === 1
-				? '1 note kept its colour, as you can only view it.'
-				: `${viewOnly} notes kept their colour, as you can only view them.`
+				? '1 note kept its color, as you can only view it.'
+				: `${viewOnly} notes kept their color, as you can only view them.`
 		);
 	}
 }

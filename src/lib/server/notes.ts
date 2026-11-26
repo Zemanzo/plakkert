@@ -8,7 +8,7 @@ let lastStamp: number | undefined;
 /**
  * The time to store as `changedAt` with a change, and to give clients as the
  * point to ask for changes from. It's the server's clock in milliseconds, but
- * never goes backwards, even if the clock does, so no change can end up before
+ * never goes backward, even if the clock does, so no change can end up before
  * a point a client already has.
  */
 export function changeStamp() {

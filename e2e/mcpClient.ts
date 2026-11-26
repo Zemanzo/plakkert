@@ -105,7 +105,7 @@ const LABELS: Record<Exclude<keyof Access, 'tagMode' | 'tags'>, RegExp> = {
 	create: /^Create notes/,
 	edit: /^Edit/,
 	delete: /^Delete/,
-	organize: /^Tag, colour, archive and hide/,
+	organize: /^Tag, color, archive and hide/,
 	share: /^Share/,
 	backup: /^Backups/
 };

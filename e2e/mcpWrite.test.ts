@@ -49,7 +49,7 @@ async function pull(page: Page) {
 	await syncNow(page);
 }
 
-test('with every permission, an MCP client can create, edit, organise, delete and share notes', async ({
+test('with every permission, an MCP client can create, edit, organize, delete and share notes', async ({
 	app,
 	request
 }) => {
@@ -116,7 +116,7 @@ test('with every permission, an MCP client can create, edit, organise, delete an
 		await expect(note(alice.page, 'Weekend plan')).not.toContainText('Hike');
 	});
 
-	await test.step('it tags, colours and archives notes, and undoes that', async () => {
+	await test.step('it tags, colors and archives notes, and undoes that', async () => {
 		const organized = changed(
 			await call('organize_note', {
 				id,
@@ -146,7 +146,7 @@ test('with every permission, an MCP client can create, edit, organise, delete an
 		refused(await call('organize_note', { id }), /Nothing to change/);
 	});
 
-	await test.step('changing only the colour leaves the tags, so other devices keep their changes', async () => {
+	await test.step('changing only the color leaves the tags, so other devices keep their changes', async () => {
 		const tagsUpdatedAt = async () => {
 			const response = await alice.page.request.get(url('/api/notes/changes'));
 			const { notes } = (await response.json()) as {
@@ -334,7 +334,7 @@ test('what an MCP client may do is up to the user, for each app', async ({ app, 
 		await excluding.getByRole('button', { name: 'Permissions' }).click();
 		await expect(excluding.locator('details.tagPicker summary')).toHaveText('Private');
 		await choosePermissions(excluding, { read: false });
-		await expect(excluding.getByRole('checkbox', { name: /^Tag, colour/ })).toBeDisabled();
+		await expect(excluding.getByRole('checkbox', { name: /^Tag, color/ })).toBeDisabled();
 		await expect(excluding.getByRole('checkbox', { name: /^Create notes/ })).toBeEnabled();
 		await excluding.getByRole('button', { name: 'Cancel' }).click();
 	});
@@ -383,7 +383,7 @@ test('what an MCP client may do is up to the user, for each app', async ({ app, 
 	});
 });
 
-test('an MCP client can’t change notes shared to view only, but can organise them', async ({
+test('an MCP client can’t change notes shared to view only, but can organize them', async ({
 	app,
 	request
 }) => {

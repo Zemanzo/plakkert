@@ -24,7 +24,7 @@ test('notes can be hidden while closed, with a message in their place', async ({
 		await bar.getByRole('button', { name: 'Hide' }).click();
 		await expect(hidden).toHaveCount(1);
 		await expect(note(page, 'Secret plans')).toHaveCount(0);
-		// Its colour and tags still show.
+		// Its color and tags still show.
 		await expect(hidden.locator('.tag')).toHaveText(['Private']);
 		await expect(note(page, 'Shopping list')).toBeVisible();
 		// All selected notes are hidden, so the button shows them again instead.

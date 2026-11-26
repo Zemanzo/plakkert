@@ -37,7 +37,7 @@ export interface McpPermissions {
 	edit: boolean;
 	/** Move notes to the trash, and restore them. */
 	delete: boolean;
-	/** Tag and untag, change the colour, archive, hide, and undo those. */
+	/** Tag and untag, change the color, archive, hide, and undo those. */
 	organize: boolean;
 	/** Share notes the user owns with other users, and stop sharing them. */
 	share: boolean;

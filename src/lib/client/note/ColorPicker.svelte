@@ -8,7 +8,7 @@
 	}: {
 		/** Tells this group of options apart from others on the page. */
 		name: string;
-		/** The current colour, if there is one. */
+		/** The current color, if there is one. */
 		color: string | null;
 		onChange: (color: string) => void;
 	} = $props();

@@ -76,7 +76,7 @@ describe('finding notes', () => {
 	const notes = [red, old, archived, trashed];
 	const ids = (result: ReturnType<typeof findNotes>) => result.page.map((n) => n.id);
 
-	it('filters on colour, archive and trash', () => {
+	it('filters on color, archive and trash', () => {
 		expect(ids(findNotes(notes, query({ color: 'red' })))).toEqual([red.id]);
 		expect(ids(findNotes(notes, query({ color: 'red', includeTrashed: true }))).sort()).toEqual(
 			[red.id, trashed.id].sort()

@@ -45,7 +45,7 @@ export const userNotes = sqliteTable(
 			.default('view'),
 		/** The tags this user gave the note, including whether they archived or trashed it,
 		 * encrypted with the note key. They are per user, so everyone who has access to a note
-		 * organises it their own way. */
+		 * organizes it their own way. */
 		tags: blob('tags'),
 		// Tags sync separately from the note content, with their own last-write-wins timestamp.
 		tagsUpdatedAt: integer('tags_updated_at', { mode: 'timestamp_ms' }),

@@ -293,7 +293,7 @@ export class DragReorder {
 		if (released) {
 			allowClicks();
 		} else {
-			// Cancelled while the button is still down: the click comes once it's released.
+			// Canceled while the button is still down: the click comes once it's released.
 			window.addEventListener('pointerup', allowClicks, { once: true });
 		}
 

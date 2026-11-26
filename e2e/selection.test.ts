@@ -81,7 +81,7 @@ test('notes can be selected, and changed all at once', async ({ app }) => {
 		await expect(bar(page)).toContainText('3 selected');
 	});
 
-	await test.step('their colour can be changed', async () => {
+	await test.step('their color can be changed', async () => {
 		await barButton(page, 'Pick color').click();
 		await page.locator('#selectionColors label[title=Purple]').click();
 		for (const text of ['First', 'Second', 'Third']) {

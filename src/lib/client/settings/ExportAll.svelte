@@ -62,7 +62,7 @@
 		<h3>All notes as a zip</h3>
 		<p>
 			A Markdown file per note, in folders for your notes, the archive and the trash, with its tags,
-			colour and dates at the top. Changes made on other devices are included once they’ve synced.
+			color and dates at the top. Changes made on other devices are included once they’ve synced.
 		</p>
 	</div>
 

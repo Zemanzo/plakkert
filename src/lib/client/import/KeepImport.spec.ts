@@ -33,7 +33,7 @@ const listNote = {
 const json = (value: unknown) => strToU8(JSON.stringify(value));
 
 describe('convertKeepNote', () => {
-	it('converts a text note, keeping its colour, labels, dates and whether it is archived', () => {
+	it('converts a text note, keeping its color, labels, dates and whether it is archived', () => {
 		expect(convertKeepNote(textNote)).toEqual({
 			content:
 				'<h1>LEKKERE KIP</h1><p>Ketjap manis, kerriepoeder en knoflook.</p>' +
@@ -60,7 +60,7 @@ describe('convertKeepNote', () => {
 		});
 	});
 
-	it('maps every Keep colour, and the default (white) one to the default colour', () => {
+	it('maps every Keep color, and the default (white) one to the default color', () => {
 		const colorOf = (color?: string) => convertKeepNote({ ...textNote, color })!.color;
 		expect(colorOf('DEFAULT')).toBe('yellow');
 		expect(colorOf(undefined)).toBe('yellow');

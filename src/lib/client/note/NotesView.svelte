@@ -270,7 +270,7 @@
 		(target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 
 	function onkeydown(event: KeyboardEvent) {
-		// Escape closes an open popover or dialog first, e.g. cancelling "Delete forever?" shouldn't
+		// Escape closes an open popover or dialog first, e.g. canceling "Delete forever?" shouldn't
 		// close the note as well. Nothing behind a dialog can be focused either.
 		if (document.querySelector(':popover-open, dialog[open]')) return;
 
