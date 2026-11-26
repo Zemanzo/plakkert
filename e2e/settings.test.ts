@@ -160,8 +160,11 @@ test('the save button shows up without moving the settings', async ({ app }) => 
 		await page.getByRole('button', { name: 'Save Changes' }).click();
 		await expect(page.getByText('All changes saved.')).toBeVisible();
 		expect(await heading.boundingBox()).toEqual(before);
+		// Back to the default, and saved before the next round reloads the page: otherwise the theme
+		// is still dark then, and choosing dark again changes nothing.
 		await page.getByLabel('Theme').selectOption('system');
 		await page.getByRole('button', { name: 'Save Changes' }).click();
+		await expect(page.getByText('All changes saved.')).toBeVisible();
 	}
 });
 
