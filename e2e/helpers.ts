@@ -9,7 +9,8 @@ import {
 
 export { expect };
 
-export const BASE_URL = 'http://localhost:4173';
+/** The test server's port can be changed with PORT, like in server.js. */
+export const BASE_URL = `http://localhost:${process.env.PORT ?? '4173'}`;
 export const PASSWORD = 'correct horse battery staple';
 /** The invite code the test server is started with, in server.js. */
 export const INVITE_CODE = 'e2e-invite-code';

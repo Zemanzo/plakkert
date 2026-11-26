@@ -51,6 +51,9 @@ export const variables = defineEnvVars({
 	PUBLIC_APP_NAME: {
 		public: true,
 		static: true,
-		description: 'Name of the app, used for IndexedDB and other client-side storage'
+		// A default, so a fresh clone (and CI) builds without a .env.
+		schema: (value) => value || 'plakkert',
+		description:
+			'Name of the app, used for IndexedDB and other client-side storage (default "plakkert")'
 	}
 });

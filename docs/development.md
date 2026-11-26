@@ -8,11 +8,11 @@ pnpm dev
 
 - `pnpm check` type-checks the app and the service worker
 - `pnpm lint` checks formatting and lints
-- `pnpm test` runs the unit tests
+- `pnpm test` runs the unit tests, on an in-memory database (see `.env.test`)
 - `pnpm test:e2e` runs the end-to-end tests in `e2e/` with Playwright. It builds the app and serves
-  it on port 4173 with a throwaway database. If a server is already running on that port, it is
-  used instead, so stop it after changing the code (or set `E2E_SKIP_BUILD=1` to serve the
-  existing build). The first time, install the browsers with
+  it on port 4173 (or `PORT`) with a throwaway database. If a server is already running on that
+  port, it is used instead, so stop it after changing the code (or set `E2E_SKIP_BUILD=1` to serve
+  the existing build). The first time, install the browsers with
   `pnpm exec playwright install chromium firefox`.
 - `E2E_PERF=1 pnpm test:e2e perf --project chromium` measures how the app copes with 1000 notes:
   load and sync times, long tasks while typing, searching and selecting, and memory use. It isn't

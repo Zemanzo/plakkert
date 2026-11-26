@@ -5,7 +5,7 @@ import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { licenses } from './vite-plugin-licenses';
+import { licenses } from './vite-plugin-licenses.ts';
 
 export default defineConfig(({ mode }) => {
 	// adapter-node no longer reads ORIGIN at runtime, so it is baked in at build time instead.

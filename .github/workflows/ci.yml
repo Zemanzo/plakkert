@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # Takes pnpm's version from packageManager in package.json.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -39,7 +39,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -48,7 +48,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium firefox
       # Builds the app and serves it on a throwaway database; see e2e/server.js.
       - run: pnpm test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-traces
