@@ -26,7 +26,7 @@ function toSharingError(error: unknown, notFoundMessage = 'This note is not on t
 /** Lists who the note is shared with. Only works for the owner. */
 export async function listShares(noteId: string) {
 	try {
-		const response = await request(`/api/notes/${noteId}/shares`);
+		const response = await request(`/api/notes/${encodeURIComponent(noteId)}/shares`);
 		return (await response.json()) as NoteShare[];
 	} catch (error) {
 		throw toSharingError(error);
@@ -55,7 +55,7 @@ export async function shareNote(
 	try {
 		// A note that was created offline has to reach the server before it can be shared.
 		await syncEngine.syncNow();
-		await request(`/api/notes/${noteId}/shares/${recipient.id}`, {
+		await request(`/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(recipient.id)}`, {
 			method: 'PUT',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ noteKey: encryptedKey.toBase64(), permissions })
@@ -68,7 +68,7 @@ export async function shareNote(
 /** Stops sharing a note with a user. */
 export async function unshareNote(noteId: string, userId: string) {
 	try {
-		await request(`/api/notes/${noteId}/shares/${userId}`, { method: 'DELETE' });
+		await request(`/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(userId)}`, { method: 'DELETE' });
 	} catch (error) {
 		throw toSharingError(error);
 	}
@@ -77,7 +77,7 @@ export async function unshareNote(noteId: string, userId: string) {
 /** Removes a note that someone else shared with the user from their notes, on all devices. */
 export async function leaveNote(noteId: string, userId: string) {
 	try {
-		await request(`/api/notes/${noteId}/shares/${userId}`, { method: 'DELETE' });
+		await request(`/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(userId)}`, { method: 'DELETE' });
 	} catch (error) {
 		// Already gone from the server, so only the local copy is left.
 		if (!(error instanceof ApiError && error.status === 404)) {

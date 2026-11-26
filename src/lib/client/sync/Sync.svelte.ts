@@ -213,7 +213,7 @@ async function applyNoteOutcome(
 		);
 	} else if (status === 403) {
 		// The owner made the note view-only. Drop the local edit, and take the server version.
-		const serverNote = (await (await request(`/api/notes/${note.id}`)).json()) as ServerNote;
+		const serverNote = (await (await request(`/api/notes/${encodeURIComponent(note.id)}`)).json()) as ServerNote;
 		await db.transaction('rw', NOTE_TABLES, async () =>
 			applyServerNote(serverNote, userId, () => 'take-server')
 		);

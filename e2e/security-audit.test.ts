@@ -103,7 +103,7 @@ async function shareWith(
 	});
 }
 
-test.fail('removing a note shared with you can’t delete one of your own notes', async ({ app }) => {
+test('removing a note shared with you can’t delete one of your own notes', async ({ app }) => {
 	const victimName = uniqueName('vic');
 	const attackerName = uniqueName('att');
 	const victim = await app.register(victimName);
@@ -158,7 +158,7 @@ test.fail('removing a note shared with you can’t delete one of your own notes'
 	expect(stored.content).not.toBeNull();
 });
 
-test.fail('a shared note’s color can’t inject CSS into the recipient’s app', async ({ app }) => {
+test('a shared note’s color can’t inject CSS into the recipient’s app', async ({ app }) => {
 	const victimName = uniqueName('vic');
 	const victim = await app.register(victimName);
 	const attacker = await app.register(uniqueName('att'));

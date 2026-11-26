@@ -24,3 +24,11 @@ export const DEFAULT_NOTE_COLOR: NoteColor = 'yellow';
 export function isNoteColor(value: string): value is NoteColor {
 	return NOTE_COLORS.some((color) => color.id === value);
 }
+
+/**
+ * The color to show a note in. Notes shared by others can hold any string as their color, and it
+ * goes into a style attribute, so anything that isn't one of ours becomes the default.
+ */
+export function shownNoteColor(value: string): NoteColor {
+	return isNoteColor(value) ? value : DEFAULT_NOTE_COLOR;
+}

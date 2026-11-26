@@ -3,6 +3,7 @@
 	import Button from '../components/Button.svelte';
 	import type { NoteData } from '../Database';
 	import NotePreview from '../editor/NotePreview.svelte';
+	import { shownNoteColor } from '../note/NoteColors';
 	import { formatFullTime, formatVersionTime } from '../note/EditedTime';
 	import { loadHistory, type HistoryVersion, type NoteHistory } from './NoteHistory';
 
@@ -151,7 +152,7 @@
 								</li>
 							{/each}
 						</ul>
-						<div class="preview" style="--bg: var(--color-{shown.meta.color})">
+						<div class="preview" style="--bg: var(--color-{shownNoteColor(shown.meta.color)})">
 							{#key shown}
 								<NotePreview html={shown.content} />
 							{/key}

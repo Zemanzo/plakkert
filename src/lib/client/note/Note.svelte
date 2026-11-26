@@ -32,6 +32,7 @@
 		trashNote,
 		unarchiveNote
 	} from './NoteActions';
+	import { shownNoteColor } from './NoteColors';
 	import { updateNoteData } from './NotesCRUD';
 	import NoteOptions from './NoteOptions.svelte';
 	import type { NoteEntry, NoteStore } from './NoteStore.svelte';
@@ -350,7 +351,7 @@
 >
 	<div
 		role="button"
-		style="--bg:var(--color-{color})"
+		style="--bg:var(--color-{shownNoteColor(color)})"
 		tabindex="0"
 		onclick={onClick}
 		onmousedown={onMouseDown}
