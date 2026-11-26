@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import EyeIcon from '@iconify-svelte/charm/eye';
-	import EyeSlashIcon from '@iconify-svelte/charm/eye-slash';
+	import EyeIcon from '@iconify-svelte/lucide/eye';
+	import EyeOffIcon from '@iconify-svelte/lucide/eye-off';
 	import { login } from '#lib/client/auth/Account.js';
 	import { afterLogin, getLastUsername } from '#lib/client/auth/Session.js';
 	import { page } from '$app/state';
@@ -64,8 +64,8 @@
 	>
 		{#if showPassword}
 			<EyeIcon width="32px" />
-		{:else if !showPassword}
-			<EyeSlashIcon width="32px" />
+		{:else}
+			<EyeOffIcon width="32px" />
 		{/if}
 	</button>
 	<Button type="submit" disabled={loading} class="submitButton">Login</Button>

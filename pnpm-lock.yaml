@@ -194,9 +194,6 @@ importers:
       '@friendofsvelte/tipex':
         specifier: 0.3.1
         version: 0.3.1(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/extension-code-block-lowlight@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/extension-code-block@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4)(highlight.js@11.8.0)(lowlight@2.9.0))(@tiptap/extension-code-block@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/extension-floating-menu@3.31.4(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/extension-image@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4)))(@tiptap/extension-list@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/extensions@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4)(@tiptap/starter-kit@3.31.4)(svelte@5.57.2(@typescript-eslint/types@8.72.0))
-      '@iconify-svelte/charm':
-        specifier: ^1.0.2
-        version: 1.0.2(svelte@5.57.2(@typescript-eslint/types@8.72.0))
       '@iconify-svelte/lucide':
         specifier: ^1.0.66
         version: 1.0.66(svelte@5.57.2(@typescript-eslint/types@8.72.0))
@@ -1175,9 +1172,6 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
-
-  '@iconify-svelte/charm@1.0.2':
-    resolution: {integrity: sha512-m/Hrl9TYEibCNDxtXxZvTKWbOmPtbDLsSUyYnJEyp1xggrWHJCitgcJ24m4sZQURVv/UNH90SQpGpD1qFWubiQ==}
 
   '@iconify-svelte/lucide@1.0.66':
     resolution: {integrity: sha512-uAye+K7p9Tvk+Lo+wbWoZ3ZCVxX9P4GQTWWBLEMu6DlCwz/uC48YKbx++8BMoNL1R45h29dsQFTy3lmuhUQ1Iw==}
@@ -4372,12 +4366,6 @@ snapshots:
   '@humanwhocodes/module-importer@1.0.1': {}
 
   '@humanwhocodes/retry@0.4.3': {}
-
-  '@iconify-svelte/charm@1.0.2(svelte@5.57.2(@typescript-eslint/types@8.72.0))':
-    dependencies:
-      '@iconify/css-svelte': 1.0.2(svelte@5.57.2(@typescript-eslint/types@8.72.0))
-    transitivePeerDependencies:
-      - svelte
 
   '@iconify-svelte/lucide@1.0.66(svelte@5.57.2(@typescript-eslint/types@8.72.0))':
     dependencies:
