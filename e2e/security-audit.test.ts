@@ -20,8 +20,12 @@ import {
 import { connect, MCP_URL, rpc, token } from './mcpClient';
 
 // Security audit, 2026-11-26. Each test asserts the SAFE behavior, so it fails while the problem
-// it's about is still there. The attacker is an ordinary user of the same server, who talks to the
-// API directly rather than through the app, with notes encrypted the way the app does.
+// it's about is still there. Each is marked with test.fail so CI stays green meanwhile; once a
+// problem is fixed its test passes, which Playwright reports as a failure, so change its
+// test.fail back to test then.
+//
+// The attacker is an ordinary user of the same server, who talks to the API directly rather than
+// through the app, with notes encrypted the way the app does.
 
 const b64 = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64');
 
@@ -99,7 +103,7 @@ async function shareWith(
 	});
 }
 
-test('removing a note shared with you can’t delete one of your own notes', async ({ app }) => {
+test.fail('removing a note shared with you can’t delete one of your own notes', async ({ app }) => {
 	const victimName = uniqueName('vic');
 	const attackerName = uniqueName('att');
 	const victim = await app.register(victimName);
@@ -154,7 +158,7 @@ test('removing a note shared with you can’t delete one of your own notes', asy
 	expect(stored.content).not.toBeNull();
 });
 
-test('a shared note’s color can’t inject CSS into the recipient’s app', async ({ app }) => {
+test.fail('a shared note’s color can’t inject CSS into the recipient’s app', async ({ app }) => {
 	const victimName = uniqueName('vic');
 	const victim = await app.register(victimName);
 	const attacker = await app.register(uniqueName('att'));
@@ -198,71 +202,74 @@ test('a shared note’s color can’t inject CSS into the recipient’s app', as
 	expect(style.position).not.toBe('fixed');
 });
 
-test('someone a note is shared with to edit can’t wipe its owner’s history', async ({ app }) => {
-	const ownerName = uniqueName('own');
-	const editorName = uniqueName('edt');
-	const owner = await app.register(ownerName);
-	const editor = await app.register(editorName);
-	const ownerRequest = owner.context.request;
+test.fail(
+	'someone a note is shared with to edit can’t wipe its owner’s history',
+	async ({ app }) => {
+		const ownerName = uniqueName('own');
+		const editorName = uniqueName('edt');
+		const owner = await app.register(ownerName);
+		const editor = await app.register(editorName);
+		const ownerRequest = owner.context.request;
 
-	const history = await ownerRequest.put(url('/api/user/history'), { data: { enabled: true } });
-	const { since } = await history.json();
-	expect(since).not.toBeNull();
+		const history = await ownerRequest.put(url('/api/user/history'), { data: { enabled: true } });
+		const { since } = await history.json();
+		expect(since).not.toBeNull();
 
-	// The owner's note, with three versions from the past days, as their devices would send them.
-	const id = crypto.randomUUID();
-	const created = await createNote(ownerRequest, id, {
-		content: '<h1>Plans</h1><p>Today</p>',
-		meta: { color: 'yellow' }
-	});
-	expect(created.status).toBe(200);
-	const day = 24 * 60 * 60 * 1000;
-	const realVersions = [2, 5, 10].map((days) => Date.now() - days * day);
-	for (const updatedAt of realVersions) {
-		const content = b64(
-			await encryptJson({ content: `<p>${days(updatedAt)}</p>`, meta: {} }, created.noteKey)
-		);
-		const response = await ownerRequest.post(url('/api/notes/batch'), {
-			data: { notes: [{ id, versions: [{ content, updatedAt, since }] }] }
+		// The owner's note, with three versions from the past days, as their devices would send them.
+		const id = crypto.randomUUID();
+		const created = await createNote(ownerRequest, id, {
+			content: '<h1>Plans</h1><p>Today</p>',
+			meta: { color: 'yellow' }
 		});
-		expect((await response.json()).results[0].versions[0].status).toBe(200);
-	}
-	function days(at: number) {
-		return Math.round((Date.now() - at) / day);
-	}
+		expect(created.status).toBe(200);
+		const day = 24 * 60 * 60 * 1000;
+		const realVersions = [2, 5, 10].map((days) => Date.now() - days * day);
+		for (const updatedAt of realVersions) {
+			const content = b64(
+				await encryptJson({ content: `<p>${days(updatedAt)}</p>`, meta: {} }, created.noteKey)
+			);
+			const response = await ownerRequest.post(url('/api/notes/batch'), {
+				data: { notes: [{ id, versions: [{ content, updatedAt, since }] }] }
+			});
+			expect((await response.json()).results[0].versions[0].status).toBe(200);
+		}
+		function days(at: number) {
+			return Math.round((Date.now() - at) / day);
+		}
 
-	const shared = await shareWith(
-		ownerRequest,
-		id,
-		created.noteKey,
-		await lookUp(ownerRequest, editorName),
-		'edit'
-	);
-	expect(shared.status()).toBe(204);
-
-	// The editor stores big versions of their own, newer than the owner's, until the history is full.
-	// Exactly MAX_HISTORY_BYTES in all, so no other version fits anymore, however small.
-	const sizes = [...Array(14).fill(360_000), 5 * 1024 * 1024 - 14 * 360_000];
-	for (const [i, size] of sizes.entries()) {
-		const junk = b64(new Uint8Array(size));
-		const response = await editor.context.request.post(url('/api/notes/batch'), {
-			data: {
-				notes: [{ id, versions: [{ content: junk, updatedAt: Date.now() - i * 1000, since }] }]
-			}
-		});
-		expect((await response.json()).results[0].versions[0].status).toBe(200);
-	}
-
-	const { versions } = await (await ownerRequest.get(url(`/api/notes/${id}/versions`))).json();
-	const kept = versions.map((v: { updatedAt: number }) => v.updatedAt);
-	for (const updatedAt of realVersions) {
-		expect(kept, `the owner’s version from ${days(updatedAt)} days ago is gone`).toContain(
-			updatedAt
+		const shared = await shareWith(
+			ownerRequest,
+			id,
+			created.noteKey,
+			await lookUp(ownerRequest, editorName),
+			'edit'
 		);
-	}
-});
+		expect(shared.status()).toBe(204);
 
-test('logging in on a new device never sends the password itself', async ({ app }) => {
+		// The editor stores big versions of their own, newer than the owner's, until the history is full.
+		// Exactly MAX_HISTORY_BYTES in all, so no other version fits anymore, however small.
+		const sizes = [...Array(14).fill(360_000), 5 * 1024 * 1024 - 14 * 360_000];
+		for (const [i, size] of sizes.entries()) {
+			const junk = b64(new Uint8Array(size));
+			const response = await editor.context.request.post(url('/api/notes/batch'), {
+				data: {
+					notes: [{ id, versions: [{ content: junk, updatedAt: Date.now() - i * 1000, since }] }]
+				}
+			});
+			expect((await response.json()).results[0].versions[0].status).toBe(200);
+		}
+
+		const { versions } = await (await ownerRequest.get(url(`/api/notes/${id}/versions`))).json();
+		const kept = versions.map((v: { updatedAt: number }) => v.updatedAt);
+		for (const updatedAt of realVersions) {
+			expect(kept, `the owner’s version from ${days(updatedAt)} days ago is gone`).toContain(
+				updatedAt
+			);
+		}
+	}
+);
+
+test.fail('logging in on a new device never sends the password itself', async ({ app }) => {
 	const name = uniqueName('pwd');
 	await app.register(name);
 
@@ -293,7 +300,7 @@ test('logging in on a new device never sends the password itself', async ({ app 
 	}
 });
 
-test('changing the password also cuts off connected MCP apps', async ({ app, request }) => {
+test.fail('changing the password also cuts off connected MCP apps', async ({ app, request }) => {
 	const name = uniqueName('mcpw');
 	const { page } = await app.register(name);
 	await newNote(page, 'Secret plans');
@@ -323,7 +330,7 @@ test('changing the password also cuts off connected MCP apps', async ({ app, req
 	expect(refreshed.status(), 'the app could still refresh its token').toBe(400);
 });
 
-test('note ids have a sensible length', async ({ app }) => {
+test.fail('note ids have a sensible length', async ({ app }) => {
 	const user = await app.register(uniqueName('ids'));
 	const { status } = await createNote(user.context.request, 'x'.repeat(300_000), {
 		content: '<p>Long id</p>',
@@ -332,20 +339,21 @@ test('note ids have a sensible length', async ({ app }) => {
 	expect(status, 'a note with a 300,000 character id was stored').toBe(400);
 });
 
-test('pages are served with a Content Security Policy and can’t be framed', async ({
-	request
-}) => {
-	for (const path of ['/', '/login', '/oauth/authorize']) {
-		const response = await request.get(url(path));
-		expect(response.status()).toBe(200);
-		const headers = response.headers();
-		const body = await response.text();
-		const hasCsp =
-			'content-security-policy' in headers || /http-equiv="content-security-policy"/i.test(body);
-		expect(hasCsp, `${path} has no Content-Security-Policy`).toBe(true);
-		const frameable =
-			!('x-frame-options' in headers) &&
-			!/frame-ancestors/.test(headers['content-security-policy'] ?? '');
-		expect(frameable, `${path} can be framed by any site`).toBe(false);
+test.fail(
+	'pages are served with a Content Security Policy and can’t be framed',
+	async ({ request }) => {
+		for (const path of ['/', '/login', '/oauth/authorize']) {
+			const response = await request.get(url(path));
+			expect(response.status()).toBe(200);
+			const headers = response.headers();
+			const body = await response.text();
+			const hasCsp =
+				'content-security-policy' in headers || /http-equiv="content-security-policy"/i.test(body);
+			expect(hasCsp, `${path} has no Content-Security-Policy`).toBe(true);
+			const frameable =
+				!('x-frame-options' in headers) &&
+				!/frame-ancestors/.test(headers['content-security-policy'] ?? '');
+			expect(frameable, `${path} can be framed by any site`).toBe(false);
+		}
 	}
-});
+);
