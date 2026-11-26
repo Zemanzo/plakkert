@@ -26,7 +26,6 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.1.1",
 		"@eslint/js": "^10.0.1",
-		"@friendofsvelte/tipex": "0.3.1",
 		"@iconify-svelte/lucide": "^1.0.66",
 		"@modelcontextprotocol/sdk": "^1.32.2",
 		"@playwright/test": "1.64.1",
@@ -36,10 +35,6 @@
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"@tiptap/core": "~3.31.4",
-		"@tiptap/extension-code-block": "~3.31.4",
-		"@tiptap/extension-code-block-lowlight": "~3.31.4",
-		"@tiptap/extension-floating-menu": "~3.31.4",
-		"@tiptap/extension-image": "~3.31.4",
 		"@tiptap/extension-list": "~3.31.4",
 		"@tiptap/extensions": "~3.31.4",
 		"@tiptap/pm": "~3.31.4",

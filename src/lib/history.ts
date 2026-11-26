@@ -16,8 +16,8 @@ export const KEEP_ALL_MS = DAY;
 export const KEEP_DAILY_MS = 30 * DAY;
 export const KEEP_WEEKLY_MS = 90 * DAY;
 /**
- * At most this much history per note, so a note with a pasted image, which is stored in its
- * text, doesn't fill up the storage. The oldest versions go first, but the newest is always kept.
+ * At most this much history per note, so a long note that changes often doesn't fill up the
+ * storage. The oldest versions go first, but the newest is always kept.
  */
 export const MAX_HISTORY_BYTES = 5 * 1024 * 1024;
 

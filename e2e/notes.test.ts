@@ -17,7 +17,7 @@ import {
 test('a closed note can be scrolled, and still opens when clicked', async ({ app }) => {
 	const { page } = await app.register(uniqueName('scroll'));
 	await newNote(page, `Long note${'\nmore'.repeat(30)}`);
-	const scroller = note(page, 'Long note').locator('.tipex-editor-section');
+	const scroller = note(page, 'Long note').locator('.editor-section');
 	expect(await scroller.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
 
 	await scroller.hover();

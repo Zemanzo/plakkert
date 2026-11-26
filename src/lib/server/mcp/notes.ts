@@ -56,6 +56,9 @@ turndown.addRule('taskItem', {
 	}
 });
 turndown.remove(['input', 'script', 'style']);
+// Notes don't have images, and the app doesn't show any left in older notes. (A rule of its own,
+// since turndown's own rule for images goes before what's removed.)
+turndown.addRule('image', { filter: 'img', replacement: () => '' });
 
 export function htmlToMarkdown(html: string) {
 	return turndown.turndown(html).trim();

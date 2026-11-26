@@ -52,16 +52,21 @@ describe('markdownToHtml', () => {
 		);
 	});
 
-	it('only links to the web and e-mail, and shows images from the web or inline', () => {
+	it('only links to the web and e-mail, also for images, which notes don’t have', () => {
 		expect(markdownToHtml('[Site](https://example.com/?a=1&b=2)')).toBe(
 			'<p><a href="https://example.com/?a=1&amp;b=2">Site</a></p>'
 		);
 		expect(markdownToHtml('[Mail](mailto:a@example.com)')).toContain('href="mailto:a@example.com"');
 		expect(markdownToHtml('[Click](javascript:alert(1))')).not.toContain('<a');
 		expect(markdownToHtml('![A cat](https://example.com/cat.png)')).toBe(
-			'<p><img src="https://example.com/cat.png" alt="A cat"></p>'
+			'<p><a href="https://example.com/cat.png">A cat</a></p>'
 		);
-		expect(markdownToHtml('![x](data:image/svg+xml;base64,AAAA)')).not.toContain('<img');
+		expect(markdownToHtml('![](https://example.com/a_b_c.png)')).toBe(
+			'<p><a href="https://example.com/a_b_c.png">https://example.com/a_b_c.png</a></p>'
+		);
+		expect(markdownToHtml('![x](data:image/png;base64,AAAA)')).toBe(
+			'<p>![x](data:image/png;base64,AAAA)</p>'
+		);
 	});
 
 	it('keeps URLs as they are, whatever formatting characters they have', () => {

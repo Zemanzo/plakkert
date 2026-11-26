@@ -4,8 +4,8 @@ import { escapeHtml } from '#lib/client/import/NoteHtml.js';
 // `htmlToMarkdown` in `notes.ts`, which `get_note` uses, so a note read and written back stays the
 // same, as far as Markdown can say it. Only what the editor has comes out (see
 // `src/lib/client/editor/Extensions.ts`): headings, paragraphs, lists, checklists, quotes, code,
-// rules, images and links, bold, italic, strikethrough and inline code. Everything else is text,
-// escaped, so a client can't put HTML of its own in a note.
+// rules, links, bold, italic, strikethrough and inline code. Everything else is text, escaped, so a
+// client can't put HTML of its own in a note. Notes have no images: one from the web becomes a link.
 //
 // Like in the editor, every line is a paragraph of its own. Blank lines only separate blocks.
 
@@ -180,10 +180,9 @@ function parseList(lines: string[], start: number) {
 // --- Inline ---
 
 const SAFE_LINK = /^(https?:|mailto:)/i;
-const SAFE_IMAGE = /^(https?:|data:image\/(png|jpe?g|gif|webp);base64,)/i;
 
 /**
- * Marks where code, escaped characters and images were taken out of a line, while the rest is
+ * Marks where code, escaped characters and links were taken out of a line, while the rest is
  * formatted. A character for private use, which is taken out of the text first.
  */
 const MARK = String.fromCharCode(0xe000);
@@ -211,10 +210,12 @@ function inline(text: string): string {
 		plain(escaped).replace(/&(amp|lt|gt|quot);/g, (_, name: string) => ENTITIES[name]);
 
 	result = result
+		// Images become links to them, named by their description, or else by their URL.
 		.replace(/!\[([^\]]*)\]\(([^)\s]+)(?: +&quot;[^&]*&quot;)?\)/g, (match, alt: string, src) => {
 			const url = unescape(src);
-			if (!SAFE_IMAGE.test(url)) return match;
-			return hold(`<img src="${escapeHtml(url)}" alt="${escapeHtml(unescape(alt))}">`);
+			if (!SAFE_LINK.test(url)) return match;
+			const label = alt.trim() ? alt : hold(escapeHtml(url));
+			return `${hold(`<a href="${escapeHtml(url)}">`)}${label}${hold('</a>')}`;
 		})
 		// The label is formatted, but the URL is held, so formatting can't change it: "__" or "*"
 		// in a URL is part of it.

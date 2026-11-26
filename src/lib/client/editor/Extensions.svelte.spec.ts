@@ -21,7 +21,6 @@ describe('the editor', () => {
 			'hardBreak',
 			'heading',
 			'horizontalRule',
-			'image',
 			'listItem',
 			'orderedList',
 			'paragraph',
@@ -39,7 +38,7 @@ describe('the editor', () => {
 		]);
 	});
 
-	it('writes notes the same way', () => {
+	it('writes notes the same way, without images', () => {
 		const html = edit(
 			'<h1>Title</h1><h2>Second</h2><h3>Third</h3>' +
 				'<p>Plain <strong>bold</strong> <em>italic</em> <s>struck</s> <u>under</u> ' +
@@ -53,7 +52,7 @@ describe('the editor', () => {
 				'<pre><code class="language-js">let a = 1;</code></pre>' +
 				'<pre><code>plain</code></pre>' +
 				'<hr>' +
-				'<p><img src="https://example.com/a.png" alt="Remote"></p>' +
+				'<p>Image: <img src="https://example.com/a.png" alt="Remote"></p>' +
 				'<img src="data:image/png;base64,iVBORw0KGgo=">' +
 				'<p><span style="color: red">styled</span><script>window.ran = true</script></p>'
 		).getHTML();
@@ -71,9 +70,8 @@ describe('the editor', () => {
 				'<pre><code class="language-js">let a = 1;</code></pre>' +
 				'<pre><code class="language-plaintext">plain</code></pre>' +
 				'<hr>' +
-				// Images aren't inline, so they split the paragraph they were in.
-				'<p></p><img src="https://example.com/a.png" alt="Remote">' +
-				'<img src="data:image/png;base64,iVBORw0KGgo=">' +
+				// No images, from the web or embedded: they'd load from wherever the author pointed them.
+				'<p>Image:</p>' +
 				'<p>styled</p>'
 		);
 		expect((window as { ran?: boolean }).ran).toBeUndefined();

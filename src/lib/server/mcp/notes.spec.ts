@@ -24,7 +24,8 @@ describe('notes as Markdown', () => {
 		expect(MCP_COLORS).toContain('teal');
 	});
 
-	it('leaves out scripts', () => {
+	it('leaves out scripts and images', () => {
 		expect(htmlToMarkdown('<p>Hi</p><script>alert(1)</script>')).toBe('Hi');
+		expect(htmlToMarkdown('<p>Hi <img src="https://example.com/a.png" alt="A"></p>')).toBe('Hi');
 	});
 });

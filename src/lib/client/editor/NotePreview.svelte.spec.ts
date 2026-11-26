@@ -38,6 +38,16 @@ describe('renderNotePreview', () => {
 		expect((window as { ran?: boolean }).ran).toBeUndefined();
 	});
 
+	it('shows no images, from the web or embedded', () => {
+		const element = render(
+			'<p>Before <img src="https://example.com/a.png" alt="Remote"> after</p>' +
+				'<img src="data:image/png;base64,iVBORw0KGgo=">'
+		);
+
+		expect(element.querySelector('img')).toBeNull();
+		expect(element.textContent).toBe('Before after');
+	});
+
 	it('keeps blank lines as high as in the editor, without a placeholder', () => {
 		const element = render('<h1></h1><p>One</p><p></p><p>Two</p><pre><code></code></pre>');
 		document.body.append(element);

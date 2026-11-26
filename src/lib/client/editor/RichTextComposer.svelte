@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { Tipex, type TipexEditor } from '@friendofsvelte/tipex';
-	import { onMount, untrack } from 'svelte';
+	import { Editor } from '@tiptap/core';
+	import { untrack } from 'svelte';
 	import { extensions } from './Extensions';
 
-	let editor = $state<TipexEditor>();
+	let editor = $state.raw<Editor>();
+	let root = $state<HTMLDivElement>();
 	let {
 		disabled,
 		readonly = false,
@@ -24,55 +25,61 @@
 		onUpdateData?: (htmlContent: string) => void;
 	} = $props();
 
-	onMount(() => {
-		if (editor) {
-			editor.$doc.element.contentEditable = 'false';
-			editor.$doc.element.removeAttribute('tabindex');
-		}
-	});
+	/** Creates the editor in `element`, once: later changes to `initialContent` are its own. */
+	function createEditor(element: HTMLElement) {
+		const created = new Editor({
+			element,
+			extensions,
+			content: untrack(() => initialContent),
+			autofocus: false,
+			onUpdate: () => onUpdateData?.(created.getHTML())
+		});
+		editor = created;
+		return () => {
+			editor = undefined;
+			created.destroy();
+		};
+	}
+
+	// Focus changes can come in the middle of an update: removing a focused editor from the page
+	// blurs it. Svelte doesn't allow changing state at that point, so the write is untracked.
+	function onFocusChange() {
+		const hasFocus = !!root?.contains(document.activeElement);
+		untrack(() => (focused = hasFocus));
+	}
 
 	let wasEditable = false;
 
 	$effect(() => {
 		if (editor) {
+			const element = editor.view.dom;
 			const isEditable = !disabled && !readonly;
 			if (isEditable) {
-				editor.$doc.element.contentEditable = 'true';
-				editor.$doc.element.setAttribute('tabindex', '0');
-				// Only focus the editor when it becomes editable (i.e. the note was opened). Tipex
-				// updates `focused` on every focus change in the document, so reacting to it would
-				// pull focus back from other inputs in the note, like the share dialog.
+				element.contentEditable = 'true';
+				element.setAttribute('tabindex', '0');
+				// Only focus the editor when it becomes editable (i.e. the note was opened). `focused`
+				// changes on every focus change in the document, so reacting to it would pull focus
+				// back from other inputs in the note, like the share dialog.
 				if (!wasEditable && autofocus && untrack(() => focused)) {
-					editor.$doc.element.focus();
+					element.focus();
 				}
 			} else {
-				editor.$doc.element.contentEditable = 'false';
-				editor.$doc.element.removeAttribute('tabindex');
+				element.contentEditable = 'false';
+				element.removeAttribute('tabindex');
 			}
 			wasEditable = isEditable;
 		}
 	});
 </script>
 
-<!-- Tipex writes these bindings from editor events, which can fire in the middle of an update:
-     removing a focused editor from the page blurs it. Svelte doesn't allow changing state at that
-     point, so the writes are untracked. -->
-<Tipex
-	body={initialContent}
-	bind:focused={() => focused, (value) => untrack(() => (focused = value))}
-	bind:tipex={
-		() => editor,
-		(value) => {
-			// It's set again on every transaction, but it's always the same editor.
-			if (value !== editor) untrack(() => (editor = value));
-		}
-	}
-	{extensions}
-	class={`${disabled ? 'isDisabled' : ''} w-full flex-1`}
-	controlComponent={null}
-	autofocus={false}
-	onupdate={() => onUpdateData?.(editor?.getHTML() ?? '')}
-/>
+<svelte:document onfocusin={onFocusChange} onfocusout={onFocusChange} />
+
+<!-- NotePreview.svelte has the same structure and classes, so a note doesn't move when opened. -->
+<div class="editor {disabled ? 'isDisabled' : ''} w-full flex-1" bind:this={root}>
+	<div class="editor-wrap">
+		<div class="editor-section" {@attach createEditor}></div>
+	</div>
+</div>
 
 <style>
 	:global(.task-drag-handle) {
