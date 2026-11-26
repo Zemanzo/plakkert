@@ -26,6 +26,14 @@ a production build (`pnpm build`, then `node build`).
 GitHub Actions runs the type checks, lint, unit tests and end-to-end tests on every push and pull
 request; see `.github/workflows/ci.yml`.
 
+## Dependencies
+
+Only packages the server has to load from `node_modules` at runtime go in `dependencies`: so far
+only `better-sqlite3`, which has a native part. Everything else goes in `devDependencies`, also
+what the app uses at runtime: adapter-node bundles those into the build, so the production image,
+which installs only `dependencies`, doesn't contain them, nor the parts of them the app doesn't
+use.
+
 ## Adding an importer
 
 Importing from other apps than Google Keep can be added in `src/lib/client/import/`.

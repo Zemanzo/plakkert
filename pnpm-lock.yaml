@@ -191,6 +191,16 @@ importers:
 
   .:
     dependencies:
+      better-sqlite3:
+        specifier: ^13.0.3
+        version: 13.0.3
+    devDependencies:
+      '@eslint/compat':
+        specifier: ^2.1.1
+        version: 2.1.1(eslint@10.13.0(jiti@2.7.0)(supports-color@8.1.1))
+      '@eslint/js':
+        specifier: ^10.0.1
+        version: 10.0.1(eslint@10.13.0(jiti@2.7.0)(supports-color@8.1.1))
       '@friendofsvelte/tipex':
         specifier: 0.3.1
         version: 0.3.1(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/extension-code-block-lowlight@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/extension-code-block@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4)(highlight.js@11.8.0)(lowlight@2.9.0))(@tiptap/extension-code-block@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/extension-floating-menu@3.31.4(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/extension-image@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4)))(@tiptap/extension-list@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/extensions@3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4)(@tiptap/starter-kit@3.31.4)(svelte@5.57.2(@typescript-eslint/types@8.72.0))
@@ -200,6 +210,24 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(supports-color@8.1.1)(zod@4.6.7)
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      '@sveltejs/adapter-node':
+        specifier: 6.0.0
+        version: 6.0.0(@sveltejs/kit@3.1.0(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.72.0))(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))
+      '@sveltejs/kit':
+        specifier: ^3.1.0
+        version: 3.1.0(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.72.0))(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15))
+      '@sveltejs/load-config':
+        specifier: ^0.2.2
+        version: 0.2.3
+      '@sveltejs/vite-plugin-svelte':
+        specifier: ^7.3.1
+        version: 7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15))
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15))
       '@tiptap/core':
         specifier: ~3.31.4
         version: 3.31.4(@tiptap/pm@3.31.4)
@@ -227,52 +255,6 @@ importers:
       '@tiptap/starter-kit':
         specifier: ~3.31.4
         version: 3.31.4
-      '@zip.js/zip.js':
-        specifier: ^2.25.0
-        version: 2.25.0
-      better-sqlite3:
-        specifier: ^13.0.3
-        version: 13.0.3
-      dexie:
-        specifier: ^4.4.7
-        version: 4.4.7
-      fflate:
-        specifier: ^0.8.3
-        version: 0.8.3
-      libsodium-wrappers:
-        specifier: ^0.8.4
-        version: 0.8.4
-      turndown:
-        specifier: ^7.2.5
-        version: 7.2.5
-      zod:
-        specifier: ^4.6.7
-        version: 4.6.7
-    devDependencies:
-      '@eslint/compat':
-        specifier: ^2.1.1
-        version: 2.1.1(eslint@10.13.0(jiti@2.7.0)(supports-color@8.1.1))
-      '@eslint/js':
-        specifier: ^10.0.1
-        version: 10.0.1(eslint@10.13.0(jiti@2.7.0)(supports-color@8.1.1))
-      '@playwright/test':
-        specifier: 1.64.1
-        version: 1.64.1
-      '@sveltejs/adapter-node':
-        specifier: 6.0.0
-        version: 6.0.0(@sveltejs/kit@3.1.0(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.72.0))(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))
-      '@sveltejs/kit':
-        specifier: ^3.1.0
-        version: 3.1.0(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.72.0))(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15))
-      '@sveltejs/load-config':
-        specifier: ^0.2.2
-        version: 0.2.3
-      '@sveltejs/vite-plugin-svelte':
-        specifier: ^7.3.1
-        version: 7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15))
-      '@tailwindcss/vite':
-        specifier: ^4.3.3
-        version: 4.3.3(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15))
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
@@ -285,12 +267,18 @@ importers:
       '@vitest/browser-playwright':
         specifier: ^5.0.5
         version: 5.0.5(playwright@1.64.1)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15))(vitest@5.0.5)
+      '@zip.js/zip.js':
+        specifier: ^2.25.0
+        version: 2.25.0
       auth:
         specifier: ^1.7.12
         version: 1.7.12(@better-fetch/fetch@1.3.2)(@sveltejs/kit@3.1.0(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.72.0))(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(better-call@1.4.4(zod@4.6.7))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)(supports-color@8.1.1)(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vitest@5.0.5)
       better-auth:
         specifier: ~1.7.12
         version: 1.7.12(@sveltejs/kit@3.1.0(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(svelte@5.57.2(@typescript-eslint/types@8.72.0))(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.106.1)(sass@1.106.1)(tsx@4.23.15)))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vitest@5.0.5)
+      dexie:
+        specifier: ^4.4.7
+        version: 4.4.7
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
@@ -306,9 +294,15 @@ importers:
       eslint-plugin-svelte:
         specifier: ^3.23.1
         version: 3.23.1(eslint@10.13.0(jiti@2.7.0)(supports-color@8.1.1))(svelte@5.57.2(@typescript-eslint/types@8.72.0))
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       globals:
         specifier: ^17.13.0
         version: 17.13.0
+      libsodium-wrappers:
+        specifier: ^0.8.4
+        version: 0.8.4
       playwright:
         specifier: ^1.64.1
         version: 1.64.1
@@ -333,6 +327,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      turndown:
+        specifier: ^7.2.5
+        version: 7.2.5
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -348,6 +345,9 @@ importers:
       vitest-browser-svelte:
         specifier: ^3.1.0
         version: 3.1.0(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vitest@5.0.5)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
 packages:
 
