@@ -1,6 +1,6 @@
-# Weekly dependency updates. Minor and patch updates come grouped in one pull request, which
-# .github/workflows/dependabot-auto-merge.yml merges once CI passes. Major updates come one per
-# pull request and are left for a person to look at.
+# Weekly dependency updates. Minor and patch updates come grouped, and
+# .github/workflows/dependabot-auto-merge.yml merges them once CI passes. Major updates come one
+# per pull request and are left for a person to look at.
 version: 2
 
 updates:
@@ -14,9 +14,22 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    # A group's pull request only merges when every update in it passes CI, so updates that are
+    # more likely to fail get a group of their own and don't hold up the rest. Each update goes in
+    # the first group it matches.
     groups:
+      # A new Prettier or plugin version can format some files differently, which fails pnpm lint.
+      # Run pnpm format on the pull request's branch and push that.
+      formatting:
+        patterns: [prettier, prettier-plugin-*]
+        update-types: [minor, patch]
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Has to match the Node version the app runs on (24, in the Dockerfile and CI), so it's
+      # updated together with that.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: Update
 
