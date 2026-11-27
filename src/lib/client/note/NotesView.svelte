@@ -351,9 +351,9 @@
 				</div>
 				{#if canCreate}
 					<!-- Just "+ New" on the narrowest screens, but always named in full. -->
-					<Button onclick={addNote} aria-label="New note"
-						>+ New<span class="long"> note</span></Button
-					>
+					<Button onclick={addNote} aria-label="New note">
+						+ New<span class="long"> note</span>
+					</Button>
 				{/if}
 			{/if}
 		</div>

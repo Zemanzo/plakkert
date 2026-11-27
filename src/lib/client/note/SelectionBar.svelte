@@ -117,7 +117,8 @@
 			aria-keyshortcuts="Control+A Meta+A"
 			disabled={busy}
 			onclick={onSelectAll}
-			>{canSelectAll ? 'Select' : 'Deselect'} all
+		>
+			{canSelectAll ? 'Select' : 'Deselect'} all
 		</button>
 	</div>
 

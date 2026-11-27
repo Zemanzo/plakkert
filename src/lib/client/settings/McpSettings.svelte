@@ -254,16 +254,20 @@
 											--bg="var(--color-input-background)"
 											--text="var(--color-text-primary)"
 											disabled={busy}
-											onclick={() => edit(client)}>Permissions</Button
+											onclick={() => edit(client)}
 										>
+											Permissions
+										</Button>
 									{/if}
 									<Button
 										class="sm"
 										--bg="var(--color-red)"
 										--text="var(--color-text-primary)"
 										disabled={busy}
-										onclick={() => disconnect(client)}>Disconnect</Button
+										onclick={() => disconnect(client)}
 									>
+										Disconnect
+									</Button>
 								</div>
 							</div>
 							{#if editing?.id === client.id}
@@ -288,8 +292,10 @@
 											--bg="var(--color-input-background)"
 											--text="var(--color-text-primary)"
 											disabled={busy}
-											onclick={() => (editing = null)}>Cancel</Button
+											onclick={() => (editing = null)}
 										>
+											Cancel
+										</Button>
 									</div>
 								</div>
 							{/if}

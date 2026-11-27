@@ -211,8 +211,10 @@
 					--bg="var(--color-input-background)"
 					--text="var(--color-text-primary)"
 					disabled={busy}
-					onclick={deny}>Cancel</Button
+					onclick={deny}
 				>
+					Cancel
+				</Button>
 			</div>
 		{:else}
 			<div class="actions">
@@ -221,8 +223,10 @@
 					--bg="var(--color-input-background)"
 					--text="var(--color-text-primary)"
 					disabled={busy}
-					onclick={deny}>Deny</Button
+					onclick={deny}
 				>
+					Deny
+				</Button>
 			</div>
 		{/if}
 	{/if}

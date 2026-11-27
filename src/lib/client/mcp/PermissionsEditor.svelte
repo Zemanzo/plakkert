@@ -202,9 +202,9 @@
 			/>
 			<span>
 				<span class="name">Write</span>
-				<span class="hint"
-					>Change notes; all but creating needs Read, and only reaches what it reads</span
-				>
+				<span class="hint">
+					Change notes; all but creating needs Read, and only reaches what it reads
+				</span>
 			</span>
 		</label>
 		<div class="sub">
@@ -230,11 +230,11 @@
 			<input class="themedCheckbox" type="checkbox" bind:checked={permissions.backup} />
 			<span>
 				<span class="name">Backups</span>
-				<span class="hint"
-					>Download and restore backups of all your notes, also hidden ones and ones the tags above
+				<span class="hint">
+					Download and restore backups of all your notes, also hidden ones and ones the tags above
 					leave out. It can’t read them, but they hold your private key, locked with your password,
-					which it could try to guess.</span
-				>
+					which it could try to guess.
+				</span>
 			</span>
 		</label>
 	</div>
