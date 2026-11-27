@@ -26,7 +26,7 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
     ignore:
-      # Has to match the Node version the app runs on (24, in the Dockerfile and CI), so it's
+      # Has to match the Node version the app runs on (26, in the Dockerfile and CI), so it's
       # updated together with that.
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
