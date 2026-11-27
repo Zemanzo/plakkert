@@ -30,12 +30,19 @@ request, and builds and starts the Docker image on amd64 and arm64; see `.github
 
 Publishing a GitHub release with a tag like `v1.2.3` publishes the Docker image to
 `ghcr.io/zemanzo/plakkert` (see `.github/workflows/release.yml`), as `1.2.3`, `1.2`, `1` and, for
-the newest release, `latest`. Every Monday, the newest release is built again on the current base
-image under the same tags, for its security fixes. It can also be started by hand, from the
-workflow's page under Actions.
+the newest release, `latest`. Minor and major versions are released by hand like that.
 
-Dependabot keeps the dependencies up to date (`.github/dependabot.yml`) and merges minor and patch
-updates once CI passes. Major updates wait for review.
+Patch versions are released automatically. Dependabot keeps the dependencies up to date
+(`.github/dependabot.yml`) and merges minor and patch updates once CI passes; major updates wait for
+review. Every Tuesday, the same workflow checks master:
+
+- If master has changed since the newest release, it runs CI on it and, if that passes, releases
+  it as the next patch version (`v1.2.3` → `v1.2.4`) and publishes its image.
+- Otherwise, or if CI fails, it builds the newest release again under the same tags, on the
+  current Node base image, for the security fixes to Node and the operating system in it. A failed
+  CI also fails the run, which GitHub emails about.
+
+It can also be started by hand, from the workflow's page under Actions.
 
 ## Dependencies
 

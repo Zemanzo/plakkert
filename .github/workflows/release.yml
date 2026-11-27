@@ -1,65 +1,144 @@
 name: Release image
 
-# Publishes the Docker image to ghcr.io/<owner>/<repo> when a release is published, tagged with
-# its version (1.2.3, 1.2 and 1) and, for the newest release, latest. Each Monday it builds the
-# newest release again under the same tags, so the image keeps getting the operating system's
-# security fixes from the Node base image. The image holds no configuration or secrets: see
+# Publishes the Docker image to ghcr.io/<owner>/<repo>, tagged with the release's version (1.2.3,
+# 1.2 and 1) and, for the newest release, latest. The image holds no configuration or secrets: see
 # docs/self-hosting.md.
+#
+# - When a release is published by hand, it builds that release.
+# - Each Tuesday (or when started by hand), when master has changed since the newest release, it
+#   runs CI on master and, if that passes, releases it as the next patch version (1.2.3 -> 1.2.4)
+#   and builds that. That's how dependency updates that Dependabot merges reach servers.
+# - Otherwise, or if CI fails, it builds the newest release again under the same tags, on the
+#   current Node base image, for the security fixes to Node and the operating system in it.
+#
+# Minor and major versions are released by hand. The first release has to be too.
 on:
   release:
     types: [published]
+  # The day after Dependabot's weekly updates (.github/dependabot.yml), so the ones that merge
+  # themselves are in.
   schedule:
-    - cron: '0 5 * * 1'
+    - cron: '0 5 * * 2'
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
-# Never two builds pushing the same tags at once.
+# Never two runs releasing or pushing the same tags at once.
 concurrency:
   group: release-image
   cancel-in-progress: false
 
 jobs:
-  image:
-    name: Build and publish
+  plan:
+    name: Find what to build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      # The release to build, or empty when there is none.
+      tag: ${{ steps.plan.outputs.tag }}
+      # Whether that's a new release this run makes, from master.
+      new: ${{ steps.plan.outputs.new }}
+      # The newest release so far, built instead when the new one can't be made.
+      latest: ${{ steps.plan.outputs.latest }}
+      # Whether the tag gets latest too.
+      newest: ${{ steps.plan.outputs.newest }}
+      image: ${{ steps.plan.outputs.image }}
     steps:
-      - name: Find the release to build
-        id: release
+      - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
           PUBLISHED_TAG: ${{ github.event.release.tag_name }}
         run: |
           # The newest release that isn't a pre-release; empty when there is none yet.
-          newest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
-          tag=${PUBLISHED_TAG:-$newest}
-          if [ -z "$tag" ]; then
-            echo 'There is no release to build yet.'
+          latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          new=false
+          if [ "$EVENT" = release ]; then
+            tag=$PUBLISHED_TAG
+          elif [ -z "$latest" ]; then
+            echo 'There is no release yet: publish the first one by hand.'
+            tag=
+          elif [ "$GITHUB_REF" = refs/heads/master ] \
+            && [ "$(gh api "repos/$GITHUB_REPOSITORY/compare/$latest...$GITHUB_SHA" --jq .ahead_by)" -gt 0 ]; then
+            if [[ ! $latest =~ ^(v?)([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "The newest release, $latest, isn't a version like v1.2.3, so there's no next one." >&2
+              exit 1
+            fi
+            tag="${BASH_REMATCH[1]}${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.$((BASH_REMATCH[4] + 1))"
+            new=true
+            echo "master has changed since $latest: releasing it as $tag once CI passes."
+          else
+            tag=$latest
+            echo "Nothing changed since $latest: building it again on the current base image."
           fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "newest=$([ "$tag" = "$newest" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          # Image names have to be lowercase.
-          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$tag"
+            echo "new=$new"
+            echo "latest=$latest"
+            echo "newest=$([ "$new" = true ] || [ "$tag" = "$latest" ] && echo true || echo false)"
+            # Image names have to be lowercase.
+            echo "image=ghcr.io/${GITHUB_REPOSITORY,,}"
+          } >> "$GITHUB_OUTPUT"
 
-      - if: steps.release.outputs.tag != ''
-        uses: actions/checkout@v7
+  ci:
+    name: CI
+    needs: plan
+    if: needs.plan.outputs.new == 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Release
+    needs: [plan, ci]
+    if: needs.plan.outputs.new == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # A release made with the workflow's own token doesn't start this workflow again, so the job
+      # below builds it.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Plakkert ${TAG#v}" --generate-notes \
+            --notes 'Released automatically with the dependency updates merged since the last release.'
+
+  image:
+    name: Build and publish
+    needs: [plan, release]
+    # Also when CI failed and there's no new release: then the newest release is built again.
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ (needs.plan.outputs.new != 'true' || needs.release.result == 'success') && needs.plan.outputs.tag || needs.plan.outputs.latest }}
+      NEWEST: ${{ needs.plan.outputs.newest }}
+      IMAGE: ${{ needs.plan.outputs.image }}
+    steps:
+      - run: echo "Building $TAG."
+
+      - uses: actions/checkout@v7
         with:
-          ref: ${{ steps.release.outputs.tag }}
+          ref: ${{ env.TAG }}
 
-      - if: steps.release.outputs.tag != ''
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ steps.release.outputs.image }}
+          images: ${{ env.IMAGE }}
           flavor: latest=false
           tags: |
-            type=semver,pattern={{version}},value=${{ steps.release.outputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.release.outputs.tag }}
-            type=semver,pattern={{major}},value=${{ steps.release.outputs.tag }}
-            type=raw,value=latest,enable=${{ steps.release.outputs.newest }}
+            type=semver,pattern={{version}},value=${{ env.TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }}
+            type=semver,pattern={{major}},value=${{ env.TAG }}
+            type=raw,value=latest,enable=${{ env.NEWEST }}
           labels: |
             org.opencontainers.image.title=Plakkert
             org.opencontainers.image.description=End-to-end encrypted notes that work offline
@@ -70,11 +149,9 @@ jobs:
           # So the description also shows on the package's page for an image with two platforms.
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
-      - if: steps.release.outputs.tag != ''
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - if: steps.release.outputs.tag != ''
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -82,8 +159,7 @@ jobs:
 
       # The build stages run on this runner for both platforms; only the last stage, which has no
       # RUN, is arm64 (see the Dockerfile). So no emulation is needed.
-      - if: steps.release.outputs.tag != ''
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64

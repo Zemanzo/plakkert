@@ -31,8 +31,11 @@ Tags:
 
 - `1.2.3` is that release, `1.2` the latest `1.2.x` and `1` the latest `1.x`. `latest` is the
   newest release.
-- Each week, the newest release is built again on the latest Node 26 base image, under the same
-  tags, so it gets the operating system's security fixes. Pull and restart to use them.
+- Each week brings a new image: a patch release with the latest dependency updates, or, when there
+  are none, the newest release built again on the latest Node 26 base image, under the same tags,
+  for the security fixes to Node and the operating system. Pull and restart to use it, or let a
+  tool like Watchtower do that. `1` gets every 1.x release; `latest` also the next major version,
+  which may need you to change something.
 
 The app listens on port 3016 and keeps its database in `/data`. Migrations are applied when the
 server starts.

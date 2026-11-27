@@ -4,6 +4,9 @@ on:
   push:
     branches: [master]
   pull_request:
+  # From release.yml, before it releases a commit, as commits that Dependabot's pull requests are
+  # merged with get no run of their own: a workflow's merge doesn't start other workflows.
+  workflow_call:
 
 permissions:
   contents: read
