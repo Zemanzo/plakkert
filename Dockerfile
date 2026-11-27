@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-bookworm-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+FROM node:26-trixie-slim AS base
+# Node no longer comes with corepack, so install the pnpm version that packageManager in
+# package.json names.
+COPY package.json /tmp/package.json
+RUN npm install --global "pnpm@$(node -p "require('/tmp/package.json').packageManager.split('@')[1]")" \
+	&& rm /tmp/package.json
 
 FROM base AS deps
 WORKDIR /app
@@ -29,7 +31,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 
-FROM node:24-bookworm-slim AS runner
+FROM node:26-trixie-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0

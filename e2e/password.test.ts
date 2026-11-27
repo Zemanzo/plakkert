@@ -127,7 +127,7 @@ const KDF_ITERATIONS = 600_000;
 const base64 = (bytes: Uint8Array | ArrayBuffer) =>
 	Buffer.from(bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes).toString('base64');
 
-async function pbkdf2(password: string, salt: Uint8Array, iterations: number) {
+async function pbkdf2(password: string, salt: Uint8Array<ArrayBuffer>, iterations: number) {
 	const key = await webcrypto.subtle.importKey(
 		'raw',
 		new TextEncoder().encode(password),
