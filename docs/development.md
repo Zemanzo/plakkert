@@ -24,7 +24,18 @@ Pages are prerendered as a client-rendered shell, so the service worker only cac
 a production build (`pnpm build`, then `node build`).
 
 GitHub Actions runs the type checks, lint, unit tests and end-to-end tests on every push and pull
-request; see `.github/workflows/ci.yml`.
+request, and builds and starts the Docker image on amd64 and arm64; see `.github/workflows/ci.yml`.
+
+## Releases
+
+Publishing a GitHub release with a tag like `v1.2.3` publishes the Docker image to
+`ghcr.io/zemanzo/plakkert` (see `.github/workflows/release.yml`), as `1.2.3`, `1.2`, `1` and, for
+the newest release, `latest`. Every Monday, the newest release is built again on the current base
+image under the same tags, for its security fixes. It can also be started by hand, from the
+workflow's page under Actions.
+
+Dependabot keeps the dependencies up to date (`.github/dependabot.yml`) and merges minor and patch
+updates once CI passes. Major updates wait for review.
 
 ## Dependencies
 
