@@ -1,0 +1,34 @@
+# Weekly dependency updates. Minor and patch updates come grouped in one pull request, which
+# .github/workflows/dependabot-auto-merge.yml merges once CI passes. Major updates come one per
+# pull request and are left for a person to look at.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Wait until a version has been out for a week: a compromised release is usually found and
+    # pulled within days. Security updates don't wait.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: Update
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: Update
