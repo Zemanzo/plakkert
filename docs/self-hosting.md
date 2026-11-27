@@ -13,25 +13,32 @@ the packages bundled into the app and its server are served at `/licenses.txt`, 
 
 ## Docker
 
-```sh
-docker build -t plakkert \
-  --build-arg ORIGIN=https://notes.example.com \
-  --build-arg DATABASE_URL=/data/plakkert.db \
-  --build-arg PUBLIC_APP_NAME=plakkert \
-  --build-arg BETTER_AUTH_SECRET=<32 random characters> \
-  .
+Every release is published as an image for `linux/amd64` and `linux/arm64` at
+`ghcr.io/zemanzo/plakkert`. It holds no configuration: all of it comes from the environment
+variables below when the container starts.
 
+```sh
 docker volume create plakkert-data
 docker run -d --name plakkert -p 127.0.0.1:3016:3016 -v plakkert-data:/data \
   -e ORIGIN=https://notes.example.com \
   -e DATABASE_URL=/data/plakkert.db \
-  -e BETTER_AUTH_SECRET=<the same secret> \
+  -e BETTER_AUTH_SECRET=<32 random characters> \
   -e INVITE_CODE=<an invite code> \
-  plakkert
+  ghcr.io/zemanzo/plakkert:1
 ```
 
+Tags:
+
+- `1.2.3` is that release, `1.2` the latest `1.2.x` and `1` the latest `1.x`. `latest` is the
+  newest release.
+- Each week, the newest release is built again on the latest Node 26 base image, under the same
+  tags, so it gets the operating system's security fixes. Pull and restart to use them.
+
 The app listens on port 3016 and keeps its database in `/data`. Migrations are applied when the
-server starts. Put it behind a reverse proxy that serves it over HTTPS: the service worker, and so
+server starts.
+
+To build the image yourself, for example for a changed version: `docker build -t plakkert .`. It
+takes no build arguments. Put it behind a reverse proxy that serves it over HTTPS: the service worker, and so
 working offline, needs HTTPS.
 
 Behind a reverse proxy, set adapter-node's `ADDRESS_HEADER` (e.g. `X-Forwarded-For`, with
@@ -41,17 +48,17 @@ Behind a reverse proxy, set adapter-node's `ADDRESS_HEADER` (e.g. `X-Forwarded-F
 
 See also `.env.example`.
 
-| Variable                     | When read         | What it does                                                                                                        |
-| ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `ORIGIN`                     | build and runtime | The app's public address, e.g. `https://notes.example.com`. Used for CSRF checks, Better Auth and MCP tokens.       |
-| `DATABASE_URL`               | runtime           | Path to the SQLite database file.                                                                                   |
-| `BETTER_AUTH_SECRET`         | runtime           | Secret that signs sessions. Use 32 random characters.                                                               |
-| `REGISTRATION`               | runtime           | Who can create an account: `invite` (the default), `open` or `closed`. See [Registration](#registration).           |
-| `INVITE_CODE`                | runtime           | The code needed to register when `REGISTRATION` is `invite`.                                                        |
-| `MCP`                        | runtime           | `on` lets users connect AI assistants and other MCP clients to their notes; `off` (the default). See [MCP](mcp.md). |
-| `MCP_REGISTRATIONS_PER_HOUR` | runtime           | How many MCP clients can register from one IP address per hour (20 by default).                                     |
-| `PUBLIC_APP_NAME`            | build             | The name used for IndexedDB and other storage in the browser.                                                       |
-| `BODY_SIZE_LIMIT`            | runtime           | adapter-node's request size limit. Backups are uploaded in pieces, so the default is fine.                          |
+| Variable                     | When read | What it does                                                                                                        |
+| ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `ORIGIN`                     | runtime   | The app's public address, e.g. `https://notes.example.com`. Used for CSRF checks, Better Auth and MCP tokens.       |
+| `DATABASE_URL`               | runtime   | Path to the SQLite database file.                                                                                   |
+| `BETTER_AUTH_SECRET`         | runtime   | Secret that signs sessions. Use 32 random characters.                                                               |
+| `REGISTRATION`               | runtime   | Who can create an account: `invite` (the default), `open` or `closed`. See [Registration](#registration).           |
+| `INVITE_CODE`                | runtime   | The code needed to register when `REGISTRATION` is `invite`.                                                        |
+| `MCP`                        | runtime   | `on` lets users connect AI assistants and other MCP clients to their notes; `off` (the default). See [MCP](mcp.md). |
+| `MCP_REGISTRATIONS_PER_HOUR` | runtime   | How many MCP clients can register from one IP address per hour (20 by default).                                     |
+| `PUBLIC_APP_NAME`            | build     | The name used for IndexedDB and other storage in the browser. The published image uses `plakkert`.                  |
+| `BODY_SIZE_LIMIT`            | runtime   | adapter-node's request size limit. Backups are uploaded in pieces, so the default is fine.                          |
 
 ## Registration
 

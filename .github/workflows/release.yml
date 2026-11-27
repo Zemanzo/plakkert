@@ -1,0 +1,97 @@
+name: Release image
+
+# Publishes the Docker image to ghcr.io/<owner>/<repo> when a release is published, tagged with
+# its version (1.2.3, 1.2 and 1) and, for the newest release, latest. Each Monday it builds the
+# newest release again under the same tags, so the image keeps getting the operating system's
+# security fixes from the Node base image. The image holds no configuration or secrets: see
+# docs/self-hosting.md.
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# Never two builds pushing the same tags at once.
+concurrency:
+  group: release-image
+  cancel-in-progress: false
+
+jobs:
+  image:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Find the release to build
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISHED_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # The newest release that isn't a pre-release; empty when there is none yet.
+          newest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          tag=${PUBLISHED_TAG:-$newest}
+          if [ -z "$tag" ]; then
+            echo 'There is no release to build yet.'
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "newest=$([ "$tag" = "$newest" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          # Image names have to be lowercase.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - if: steps.release.outputs.tag != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+
+      - if: steps.release.outputs.tag != ''
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.release.outputs.image }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.release.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.release.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ steps.release.outputs.tag }}
+            type=raw,value=latest,enable=${{ steps.release.outputs.newest }}
+          labels: |
+            org.opencontainers.image.title=Plakkert
+            org.opencontainers.image.description=End-to-end encrypted notes that work offline
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+          annotations: |
+            org.opencontainers.image.description=End-to-end encrypted notes that work offline
+        env:
+          # So the description also shows on the package's page for an image with two platforms.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+
+      - if: steps.release.outputs.tag != ''
+        uses: docker/setup-buildx-action@v3
+
+      - if: steps.release.outputs.tag != ''
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # The build stages run on this runner for both platforms; only the last stage, which has no
+      # RUN, is arm64 (see the Dockerfile). So no emulation is needed.
+      - if: steps.release.outputs.tag != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          # Always the current base image, for its security fixes.
+          pull: true
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

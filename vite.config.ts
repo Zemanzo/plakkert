@@ -1,67 +1,59 @@
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import adapter from '@sveltejs/adapter-node';
 import tailwindcss from '@tailwindcss/vite';
-import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { licenses } from './vite-plugin-licenses.ts';
 
-export default defineConfig(({ mode }) => {
-	// adapter-node no longer reads ORIGIN at runtime, so it is baked in at build time instead.
-	const { ORIGIN } = loadEnv(mode, process.cwd(), '');
+export default defineConfig({
+	plugins: [
+		// Served at /licenses.txt, and linked to from the settings.
+		licenses('licenses.txt'),
+		tailwindcss(),
+		sveltekit({
+			preprocess: vitePreprocess(),
+			compilerOptions: {
+				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
+				runes: ({ filename }) =>
+					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
+			},
 
-	return {
-		plugins: [
-			// Served at /licenses.txt, and linked to from the settings.
-			licenses('licenses.txt'),
-			tailwindcss(),
-			sveltekit({
-				preprocess: vitePreprocess(),
-				compilerOptions: {
-					// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-					runes: ({ filename }) =>
-						filename.split(/[/\\]/).includes('node_modules') ? undefined : true
-				},
+			// See https://svelte.dev/docs/kit/adapters for more information about adapters. The
+			// app's public origin isn't built in (with paths.origin), so one build works on any
+			// address: adapter-node reads it from ORIGIN when the server starts.
+			adapter: adapter(),
 
-				// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-				adapter: adapter(),
-
-				paths: {
-					origin: ORIGIN || undefined
-				},
-
-				// SvelteKit's own CSRF check would also refuse the OAuth token endpoint, which MCP
-				// clients post forms to from their servers. hooks.server.ts does the same check
-				// instead, except for that endpoint.
-				csrf: { trustedOrigins: ['*'] }
-			})
-		],
-		test: {
-			expect: { requireAssertions: true },
-			projects: [
-				{
-					test: {
-						name: 'client',
-						browser: {
-							enabled: true,
-							provider: playwright(),
-							instances: [{ browser: 'chromium', headless: true }]
-						},
-						include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
-						exclude: ['src/lib/server/**']
-					}
-				},
-
-				{
-					test: {
-						name: 'server',
-						environment: 'node',
-						include: ['src/**/*.{test,spec}.{js,ts}'],
-						exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
-					}
+			// SvelteKit's own CSRF check would also refuse the OAuth token endpoint, which MCP
+			// clients post forms to from their servers. hooks.server.ts does the same check
+			// instead, except for that endpoint.
+			csrf: { trustedOrigins: ['*'] }
+		})
+	],
+	test: {
+		expect: { requireAssertions: true },
+		projects: [
+			{
+				test: {
+					name: 'client',
+					browser: {
+						enabled: true,
+						provider: playwright(),
+						instances: [{ browser: 'chromium', headless: true }]
+					},
+					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+					exclude: ['src/lib/server/**']
 				}
-			]
-		}
-	};
+			},
+
+			{
+				test: {
+					name: 'server',
+					environment: 'node',
+					include: ['src/**/*.{test,spec}.{js,ts}'],
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+				}
+			}
+		]
+	}
 });

@@ -54,3 +54,51 @@ jobs:
           name: playwright-traces
           path: test-results/
           retention-days: 7
+
+  # Builds the Docker image like .github/workflows/release.yml does, on both platforms it's
+  # published for, and checks that it starts and takes its configuration from the environment.
+  docker:
+    name: Docker image (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t plakkert:test .
+      # Read-only, with only /data and /tmp writable, like deploy/compose.yaml runs it.
+      - name: Start the image
+        run: |
+          docker run -d --name plakkert --read-only --tmpfs /tmp \
+            -p 127.0.0.1:3016:3016 -v plakkert-data:/data \
+            -e ORIGIN=https://notes.example.com \
+            -e DATABASE_URL=/data/plakkert.db \
+            -e BETTER_AUTH_SECRET=ci-only-secret-0123456789abcdefghij \
+            plakkert:test
+          for i in $(seq 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:3016/ && exit 0
+            sleep 1
+          done
+          echo 'The app did not start within 30 seconds.' >&2
+          exit 1
+      - name: Check the running app
+        run: |
+          status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+          set -x
+          # A page, and the API with its database.
+          curl -fsS http://127.0.0.1:3016/ | grep -q '<html'
+          test "$(curl -fsS http://127.0.0.1:3016/api/auth/get-session)" = null
+          # ORIGIN comes from the environment, not the build: a form from it gets past the CSRF
+          # check, one from another site doesn't.
+          test "$(status -X POST -H 'Content-Type: text/plain' -H 'Origin: https://elsewhere.example' http://127.0.0.1:3016/api/notes)" = 403
+          test "$(status -X POST -H 'Content-Type: text/plain' -H 'Origin: https://notes.example.com' http://127.0.0.1:3016/api/notes)" != 403
+          # MCP is off unless MCP=on.
+          test "$(status http://127.0.0.1:3016/.well-known/oauth-authorization-server)" = 404
+      - if: failure()
+        run: docker logs plakkert

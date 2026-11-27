@@ -11,7 +11,7 @@ const port = process.env.PORT ?? '4173';
 const dataDir = 'e2e/.data';
 
 Object.assign(process.env, {
-	// Read at build time (CSRF checks) and at runtime (Better Auth), like in production.
+	// Read when the server starts, not built in, like in production.
 	ORIGIN: `http://localhost:${port}`,
 	DATABASE_URL: `${dataDir}/test.db`,
 	BETTER_AUTH_SECRET: 'e2e-test-secret-0123456789abcdefghij',
